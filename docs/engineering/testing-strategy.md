@@ -7,6 +7,7 @@ Foundry is the only framework in v1.
 ## Required suites
 
 - Unit: initialization, submit/cancel/admin flows, revert paths, event/state parity.
+- Unit tests must assert encrypted market-handle persistence and access grants in the submit path.
 - Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized cancellation rejection.
 - Invariant: cancelled intents stay cancelled, handle-count parity, nonce monotonicity, non-zero listener operator after valid initialization.
 
@@ -25,5 +26,6 @@ Foundry is the only framework in v1.
   - `allow`
   - `isAllowed`
   - deterministic mock-value lookup for stored handles
+- The submit-path assertions cover both encrypted `marketId` handle semantics and encrypted strategy component handle semantics.
 - If upstream mock parity is incomplete, keep Foundry canonical and document the missing integration gap explicitly.
 - Assert handle-access grants against the current `bytes32` handle semantics from the pinned CoFHE Solidity package.

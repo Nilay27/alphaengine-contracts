@@ -7,7 +7,7 @@ import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 
 contract IntentControllerInvariantHandler is MockCoFheTest {
     AlphaEngineIntentController public immutable CONTROLLER;
-    address public immutable MARKET;
+    uint128 public immutable MARKET_ID;
     bytes32 public immutable TIMEFRAME_KEY;
     address public immutable OWNER;
     address public immutable SUBMITTER_A;
@@ -19,7 +19,7 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
 
     constructor(
         AlphaEngineIntentController controller_,
-        address market_,
+        uint128 marketId_,
         bytes32 timeframeKey_,
         address owner_,
         address submitterA_,
@@ -27,7 +27,7 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
     ) {
         _bindMockTaskManager();
         CONTROLLER = controller_;
-        MARKET = market_;
+        MARKET_ID = marketId_;
         TIMEFRAME_KEY = timeframeKey_;
         OWNER = owner_;
         SUBMITTER_A = submitterA_;
@@ -87,10 +87,11 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         for (uint256 index = 0; index < count; ++index) {
             inputs[index] = input;
         }
+        InEuint128 memory marketIdInput = createInEuint128(MARKET_ID, sender);
 
         vm.prank(sender);
         try CONTROLLER.submitStrategyIntent(
-            MARKET,
+            marketIdInput,
             TIMEFRAME_KEY,
             inputs,
             uint40(block.timestamp) + 1 hours

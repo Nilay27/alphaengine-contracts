@@ -7,19 +7,20 @@ import {AlphaEngineIntentControllerTestBase} from "test/mocks/AlphaEngineIntentC
 
 contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestBase {
     function testFuzz_nonceMonotonicityAcrossRepeatedSubmits(uint128 firstValue, uint128 secondValue) public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         InEuint128[] memory firstInputs = _singleInput(firstValue, submitter);
         InEuint128[] memory secondInputs = _singleInput(secondValue, submitter);
 
         bytes32 firstIntentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             firstInputs,
             _deadlineAhead(10)
         );
         bytes32 secondIntentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             secondInputs,
             _deadlineAhead(20)
@@ -37,11 +38,12 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         uint256 submitCount = bound(uint256(extraSubmits), 1, 8);
         uint128 boundedValue = uint128(bound(uint256(value), 0, type(uint128).max - submitCount));
         bytes32 previousIntentId;
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
 
         for (uint256 index = 0; index < submitCount; ++index) {
             bytes32 intentId = _submit(
                 submitter,
-                market,
+                marketIdInput,
                 DEFAULT_TIMEFRAME_KEY,
                 // forge-lint: disable-next-line(unsafe-typecast)
                 _singleInput(boundedValue + uint128(index), submitter),
@@ -61,9 +63,10 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
     function testFuzz_componentCountBounds(uint128 value, uint8 rawCount) public {
         uint256 count = bound(uint256(rawCount), 1, 16);
         InEuint128[] memory inputs = _repeatedInputs(value, count, submitter);
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 intentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             inputs,
             _deadlineAhead(1)
@@ -78,10 +81,11 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         vm.assume(attacker != submitter);
         vm.assume(attacker != owner);
         vm.assume(attacker != _proxyAdmin());
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
 
         bytes32 intentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             _singleInput(value, submitter),
             _deadlineAhead(1)

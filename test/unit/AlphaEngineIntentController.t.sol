@@ -55,21 +55,22 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         uint128[] memory values = new uint128[](2);
         values[0] = 125;
         values[1] = 250;
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         InEuint128[] memory inputs = _inputs(values, submitter);
         uint40 deadline = _deadlineAhead(1 hours);
 
         vm.recordLogs();
-        bytes32 intentId = _submit(submitter, market, DEFAULT_TIMEFRAME_KEY, inputs, deadline);
+        bytes32 intentId = _submit(submitter, marketIdInput, DEFAULT_TIMEFRAME_KEY, inputs, deadline);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         AlphaEngineIntentController.IntentRecord memory intentRecord = controller.getIntent(intentId);
         bytes32[] memory handles = controller.getIntentComponentHandles(intentId);
         bytes32 expectedPayloadHash = keccak256(
-            abi.encode(market, DEFAULT_TIMEFRAME_KEY, deadline, handles)
+            abi.encode(intentRecord.marketIdHandle, DEFAULT_TIMEFRAME_KEY, deadline, handles)
         );
 
         assertEq(intentRecord.submitter, submitter);
-        assertEq(intentRecord.market, market);
+        assertEq(mockStorage(uint256(intentRecord.marketIdHandle)), DEFAULT_MARKET_ID);
         assertEq(intentRecord.timeframeKey, DEFAULT_TIMEFRAME_KEY);
         assertEq(intentRecord.deadline, deadline);
         assertEq(intentRecord.createdAt, uint40(block.timestamp));
@@ -83,6 +84,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             intentId,
             keccak256(abi.encode(address(controller), block.chainid, submitter, uint64(0)))
         );
+        assertTrue(taskManager.isAllowed(uint256(intentRecord.marketIdHandle), address(controller)));
+        assertTrue(taskManager.isAllowed(uint256(intentRecord.marketIdHandle), listenerOperator));
 
         for (uint256 index = 0; index < handles.length; ++index) {
             assertTrue(taskManager.isAllowed(uint256(handles[index]), address(controller)));
@@ -94,7 +97,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             logs,
             intentId,
             submitter,
-            market,
+            intentRecord.marketIdHandle,
             DEFAULT_TIMEFRAME_KEY,
             handles,
             deadline,
@@ -103,23 +106,17 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         );
     }
 
-    function test_submitRejectsZeroMarket() public {
-        InEuint128[] memory inputs = _singleInput(100, submitter);
-
-        vm.prank(submitter);
-        vm.expectRevert(AlphaEngineIntentController.ZeroMarket.selector);
-        controller.submitStrategyIntent(address(0), DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(1));
-    }
-
     function test_submitRejectsZeroTimeframeKey() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         InEuint128[] memory inputs = _singleInput(100, submitter);
 
         vm.prank(submitter);
         vm.expectRevert(AlphaEngineIntentController.ZeroTimeframeKey.selector);
-        controller.submitStrategyIntent(market, bytes32(0), inputs, _deadlineAhead(1));
+        controller.submitStrategyIntent(marketIdInput, bytes32(0), inputs, _deadlineAhead(1));
     }
 
     function test_submitRejectsPastDeadline() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         InEuint128[] memory inputs = _singleInput(100, submitter);
         uint40 deadline = uint40(block.timestamp);
 
@@ -131,30 +128,33 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
                 uint40(block.timestamp)
             )
         );
-        controller.submitStrategyIntent(market, DEFAULT_TIMEFRAME_KEY, inputs, deadline);
+        controller.submitStrategyIntent(marketIdInput, DEFAULT_TIMEFRAME_KEY, inputs, deadline);
     }
 
     function test_submitRejectsZeroComponentCount() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         InEuint128[] memory inputs = new InEuint128[](0);
 
         vm.prank(submitter);
         vm.expectRevert(
             abi.encodeWithSelector(AlphaEngineIntentController.InvalidComponentCount.selector, 0)
         );
-        controller.submitStrategyIntent(market, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(1));
+        controller.submitStrategyIntent(marketIdInput, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(1));
     }
 
     function test_submitRejectsComponentCountAboveMaximum() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         InEuint128[] memory inputs = new InEuint128[](17);
 
         vm.prank(submitter);
         vm.expectRevert(
             abi.encodeWithSelector(AlphaEngineIntentController.InvalidComponentCount.selector, 17)
         );
-        controller.submitStrategyIntent(market, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(1));
+        controller.submitStrategyIntent(marketIdInput, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(1));
     }
 
     function test_pauseBlocksSubmitAndUnpauseRestoresSubmit() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
         emit Paused(owner);
@@ -165,7 +165,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         InEuint128[] memory inputs = _singleInput(100, submitter);
         vm.prank(submitter);
         vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-        controller.submitStrategyIntent(market, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(1));
+        controller.submitStrategyIntent(marketIdInput, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(1));
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
@@ -174,7 +174,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
 
         assertFalse(controller.paused());
 
-        bytes32 intentId = _submit(submitter, market, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(2));
+        bytes32 intentId = _submit(submitter, marketIdInput, DEFAULT_TIMEFRAME_KEY, inputs, _deadlineAhead(2));
         assertEq(controller.getIntent(intentId).submitter, submitter);
     }
 
@@ -202,10 +202,11 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
     }
 
     function test_operatorRotationOnlyAffectsFutureSubmissions() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         InEuint128[] memory firstInputs = _singleInput(111, submitter);
         bytes32 firstIntentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             firstInputs,
             _deadlineAhead(1)
@@ -218,7 +219,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         InEuint128[] memory secondInputs = _singleInput(222, submitter);
         bytes32 secondIntentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             secondInputs,
             _deadlineAhead(2)
@@ -232,9 +233,10 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
     }
 
     function test_cancelAllowsSubmitterAndEmitsEvent() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 intentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             _singleInput(100, submitter),
             _deadlineAhead(1)
@@ -252,9 +254,10 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
     }
 
     function test_cancelAllowsOwnerWhilePaused() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 intentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             _singleInput(100, submitter),
             _deadlineAhead(1)
@@ -275,9 +278,10 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
     }
 
     function test_cancelRejectsUnauthorizedCaller() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 intentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             _singleInput(100, submitter),
             _deadlineAhead(1)
@@ -305,9 +309,10 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
     }
 
     function test_cancelRejectsAlreadyCancelledIntent() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 intentId = _submit(
             submitter,
-            market,
+            marketIdInput,
             DEFAULT_TIMEFRAME_KEY,
             _singleInput(100, submitter),
             _deadlineAhead(1)
@@ -332,6 +337,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         bytes32[] memory componentHandles = controller.getIntentComponentHandles(unknownIntentId);
 
         assertEq(intentRecord.submitter, address(0));
+        assertEq(intentRecord.marketIdHandle, bytes32(0));
         assertEq(componentHandles.length, 0);
     }
 }

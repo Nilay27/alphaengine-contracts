@@ -39,3 +39,19 @@
 ### Next Steps
 - Confirm the current package/version matrix directly with Fhenix.
 - Keep local compatibility harness until an upstream Foundry-compatible replacement is verified.
+
+## 2026-04-09 — Encrypted market envelope
+
+### Changed
+- `AlphaEngineIntentController` no longer accepts or emits a plaintext market address in the TA-family submission path.
+- V1 submit surface now internalizes an encrypted `marketId` input and stores/emits its `bytes32` handle alongside the encrypted strategy component handles.
+- `payloadHash` now commits to `marketIdHandle` instead of a plaintext market address.
+
+### Decisions
+- Market identity belongs to the intent envelope, not the strategy component codec.
+- The contract stores encrypted `marketId` handles only; plaintext `marketId -> market` resolution stays off-chain.
+- The temporary canonical market registry is currently authored in `simulation-service` and consumed by `listener-service` after decrypting the envelope.
+
+### Compatibility Impact
+- `listener-service` must consume `StrategyIntentSubmitted` with `marketIdHandle` and decrypt/resolve market identity off-chain.
+- Plaintext market-address assumptions from earlier scaffolding are no longer valid.

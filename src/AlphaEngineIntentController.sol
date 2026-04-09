@@ -17,7 +17,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
 
     struct IntentRecord {
         address submitter;
-        address market;
+        bytes32 marketIdHandle;
         bytes32 timeframeKey;
         uint40 deadline;
         uint40 createdAt;
@@ -29,7 +29,6 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
 
     error ZeroOwner();
     error ZeroListenerOperator();
-    error ZeroMarket();
     error ZeroTimeframeKey();
     error DeadlineNotInFuture(uint40 deadline, uint40 currentTimestamp);
     error InvalidComponentCount(uint256 componentCount);
@@ -40,7 +39,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     event StrategyIntentSubmitted(
         bytes32 indexed intentId,
         address indexed submitter,
-        address indexed market,
+        bytes32 marketIdHandle,
         bytes32 timeframeKey,
         bytes32[] componentHandles,
         uint40 deadline,
@@ -76,14 +75,11 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     }
 
     function submitStrategyIntent(
-        address market,
+        InEuint128 calldata encryptedMarketId,
         bytes32 timeframeKey,
         InEuint128[] calldata encryptedComponents,
         uint40 deadline
     ) external whenNotPaused returns (bytes32 intentId) {
-        if (market == address(0)) {
-            revert ZeroMarket();
-        }
         if (timeframeKey == bytes32(0)) {
             revert ZeroTimeframeKey();
         }
@@ -99,6 +95,11 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         uint64 submitterNonce = submitterNonces[msg.sender];
         intentId = keccak256(abi.encode(address(this), block.chainid, msg.sender, submitterNonce));
 
+        euint128 internalizedMarketId = FHE.asEuint128(encryptedMarketId);
+        FHE.allowThis(internalizedMarketId);
+        FHE.allow(internalizedMarketId, listenerOperator);
+        bytes32 marketIdHandle = FHE.unwrap(internalizedMarketId);
+
         bytes32[] memory componentHandles = new bytes32[](componentCount);
         bytes32[] storage storedHandles = _intentComponentHandles[intentId];
 
@@ -112,11 +113,11 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             storedHandles.push(componentHandle);
         }
 
-        bytes32 payloadHash = keccak256(abi.encode(market, timeframeKey, deadline, componentHandles));
+        bytes32 payloadHash = keccak256(abi.encode(marketIdHandle, timeframeKey, deadline, componentHandles));
 
         _intentRecords[intentId] = IntentRecord({
             submitter: msg.sender,
-            market: market,
+            marketIdHandle: marketIdHandle,
             timeframeKey: timeframeKey,
             deadline: deadline,
             createdAt: uint40(block.timestamp),
@@ -132,7 +133,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         emit StrategyIntentSubmitted(
             intentId,
             msg.sender,
-            market,
+            marketIdHandle,
             timeframeKey,
             componentHandles,
             deadline,

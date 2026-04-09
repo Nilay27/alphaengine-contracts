@@ -13,7 +13,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
 
         handler = new IntentControllerInvariantHandler(
             controller,
-            market,
+            DEFAULT_MARKET_ID,
             DEFAULT_TIMEFRAME_KEY,
             owner,
             submitter,
