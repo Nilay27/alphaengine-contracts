@@ -1,0 +1,8 @@
+.cache/
+cache/
+out/
+lib/
+broadcast/
+coverage/
+*.gas-snapshot
+.env
