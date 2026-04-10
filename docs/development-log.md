@@ -131,3 +131,31 @@
 - Wire `submitSwapIntent(...)` in `AlphaEngineIntentController` to verify user encrypted amount input and call the vault lock path atomically.
 - Add controller/vault integration tests for swap-intent submission, cancellation unlock, and status parity.
 - Add fuzz and invariant coverage for vault lock state transitions before adding PoolManager settlement.
+
+## 2026-04-10 — Controller swap-intent submission
+
+### Added
+- `AlphaEngineIntentController.setConfidentialVault(...)` for owner-controlled vault selection.
+- `AlphaEngineIntentController.submitSwapIntent(...)` for atomic controller-side verification and vault locking.
+- `AlphaEngineIntentController.cancelSwapIntent(...)` for swap cancellation and vault unlock/refund.
+- `AlphaEngineIntentController.getSwapIntent(...)` for deterministic swap-intent record inspection.
+- Swap intent events:
+  - `SwapIntentSubmitted`
+  - `SwapIntentCancelled`
+  - `ConfidentialVaultUpdated`
+- Controller/vault unit tests using the real `AlphaEngineConfidentialVault` and FHERC20 wrapper path.
+
+### Decisions
+- The controller initializer remains unchanged for proxy compatibility; the confidential vault is configured after initialization.
+- `setConfidentialVault(...)` rejects non-contracts, contracts without the vault surface, and vaults whose `intentController()` does not point back to the controller.
+- `submitSwapIntent(...)` verifies the user's `InEuint64`, grants vault access to the resulting handle, then calls the vault lock path.
+- Swap records store the vault used at submission time, so vault rotation affects future submissions only.
+- Swap storage was added append-only after the existing controller storage and the controller storage gap was reduced by two slots.
+- `payloadHash` for swap intents commits to `confidentialVault`, `inputWrapper`, `routeKey`, `deadline`, and the vault-returned `lockedAmountHandle`.
+- `routeKey` is intentionally opaque for now and must not be treated as finalized PoolManager execution-template semantics.
+- `cancelSwapIntent(...)` marks the controller record cancelled and calls the recorded vault to unlock/refund; if the unlock fails, the status change reverts with the transaction.
+
+### Next Steps
+- Add swap-specific fuzz and invariant coverage before introducing PoolManager settlement.
+- Finalize route-key / execution-template semantics before adding swap execution.
+- Add vault and controller deployment script coverage for the new vault pointer.

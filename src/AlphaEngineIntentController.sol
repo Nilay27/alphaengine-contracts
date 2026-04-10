@@ -3,8 +3,12 @@ pragma solidity 0.8.25;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {FHE, InEuint128, euint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {PausableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    FHE, InEuint64, InEuint128, euint64, euint128
+} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {AlphaEngineConfidentialVault} from "./vault/AlphaEngineConfidentialVault.sol";
 
 contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, PausableUpgradeable {
     uint256 public constant MAX_COMPONENT_COUNT = 16;
@@ -27,9 +31,26 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         bytes32 payloadHash;
     }
 
+    struct SwapIntentRecord {
+        address submitter;
+        address confidentialVault;
+        address inputWrapper;
+        bytes32 routeKey;
+        bytes32 lockedAmountHandle;
+        uint40 deadline;
+        uint40 createdAt;
+        uint64 submitterNonce;
+        IntentStatus status;
+        bytes32 payloadHash;
+    }
+
     error ZeroOwner();
     error ZeroListenerOperator();
+    error ZeroConfidentialVault();
+    error InvalidConfidentialVault(address vault);
+    error ZeroInputWrapper();
     error ZeroTimeframeKey();
+    error ZeroSwapRouteKey();
     error DeadlineNotInFuture(uint40 deadline, uint40 currentTimestamp);
     error InvalidComponentCount(uint256 componentCount);
     error IntentNotFound(bytes32 intentId);
@@ -47,14 +68,31 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         uint64 submitterNonce
     );
     event StrategyIntentCancelled(bytes32 indexed intentId, address indexed actor);
+    event SwapIntentSubmitted(
+        bytes32 indexed intentId,
+        address indexed submitter,
+        address indexed inputWrapper,
+        address confidentialVault,
+        bytes32 routeKey,
+        bytes32 lockedAmountHandle,
+        uint40 deadline,
+        bytes32 payloadHash,
+        uint64 submitterNonce
+    );
+    event SwapIntentCancelled(bytes32 indexed intentId, address indexed actor);
     event ListenerOperatorUpdated(address indexed previousOperator, address indexed newOperator);
+    event ConfidentialVaultUpdated(address indexed previousVault, address indexed newVault);
 
     address public listenerOperator;
+
     mapping(bytes32 intentId => IntentRecord intentRecord) private _intentRecords;
     mapping(bytes32 intentId => bytes32[] componentHandles) private _intentComponentHandles;
     mapping(address submitter => uint64 nonce) public submitterNonces;
 
-    uint256[46] private __gap;
+    address public confidentialVault;
+    mapping(bytes32 intentId => SwapIntentRecord swapIntentRecord) private _swapIntentRecords;
+
+    uint256[44] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -113,7 +151,8 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             storedHandles.push(componentHandle);
         }
 
-        bytes32 payloadHash = keccak256(abi.encode(marketIdHandle, timeframeKey, deadline, componentHandles));
+        bytes32 payloadHash =
+            keccak256(abi.encode(marketIdHandle, timeframeKey, deadline, componentHandles));
 
         _intentRecords[intentId] = IntentRecord({
             submitter: msg.sender,
@@ -142,6 +181,68 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         );
     }
 
+    function submitSwapIntent(
+        address inputWrapper,
+        bytes32 routeKey,
+        InEuint64 calldata encryptedInputAmount,
+        uint40 deadline
+    ) external whenNotPaused returns (bytes32 intentId) {
+        address activeVault = confidentialVault;
+        if (activeVault == address(0)) {
+            revert ZeroConfidentialVault();
+        }
+        if (inputWrapper == address(0)) {
+            revert ZeroInputWrapper();
+        }
+        if (routeKey == bytes32(0)) {
+            revert ZeroSwapRouteKey();
+        }
+        if (deadline <= block.timestamp) {
+            revert DeadlineNotInFuture(deadline, uint40(block.timestamp));
+        }
+
+        uint64 submitterNonce = submitterNonces[msg.sender];
+        intentId = keccak256(abi.encode(address(this), block.chainid, msg.sender, submitterNonce));
+
+        euint64 internalizedInputAmount = FHE.asEuint64(encryptedInputAmount);
+        FHE.allowThis(internalizedInputAmount);
+        FHE.allow(internalizedInputAmount, activeVault);
+
+        submitterNonces[msg.sender] = submitterNonce + 1;
+
+        euint64 lockedAmount = AlphaEngineConfidentialVault(activeVault).lockForSwapIntent(
+            intentId, msg.sender, inputWrapper, internalizedInputAmount
+        );
+        bytes32 lockedAmountHandle = FHE.unwrap(lockedAmount);
+        bytes32 payloadHash =
+            keccak256(abi.encode(activeVault, inputWrapper, routeKey, deadline, lockedAmountHandle));
+
+        _swapIntentRecords[intentId] = SwapIntentRecord({
+            submitter: msg.sender,
+            confidentialVault: activeVault,
+            inputWrapper: inputWrapper,
+            routeKey: routeKey,
+            lockedAmountHandle: lockedAmountHandle,
+            deadline: deadline,
+            createdAt: uint40(block.timestamp),
+            submitterNonce: submitterNonce,
+            status: IntentStatus.Active,
+            payloadHash: payloadHash
+        });
+
+        emit SwapIntentSubmitted(
+            intentId,
+            msg.sender,
+            inputWrapper,
+            activeVault,
+            routeKey,
+            lockedAmountHandle,
+            deadline,
+            payloadHash,
+            submitterNonce
+        );
+    }
+
     function cancelStrategyIntent(bytes32 intentId) external {
         IntentRecord storage intentRecord = _intentRecords[intentId];
 
@@ -159,6 +260,25 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         emit StrategyIntentCancelled(intentId, msg.sender);
     }
 
+    function cancelSwapIntent(bytes32 intentId) external {
+        SwapIntentRecord storage swapIntentRecord = _swapIntentRecords[intentId];
+
+        if (swapIntentRecord.status == IntentStatus.Unset) {
+            revert IntentNotFound(intentId);
+        }
+        if (swapIntentRecord.status == IntentStatus.Cancelled) {
+            revert IntentAlreadyCancelled(intentId);
+        }
+        if (msg.sender != swapIntentRecord.submitter && msg.sender != owner()) {
+            revert UnauthorizedCancel(msg.sender, intentId);
+        }
+
+        swapIntentRecord.status = IntentStatus.Cancelled;
+        AlphaEngineConfidentialVault(swapIntentRecord.confidentialVault).unlockSwapIntent(intentId);
+
+        emit SwapIntentCancelled(intentId, msg.sender);
+    }
+
     function setListenerOperator(address newOperator) external onlyOwner {
         if (newOperator == address(0)) {
             revert ZeroListenerOperator();
@@ -168,6 +288,20 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         listenerOperator = newOperator;
 
         emit ListenerOperatorUpdated(previousOperator, newOperator);
+    }
+
+    function setConfidentialVault(address newVault) external onlyOwner {
+        if (newVault == address(0)) {
+            revert ZeroConfidentialVault();
+        }
+        if (_readVaultIntentController(newVault) != address(this)) {
+            revert InvalidConfidentialVault(newVault);
+        }
+
+        address previousVault = confidentialVault;
+        confidentialVault = newVault;
+
+        emit ConfidentialVaultUpdated(previousVault, newVault);
     }
 
     function pause() external onlyOwner {
@@ -184,5 +318,27 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
 
     function getIntentComponentHandles(bytes32 intentId) external view returns (bytes32[] memory) {
         return _intentComponentHandles[intentId];
+    }
+
+    function getSwapIntent(bytes32 intentId) external view returns (SwapIntentRecord memory) {
+        return _swapIntentRecords[intentId];
+    }
+
+    function _readVaultIntentController(address vault)
+        private
+        view
+        returns (address vaultController)
+    {
+        if (vault.code.length == 0) {
+            revert InvalidConfidentialVault(vault);
+        }
+
+        (bool success, bytes memory encodedController) =
+            vault.staticcall(abi.encodeWithSignature("intentController()"));
+        if (!success || encodedController.length != 32) {
+            revert InvalidConfidentialVault(vault);
+        }
+
+        vaultController = abi.decode(encodedController, (address));
     }
 }

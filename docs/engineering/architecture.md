@@ -9,9 +9,12 @@
 - `AlphaEngineIntentController` is the current TA / strategy-allocation intent entrypoint.
 - `AlphaEngineConfidentialVault` is the approved next-phase custody boundary for confidential token wrappers, deposit/unshield flows, and vault-level swap-intent escrow locks.
 - Transparent proxy pattern is canonical.
-- One intent family only: TA / strategy-allocation.
+- Current intent families:
+  - TA / strategy-allocation
+  - confidential swap-intent locking
 - One configured listener/operator address.
 - TA lifecycle is submit + cancel.
+- Swap lifecycle is submit + cancel with vault escrow lock/unlock only.
 - Market selection is privacy-preserving in v1: the contract accepts and emits an encrypted `marketId` handle rather than a plaintext market address.
 
 ## Next phase: confidential swap vault
@@ -62,11 +65,25 @@ For the current TA family, the listener-facing event shape is:
 
 `listener-service` must decrypt `marketIdHandle` into plaintext `marketId` and resolve that identifier through the shared AlphaEngine market registry. The contract must not attempt to own or expose a plaintext `marketId -> market address` mapping in v1.
 
+For the current swap lock family, the listener-facing event shape is:
+- `intentId`
+- `submitter`
+- `inputWrapper`
+- `confidentialVault`
+- `routeKey`
+- `lockedAmountHandle`
+- `deadline`
+- `payloadHash`
+- `submitterNonce`
+
+`routeKey` is intentionally opaque in this step. It is the current placeholder for off-chain route semantics and must not be treated as a complete PoolManager execution template.
+
 ## Fhenix handling
 
 V1 stores internalized encrypted handles only:
 - one `bytes32` handle for `marketId`
 - `bytes32[]` for strategy components
+- one `bytes32` FHERC20 locked amount handle for swap-intent locks
 
 The listener/operator receives access via contract-granted permissions and consumes emitted handles plus plaintext metadata (`timeframeKey`, deadline, nonce, payload hash).
 
@@ -79,7 +96,10 @@ The old hookathon `HybridFHERC20` pattern is a reference only, not production di
 The confidential swap phase must use official Fhenix FHERC20 / confidential token contracts and keep an AlphaEngine vault as the custody boundary. The vault owns wrapper registration, deposit orchestration, unshield orchestration, and lock/settlement records; the official wrapper contract may hold the underlying ERC20 reserves after `shield(...)`. FHERC20 encrypted transfers can return an actual transferred encrypted value that differs from the requested encrypted value, including encrypted zero replacement. Vault lock state and swap-intent events must therefore use the actual returned handle as canonical.
 
 Current vault lock semantics are intentionally narrow:
+- `setConfidentialVault(...)` validates that the configured vault is a contract and that its `intentController()` points back to this controller.
+- `submitSwapIntent(...)` verifies the user's `InEuint64` amount while `msg.sender` is still the user, grants the vault access, and then locks through the vault.
 - `lockForSwapIntent(...)` is callable only by the configured intent controller.
 - The caller must pass a controller-verified `euint64` amount handle that has already been allowed to the vault.
 - `unlockSwapIntent(...)` refunds to the original locked account and is allowed while the vault is paused so cancellation/refund remains available.
 - `consumeSwapIntentLock(...)` marks the lock as consumed and non-refundable; burn, unshield, PoolManager execution, and output confidential credit are not implemented yet.
+- Vault rotation affects future swap submissions only because each `SwapIntentRecord` stores the vault used for that intent.

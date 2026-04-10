@@ -6,8 +6,8 @@ Foundry is the only framework in v1.
 
 ## Required suites
 
-- Unit: initialization, submit/cancel/admin flows, revert paths, event/state parity.
-- Unit tests must assert encrypted market-handle persistence and access grants in the submit path.
+- Unit: initialization, submit/cancel/admin flows, vault lock flows, revert paths, event/state parity.
+- Unit tests must assert encrypted market-handle persistence, encrypted amount-handle persistence, and access grants in submit paths.
 - Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized cancellation rejection.
 - Invariant: cancelled intents stay cancelled, handle-count parity, nonce monotonicity, non-zero listener operator after valid initialization.
 - Confidential swap/vault tests cover vault custody, wrapper creation, deposit/unshield, lock/unlock/consume transitions, canonical FHERC20 returned-handle handling, and accounting parity before any broader custody path ships.
@@ -38,8 +38,9 @@ Foundry is the only framework in v1.
 - Use official Fhenix FHERC20 / confidential token behavior as the target surface; do not test against a revived hookathon `HybridFHERC20`.
 - Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield request/claim, atomic lock, unlock on cancel, logical consume on settlement, and output confidential credit/mint once the output path exists.
 - Deposit/shield tests must assert exact `rate()` multiples and reject fee-on-transfer or other balance-drift behavior.
-- Controller/vault integration tests must assert the intent controller never receives token custody and the vault stores the canonical FHERC20 returned transfer handle.
-- Until `submitSwapIntent(...)` exists, vault tests must use a controller harness that verifies the user's `InEuint64`, grants the vault handle access, and then calls `lockForSwapIntent(...)` with the verified `euint64`.
+- Controller/vault integration tests must assert the intent controller never receives token custody, validates configured vault identity, and stores the canonical FHERC20 returned transfer handle.
+- Controller swap-intent tests must verify the user's `InEuint64`, grant the vault handle access, and then lock through `lockForSwapIntent(...)` with the verified `euint64`.
+- `routeKey` tests are intentionally limited to event/state parity until PoolManager execution-template semantics are finalized.
 - Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, cancel after consume, consume after cancel, expired deadline, and zero or invalid lock result where detectable.
 - Fuzz tests must cover lock/cancel/consume state transitions, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
 - Invariant tests must assert locked intents never double-consume, consumed locks never unlock, cancelled locks never settle, wrapper mappings remain stable, vault escrow status matches intent status, and reserve/escrow accounting never goes negative.

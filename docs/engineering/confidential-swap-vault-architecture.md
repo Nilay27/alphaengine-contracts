@@ -24,7 +24,7 @@ This is an architecture contract for implementation. Any production change must 
 
 - intent IDs, nonces, statuses, deadlines, and listener-facing events;
 - current TA / strategy-allocation submit and cancel lifecycle;
-- future `submitSwapIntent(...)` entrypoint;
+- current `submitSwapIntent(...)` entrypoint;
 - orchestration call into the vault to lock swap input.
 
 `AlphaEngineIntentController` must not own:
@@ -60,16 +60,18 @@ The swap executor path must be introduced only after vault custody and locking i
 2. Vault deploys or reuses the FHERC20 wrapper for that underlying asset.
 3. Vault delegates to the official FHERC20 wrapper, which receives the underlying ERC20 and credits the user with confidential balance in that wrapper.
 4. User calls `AlphaEngineIntentController.submitSwapIntent(...)` once.
-5. The submit call includes encrypted input amount data and the FHERC20 authorization material required for delegated encrypted transfer.
-6. Intent controller computes and stores `intentId`.
+5. The submit call includes the input wrapper, an opaque `routeKey`, encrypted input amount data, and the FHERC20 authorization material required for delegated encrypted transfer.
+6. Intent controller computes `intentId`.
 7. Intent controller calls `AlphaEngineConfidentialVault.lockForSwapIntent(...)`.
 8. Vault calls official FHERC20 delegated encrypted transfer from user to vault escrow.
 9. Vault stores the FHERC20-returned actual transferred encrypted handle as canonical for the lock.
-10. Intent controller emits the swap-intent event with the canonical locked handle, not just the requested encrypted amount.
+10. Intent controller stores the swap-intent record and emits `SwapIntentSubmitted` with the canonical locked handle, not just the requested encrypted amount.
 
 The returned transferred handle is mandatory because FHERC20 can preserve privacy by returning an encrypted zero transfer instead of reverting when a requested confidential transfer exceeds balance. Any swap path that needs plaintext-dependent settlement must use a later decrypt / reveal phase and must not assume the requested amount was actually locked.
 
-In the current vault-only implementation step, `lockForSwapIntent(...)` accepts an already-verified `euint64` requested amount. The future `AlphaEngineIntentController.submitSwapIntent(...)` must verify the user's `InEuint64` input while `msg.sender` is still the user, grant the vault handle access, and only then call the vault with the resulting `euint64`. The vault must not verify user encrypted inputs on behalf of the controller because that would bind verification to the controller/vault caller rather than the original user.
+In the current controller/vault implementation, `submitSwapIntent(...)` verifies the user's `InEuint64` input while `msg.sender` is still the user, grants the vault handle access, and only then calls the vault with the resulting `euint64`. The vault must not verify user encrypted inputs on behalf of the controller because that would bind verification to the controller/vault caller rather than the original user.
+
+`routeKey` is intentionally opaque in this step. It allows an off-chain route or template registry to be introduced without committing this contract to a premature PoolManager ABI. Route-key semantics must be finalized before settlement execution ships.
 
 The currently pinned `fhenix-confidential-contracts@v0.3.1` tag exposes `confidentialTransferFrom(...)`, `setOperator(...)`, and `euint64` token amounts. The public FHERC20 docs mention a newer `encTransferFrom(...)` / permit-oriented flow, but that surface is not present in the latest verified tag at this step. Until Fhenix publishes a compatible tagged release, implementation must target the installed package and treat any permit-specific API as unverified.
 
@@ -137,7 +139,7 @@ Fhenix mock policy:
 
 ## Deferred Work
 
-- Full `submitSwapIntent(...)` ABI and event shape.
+- Final swap route-key semantics and any execution-template mapping.
 - Final FHERC20 permit API verification if Fhenix publishes a newer tagged package.
 - Vault deployment and upgrade scripts.
 - PoolManager integration.

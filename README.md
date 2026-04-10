@@ -5,12 +5,14 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 ## V1 scope
 
 - One upgradeable production contract: `AlphaEngineIntentController`
-- One intent family: TA / strategy-allocation
+- Current TA / strategy-allocation intent family
+- Current confidential swap-intent lock phase
 - One listener/operator address
 - Lifecycle: `submit + cancel`
 - EigenCompute-operated only
 - Encrypted market selection is submitted as an encrypted `marketId` handle, not a plaintext market address
 - Encrypted component handles stored/emitted as `bytes32[]` using the current CoFHE Solidity package
+- Swap input amounts are submitted as encrypted FHERC20 `InEuint64` amounts and locked through `AlphaEngineConfidentialVault`
 - Foundry tests use a repo-owned CoFHE task-manager compatibility harness for the exact v1 surface we rely on
 
 ## Non-goals in V1
@@ -18,7 +20,7 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 - Uniswap hooks
 - AVS/EigenLayer middleware registration
 - Result posting or settlement
-- Swap, leverage-loop, arbitrage, or UEI families
+- PoolManager execution, swap batching, leverage-loop, arbitrage, or UEI families
 - Hardhat scaffold or CI
 
 ## Current Fhenix testing stance
@@ -32,6 +34,9 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 - `submitStrategyIntent(InEuint128 encryptedMarketId, bytes32 timeframeKey, InEuint128[] encryptedComponents, uint40 deadline)`
 - `StrategyIntentSubmitted` emits the encrypted `marketIdHandle`, not a plaintext market address
 - Off-chain listener/runtime resolves the decrypted plaintext `marketId` through the temporary shared market registry currently authored in `simulation-service`
+- `submitSwapIntent(address inputWrapper, bytes32 routeKey, InEuint64 encryptedInputAmount, uint40 deadline)`
+- `SwapIntentSubmitted` emits the vault-returned locked amount handle as canonical
+- `routeKey` is an explicit placeholder for off-chain route semantics until PoolManager settlement is designed
 
 ## Commands
 
