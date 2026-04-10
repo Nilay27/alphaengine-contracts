@@ -68,7 +68,7 @@
 - Do not reintroduce the hookathon `HybridFHERC20` token as production code.
 - Add a future upgradeable `AlphaEngineConfidentialVault` boundary for deposit/shield, withdraw/unshield, wrapper creation, locks, unlocks, consume/burn behavior, and output credit.
 - Keep swap intent submission in `AlphaEngineIntentController`.
-- Use atomic FHERC20 permit-based locking and treat the returned actual transferred encrypted handle as canonical.
+- Use atomic FHERC20 authorization-based locking and treat the returned actual transferred encrypted handle as canonical.
 - Scope confidential wrappers per underlying ERC20.
 - Keep batching, AVS registration, hook logic, and PoolManager swap execution out of the first vault/locking implementation.
 
@@ -76,3 +76,17 @@
 - Install and verify the current official Fhenix confidential-token package and exact FHERC20 Solidity interfaces.
 - Design `AlphaEngineConfidentialVault` storage layout and upgrade scripts before adding production code.
 - Add vault unit, fuzz, and invariant scaffolding before implementing real custody paths.
+
+## 2026-04-10 — Confidential vault scaffold
+
+### Added
+- Pinned `FhenixProtocol/fhenix-confidential-contracts@v0.3.1` as a Foundry dependency.
+- Minimal official FHERC20 ERC20 wrapper contract for AlphaEngine-managed wrappers.
+- Upgradeable `AlphaEngineConfidentialVault` scaffold with initializer, intent-controller pointer, and wrapper registry.
+- Unit tests for vault initialization, intent-controller update, wrapper creation, wrapper registration, duplicate rejection, and pause/unpause.
+
+### Decisions
+- Target the latest verified `fhenix-confidential-contracts@v0.3.1` tag for scaffold imports.
+- Use official FHERC20 `euint64` token amount semantics for confidential asset balances.
+- Treat the public docs' `encTransferFrom` / permit-style API as unverified until a tagged package exposes it.
+- Keep deposit, withdraw, lock, unlock, consume, settlement, and PoolManager integration out of this scaffold commit.

@@ -67,9 +67,10 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 7. Vault and token custody discipline.
 - `AlphaEngineIntentController` must never hold FHERC20 balances or underlying ERC20 reserves.
 - Swap-intent input must be locked in an AlphaEngine vault, not in the intent controller.
-- Atomic FHERC20 permit-based locking must store the actual returned transferred handle as canonical.
+- Atomic FHERC20 authorization-based locking must store the actual returned transferred handle as canonical.
 - Do not trust a requested encrypted amount as the amount actually locked.
 - Official Fhenix FHERC20 contracts are the target token surface; do not reintroduce the hookathon `HybridFHERC20` as production code.
+- For the pinned `fhenix-confidential-contracts@v0.3.1` package, the installed `confidentialTransferFrom(...)` / `setOperator(...)` surface is authoritative over untagged or docs-only permit terminology.
 
 ---
 
@@ -99,8 +100,8 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 ## 4. Architecture constraints
 
 1. Production scope.
-- Current production code contains `AlphaEngineIntentController` only.
-- The next approved architecture phase may add `AlphaEngineConfidentialVault` for confidential token custody.
+- Production code is limited to `AlphaEngineIntentController` and the approved `AlphaEngineConfidentialVault` / FHERC20 wrapper phase.
+- Additional deposit, withdraw, lock, unlock, consume, settlement, batching, or executor paths require explicit docs and tests in the same change set.
 - Transparent proxy pattern with `ProxyAdmin` is the only approved upgrade path for upgradeable production contracts in v1 and the confidential vault phase.
 
 2. Intent-family boundary.

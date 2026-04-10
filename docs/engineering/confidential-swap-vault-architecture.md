@@ -14,7 +14,7 @@ This is an architecture contract before implementation. Any production change mu
 - Keep swap intent submission in `AlphaEngineIntentController`.
 - Keep all confidential token and underlying ERC20 custody in `AlphaEngineConfidentialVault`.
 - Scope vault-managed confidential wrappers per underlying ERC20, not per pool or market.
-- Use atomic permit-based locking for swap intents.
+- Use atomic authorization-based locking for swap intents.
 - Do not implement batching in the first swap-intent phase.
 - Do not add Uniswap hook logic in this repo phase.
 
@@ -52,20 +52,22 @@ Future swap executor integration owns:
 
 The swap executor path must be introduced only after vault custody and locking invariants are covered.
 
-## Atomic Permit Locking Flow
+## Atomic Authorization Locking Flow
 
 1. User deposits an ERC20 into `AlphaEngineConfidentialVault`.
 2. Vault deploys or reuses the FHERC20 wrapper for that underlying asset.
 3. Vault credits the user with confidential balance in that wrapper.
 4. User calls `AlphaEngineIntentController.submitSwapIntent(...)` once.
-5. The submit call includes encrypted input amount data and FHERC20 permit data required for delegated encrypted transfer.
+5. The submit call includes encrypted input amount data and the FHERC20 authorization material required for delegated encrypted transfer.
 6. Intent controller computes and stores `intentId`.
 7. Intent controller calls `AlphaEngineConfidentialVault.lockForSwapIntent(...)`.
-8. Vault calls official FHERC20 permit-based encrypted transfer from user to vault escrow.
+8. Vault calls official FHERC20 delegated encrypted transfer from user to vault escrow.
 9. Vault stores the FHERC20-returned actual transferred encrypted handle as canonical for the lock.
 10. Intent controller emits the swap-intent event with the canonical locked handle, not just the requested encrypted amount.
 
 The returned transferred handle is mandatory because FHERC20 can preserve privacy by returning an encrypted zero transfer instead of reverting when a requested confidential transfer exceeds balance. Any swap path that needs plaintext-dependent settlement must use a later decrypt / reveal phase and must not assume the requested amount was actually locked.
+
+The currently pinned `fhenix-confidential-contracts@v0.3.1` tag exposes `confidentialTransferFrom(...)`, `setOperator(...)`, and `euint64` token amounts. The public FHERC20 docs mention a newer `encTransferFrom(...)` / permit-oriented flow, but that surface is not present in the latest verified tag at this step. Until Fhenix publishes a compatible tagged release, implementation must target the installed package and treat any permit-specific API as unverified.
 
 ## Cancel And Settlement Semantics
 
@@ -127,7 +129,7 @@ Fhenix mock policy:
 ## Deferred Work
 
 - Full `submitSwapIntent(...)` ABI and event shape.
-- Official FHERC20 package installation and exact import/interface verification.
+- Final FHERC20 permit API verification if Fhenix publishes a newer tagged package.
 - Vault deployment and upgrade scripts.
 - PoolManager integration.
 - Batch matching and operator settlement.

@@ -11,6 +11,12 @@
       "rev": "14e5446de3f130bac92b6cd181a24be4559957a0"
     }
   },
+  "lib/fhenix-confidential-contracts": {
+    "tag": {
+      "name": "v0.3.1",
+      "rev": "0823e57e320c1c72e0caee7faeebc4d3a0710373"
+    }
+  },
   "lib/forge-std": {
     "tag": {
       "name": "v1.9.6",

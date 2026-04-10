@@ -13,7 +13,8 @@ remappings = [
     "forge-std/=lib/forge-std/src/",
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
-    "@fhenixprotocol/cofhe-contracts/=lib/cofhe-contracts/contracts/"
+    "@fhenixprotocol/cofhe-contracts/=lib/cofhe-contracts/contracts/",
+    "fhenix-confidential-contracts/=lib/fhenix-confidential-contracts/contracts/"
 ]
 
 [fmt]

@@ -22,7 +22,7 @@ Locked boundaries for that phase:
 - confidential token custody and accounting move to `AlphaEngineConfidentialVault`
 - official Fhenix FHERC20 / confidential token contracts are the token behavior target
 - wrappers are scoped per underlying ERC20
-- atomic FHERC20 permit-based locking is the submit-time custody path
+- atomic FHERC20 authorization-based locking is the submit-time custody path
 - the intent controller must never hold FHERC20 balances or underlying ERC20 reserves
 - batching, AVS registration, and hook logic remain out of scope for the first swap-intent version
 
@@ -74,4 +74,4 @@ For Foundry testing, this repo uses a local compatibility harness around the tas
 
 The old hookathon `HybridFHERC20` pattern is a reference only, not production direction.
 
-The confidential swap phase must use official Fhenix FHERC20 / confidential token contracts and keep an AlphaEngine vault as the custody boundary. FHERC20 permit-based encrypted transfers can return an actual transferred encrypted value that differs from the requested encrypted value, including encrypted zero replacement. Vault lock state and swap-intent events must therefore use the actual returned handle as canonical.
+The confidential swap phase must use official Fhenix FHERC20 / confidential token contracts and keep an AlphaEngine vault as the custody boundary. FHERC20 encrypted transfers can return an actual transferred encrypted value that differs from the requested encrypted value, including encrypted zero replacement. Vault lock state and swap-intent events must therefore use the actual returned handle as canonical.
