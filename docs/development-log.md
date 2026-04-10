@@ -159,3 +159,15 @@
 - Add swap-specific fuzz and invariant coverage before introducing PoolManager settlement.
 - Finalize route-key / execution-template semantics before adding swap execution.
 - Add vault and controller deployment script coverage for the new vault pointer.
+
+## 2026-04-10 — Invariant ledger
+
+### Added
+- `docs/engineering/invariant-ledger.md` as the durable ledger for current and planned controller/vault invariants.
+- Explicit invariant classes for controller state, cross-family isolation, vault registry stability, deposit/unshield accounting, swap lock lifecycle, controller/vault parity, access permissions, admin/pause behavior, and future settlement.
+- Mathematical expressions for payload-hash determinism, shared nonce exactness, wrapper registry bijection, mock `ctHash` accounting, escrow conservation, and reserve conservation.
+
+### Decisions
+- Treat `mockStorage(uint256(handle))` as the invariant-test value oracle for current Foundry FHERC20/CoFHE accounting checks.
+- Keep current strategy-only invariants documented as already implemented, and mark mixed strategy/swap plus vault accounting invariants as the next test step.
+- Do not add route or PoolManager settlement invariants until `routeKey` is replaced by finalized execution-template semantics.

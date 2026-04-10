@@ -11,6 +11,7 @@ Foundry is the only framework in v1.
 - Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized cancellation rejection.
 - Invariant: cancelled intents stay cancelled, handle-count parity, nonce monotonicity, non-zero listener operator after valid initialization.
 - Confidential swap/vault tests cover vault custody, wrapper creation, deposit/unshield, lock/unlock/consume transitions, canonical FHERC20 returned-handle handling, and accounting parity before any broader custody path ships.
+- The detailed invariant ledger is `docs/engineering/invariant-ledger.md`; update it before changing state machines, custody flows, or accounting rules.
 
 ## Coverage
 
@@ -43,5 +44,5 @@ Foundry is the only framework in v1.
 - `routeKey` tests are intentionally limited to event/state parity until PoolManager execution-template semantics are finalized.
 - Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, cancel after consume, consume after cancel, expired deadline, and zero or invalid lock result where detectable.
 - Fuzz tests must cover lock/cancel/consume state transitions, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
-- Invariant tests must assert locked intents never double-consume, consumed locks never unlock, cancelled locks never settle, wrapper mappings remain stable, vault escrow status matches intent status, and reserve/escrow accounting never goes negative.
+- Invariant tests must assert locked intents never double-consume, consumed locks never unlock, cancelled locks never settle, cross-family intent isolation holds, wrapper mappings remain stable, vault escrow status matches intent status, and reserve/escrow accounting never goes negative.
 - PoolManager swap execution tests must not be added until the vault locking model is fully covered.
