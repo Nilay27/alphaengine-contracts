@@ -55,3 +55,24 @@
 ### Compatibility Impact
 - `listener-service` must consume `StrategyIntentSubmitted` with `marketIdHandle` and decrypt/resolve market identity off-chain.
 - Plaintext market-address assumptions from earlier scaffolding are no longer valid.
+
+## 2026-04-10 — Confidential swap/vault architecture planning
+
+### Added
+- Architecture plan for the next confidential swap and vault phase in `docs/engineering/confidential-swap-vault-architecture.md`.
+- Guardrails for keeping intent lifecycle separate from token custody.
+- Testing requirements for vault custody, FHERC20 wrapper lifecycle, atomic locking, and future swap settlement.
+
+### Decisions
+- Use official Fhenix FHERC20 / confidential token contracts for encrypted token behavior.
+- Do not reintroduce the hookathon `HybridFHERC20` token as production code.
+- Add a future upgradeable `AlphaEngineConfidentialVault` boundary for deposit/shield, withdraw/unshield, wrapper creation, locks, unlocks, consume/burn behavior, and output credit.
+- Keep swap intent submission in `AlphaEngineIntentController`.
+- Use atomic FHERC20 permit-based locking and treat the returned actual transferred encrypted handle as canonical.
+- Scope confidential wrappers per underlying ERC20.
+- Keep batching, AVS registration, hook logic, and PoolManager swap execution out of the first vault/locking implementation.
+
+### Next Steps
+- Install and verify the current official Fhenix confidential-token package and exact FHERC20 Solidity interfaces.
+- Design `AlphaEngineConfidentialVault` storage layout and upgrade scripts before adding production code.
+- Add vault unit, fuzz, and invariant scaffolding before implementing real custody paths.
