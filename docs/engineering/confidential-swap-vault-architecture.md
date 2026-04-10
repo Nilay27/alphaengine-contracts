@@ -4,7 +4,7 @@
 
 This document defines the next AlphaEngine contracts phase after the current TA / strategy-allocation controller: confidential token custody, swap-intent locking, and a later settlement path.
 
-This is an architecture contract before implementation. Any production change must keep the repo's upgrade, coverage, fuzzing, invariant, and listener-compatibility rules intact.
+This is an architecture contract for implementation. Any production change must keep the repo's upgrade, coverage, fuzzing, invariant, and listener-compatibility rules intact.
 
 ## Locked Decisions
 
@@ -69,6 +69,8 @@ The swap executor path must be introduced only after vault custody and locking i
 
 The returned transferred handle is mandatory because FHERC20 can preserve privacy by returning an encrypted zero transfer instead of reverting when a requested confidential transfer exceeds balance. Any swap path that needs plaintext-dependent settlement must use a later decrypt / reveal phase and must not assume the requested amount was actually locked.
 
+In the current vault-only implementation step, `lockForSwapIntent(...)` accepts an already-verified `euint64` requested amount. The future `AlphaEngineIntentController.submitSwapIntent(...)` must verify the user's `InEuint64` input while `msg.sender` is still the user, grant the vault handle access, and only then call the vault with the resulting `euint64`. The vault must not verify user encrypted inputs on behalf of the controller because that would bind verification to the controller/vault caller rather than the original user.
+
 The currently pinned `fhenix-confidential-contracts@v0.3.1` tag exposes `confidentialTransferFrom(...)`, `setOperator(...)`, and `euint64` token amounts. The public FHERC20 docs mention a newer `encTransferFrom(...)` / permit-oriented flow, but that surface is not present in the latest verified tag at this step. Until Fhenix publishes a compatible tagged release, implementation must target the installed package and treat any permit-specific API as unverified.
 
 The vault deposit path must not silently accept the wrapper's default rounding behavior. Amounts must be exact multiples of the wrapper `rate()`, and fee-on-transfer or balance-drift behavior must revert instead of leaving wrapper reserves undercollateralized.
@@ -86,9 +88,12 @@ Settlement:
 
 - only applies to active locked intents;
 - consumes the vault lock exactly once;
-- burns or otherwise accounts for the locked input according to the official FHERC20 integration surface;
+- currently marks the lock as `Consumed` so it can never be unlocked again;
+- later burns or otherwise accounts for the locked input according to the official FHERC20 integration surface;
 - uses underlying vault reserves for the real swap path;
 - credits or mints output confidential balance to the user after the output asset is received.
+
+The current `consumeSwapIntentLock(...)` implementation is a logical settlement marker only. It does not burn, unshield, or route underlying ERC20 yet; those behaviors are deferred until the swap executor and settlement surface are introduced.
 
 Batching:
 

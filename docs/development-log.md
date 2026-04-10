@@ -105,3 +105,29 @@
 - Deposit amounts must be exact multiples of the wrapper `rate()`; the vault must not silently rely on wrapper rounding.
 - Fee-on-transfer or other balance-drift behavior is rejected in deposit/shield instead of allowing undercollateralized wrapper mints.
 - Swap-intent locking, cancellation unlock, consume/settlement, and PoolManager execution remain out of scope for this step.
+
+## 2026-04-10 — Vault swap-intent lock state
+
+### Added
+- `AlphaEngineConfidentialVault.lockForSwapIntent(...)` for controller-only FHERC20 escrow locking.
+- `AlphaEngineConfidentialVault.unlockSwapIntent(...)` for controller-only refund to the original locked account.
+- `AlphaEngineConfidentialVault.consumeSwapIntentLock(...)` for controller-only logical consume / non-refundable settlement marker.
+- `AlphaEngineConfidentialVault.getSwapIntentLock(...)` for deterministic lock-state inspection.
+- Swap lock events:
+  - `SwapIntentLocked`
+  - `SwapIntentUnlocked`
+  - `SwapIntentLockConsumed`
+- Unit tests for lock, unlock, consume, unauthorized callers, zero IDs, zero account, unregistered wrapper, duplicate locks, inactive lock states, invalid returned handles, and paused behavior.
+
+### Decisions
+- Lock storage was added append-only as a new mapping and the vault storage gap was reduced by one slot.
+- The vault accepts a verified `euint64` requested amount handle, not an `InEuint64` user input.
+- The future intent controller must verify the user's `InEuint64` while `msg.sender` is still the user, grant the vault access to the resulting handle, and then call the vault.
+- The vault stores the FHERC20-returned actual transfer handle as canonical.
+- Unlock refunds only the original locked account and remains available while paused.
+- Consume currently marks the escrow lock as `Consumed`; it does not burn, unshield, route through PoolManager, or mint output confidential tokens yet.
+
+### Next Steps
+- Wire `submitSwapIntent(...)` in `AlphaEngineIntentController` to verify user encrypted amount input and call the vault lock path atomically.
+- Add controller/vault integration tests for swap-intent submission, cancellation unlock, and status parity.
+- Add fuzz and invariant coverage for vault lock state transitions before adding PoolManager settlement.

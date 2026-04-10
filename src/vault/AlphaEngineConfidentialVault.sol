@@ -10,17 +10,36 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IFHERC20ERC20Wrapper} from
     "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "../fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 
 contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
+    enum SwapIntentLockStatus {
+        Unset,
+        Locked,
+        Unlocked,
+        Consumed
+    }
+
+    struct SwapIntentLock {
+        address account;
+        address wrapper;
+        euint64 lockedAmount;
+        SwapIntentLockStatus status;
+    }
+
     error ZeroOwner();
     error ZeroIntentController();
+    error UnauthorizedIntentController(address caller);
+    error ZeroIntentId();
+    error ZeroAccount();
     error ZeroUnderlying();
     error ZeroWrapper();
     error ZeroRecipient();
     error ZeroAmount();
+    error UninitializedEncryptedAmount();
     error InvalidUnderlying(address underlying);
     error InvalidWrapper(address wrapper);
     error WrapperAlreadyRegistered(address underlying, address wrapper);
@@ -29,6 +48,9 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
     error WrapperUnderlyingMismatch(
         address wrapper, address expectedUnderlying, address actualUnderlying
     );
+    error SwapIntentLockAlreadyExists(bytes32 intentId);
+    error SwapIntentLockNotFound(bytes32 intentId);
+    error SwapIntentLockNotActive(bytes32 intentId, SwapIntentLockStatus status);
     error AmountNotMultipleOfRate(uint256 amount, uint256 rate);
     error AmountExceedsFHERC20Precision(uint256 amount, uint256 rate);
     error UnexpectedUnderlyingBalance(
@@ -57,13 +79,39 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
     event UnshieldClaimed(
         address indexed wrapper, bytes32 indexed unshieldRequestId, uint64 decryptedAmount
     );
+    event SwapIntentLocked(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed wrapper,
+        euint64 lockedAmount
+    );
+    event SwapIntentUnlocked(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed wrapper,
+        euint64 refundedAmount
+    );
+    event SwapIntentLockConsumed(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed wrapper,
+        euint64 consumedAmount
+    );
 
     address public intentController;
 
     mapping(address underlying => address wrapper) private _wrappersByUnderlying;
     mapping(address wrapper => address underlying) private _underlyingByWrapper;
+    mapping(bytes32 intentId => SwapIntentLock lock) private _swapIntentLocks;
 
-    uint256[47] private __gap;
+    uint256[46] private __gap;
+
+    modifier onlyIntentController() {
+        if (msg.sender != intentController) {
+            revert UnauthorizedIntentController(msg.sender);
+        }
+        _;
+    }
 
     constructor() {
         _disableInitializers();
@@ -216,12 +264,87 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         emit UnshieldClaimed(wrapper, unshieldRequestId, decryptedAmount);
     }
 
+    function lockForSwapIntent(
+        bytes32 intentId,
+        address account,
+        address wrapper,
+        euint64 requestedAmount
+    ) external onlyIntentController whenNotPaused returns (euint64 lockedAmount) {
+        if (intentId == bytes32(0)) {
+            revert ZeroIntentId();
+        }
+        if (account == address(0)) {
+            revert ZeroAccount();
+        }
+        if (euint64.unwrap(requestedAmount) == bytes32(0)) {
+            revert UninitializedEncryptedAmount();
+        }
+        _registeredUnderlyingForWrapper(wrapper);
+        if (_swapIntentLocks[intentId].status != SwapIntentLockStatus.Unset) {
+            revert SwapIntentLockAlreadyExists(intentId);
+        }
+
+        lockedAmount =
+            IERC7984(wrapper).confidentialTransferFrom(account, address(this), requestedAmount);
+        if (euint64.unwrap(lockedAmount) == bytes32(0)) {
+            revert UninitializedEncryptedAmount();
+        }
+
+        _swapIntentLocks[intentId] = SwapIntentLock({
+            account: account,
+            wrapper: wrapper,
+            lockedAmount: lockedAmount,
+            status: SwapIntentLockStatus.Locked
+        });
+
+        emit SwapIntentLocked(intentId, account, wrapper, lockedAmount);
+    }
+
+    function unlockSwapIntent(bytes32 intentId)
+        external
+        onlyIntentController
+        returns (euint64 refundedAmount)
+    {
+        SwapIntentLock storage intentLock = _lockedSwapIntent(intentId);
+
+        refundedAmount = IERC7984(intentLock.wrapper).confidentialTransfer(
+            intentLock.account, intentLock.lockedAmount
+        );
+        if (euint64.unwrap(refundedAmount) == bytes32(0)) {
+            revert UninitializedEncryptedAmount();
+        }
+
+        intentLock.status = SwapIntentLockStatus.Unlocked;
+
+        emit SwapIntentUnlocked(intentId, intentLock.account, intentLock.wrapper, refundedAmount);
+    }
+
+    function consumeSwapIntentLock(bytes32 intentId)
+        external
+        onlyIntentController
+        whenNotPaused
+        returns (euint64 consumedAmount)
+    {
+        SwapIntentLock storage intentLock = _lockedSwapIntent(intentId);
+
+        consumedAmount = intentLock.lockedAmount;
+        intentLock.status = SwapIntentLockStatus.Consumed;
+
+        emit SwapIntentLockConsumed(
+            intentId, intentLock.account, intentLock.wrapper, consumedAmount
+        );
+    }
+
     function wrapperForUnderlying(address underlying) external view returns (address) {
         return _wrappersByUnderlying[underlying];
     }
 
     function underlyingForWrapper(address wrapper) external view returns (address) {
         return _underlyingByWrapper[wrapper];
+    }
+
+    function getSwapIntentLock(bytes32 intentId) external view returns (SwapIntentLock memory) {
+        return _swapIntentLocks[intentId];
     }
 
     function pause() external onlyOwner {
@@ -287,6 +410,24 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         underlying = _underlyingByWrapper[wrapper];
         if (underlying == address(0)) {
             revert WrapperNotRegistered(wrapper);
+        }
+    }
+
+    function _lockedSwapIntent(bytes32 intentId)
+        private
+        view
+        returns (SwapIntentLock storage intentLock)
+    {
+        if (intentId == bytes32(0)) {
+            revert ZeroIntentId();
+        }
+
+        intentLock = _swapIntentLocks[intentId];
+        if (intentLock.status == SwapIntentLockStatus.Unset) {
+            revert SwapIntentLockNotFound(intentId);
+        }
+        if (intentLock.status != SwapIntentLockStatus.Locked) {
+            revert SwapIntentLockNotActive(intentId, intentLock.status);
         }
     }
 

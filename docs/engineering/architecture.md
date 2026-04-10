@@ -7,7 +7,7 @@
 ## Current shape
 
 - `AlphaEngineIntentController` is the current TA / strategy-allocation intent entrypoint.
-- `AlphaEngineConfidentialVault` is the approved next-phase custody boundary for confidential token wrappers and deposit/unshield flows.
+- `AlphaEngineConfidentialVault` is the approved next-phase custody boundary for confidential token wrappers, deposit/unshield flows, and vault-level swap-intent escrow locks.
 - Transparent proxy pattern is canonical.
 - One intent family only: TA / strategy-allocation.
 - One configured listener/operator address.
@@ -76,4 +76,10 @@ For Foundry testing, this repo uses a local compatibility harness around the tas
 
 The old hookathon `HybridFHERC20` pattern is a reference only, not production direction.
 
-The confidential swap phase must use official Fhenix FHERC20 / confidential token contracts and keep an AlphaEngine vault as the custody boundary. The vault owns wrapper registration, deposit orchestration, unshield orchestration, and future lock/settlement records; the official wrapper contract may hold the underlying ERC20 reserves after `shield(...)`. FHERC20 encrypted transfers can return an actual transferred encrypted value that differs from the requested encrypted value, including encrypted zero replacement. Vault lock state and swap-intent events must therefore use the actual returned handle as canonical.
+The confidential swap phase must use official Fhenix FHERC20 / confidential token contracts and keep an AlphaEngine vault as the custody boundary. The vault owns wrapper registration, deposit orchestration, unshield orchestration, and lock/settlement records; the official wrapper contract may hold the underlying ERC20 reserves after `shield(...)`. FHERC20 encrypted transfers can return an actual transferred encrypted value that differs from the requested encrypted value, including encrypted zero replacement. Vault lock state and swap-intent events must therefore use the actual returned handle as canonical.
+
+Current vault lock semantics are intentionally narrow:
+- `lockForSwapIntent(...)` is callable only by the configured intent controller.
+- The caller must pass a controller-verified `euint64` amount handle that has already been allowed to the vault.
+- `unlockSwapIntent(...)` refunds to the original locked account and is allowed while the vault is paused so cancellation/refund remains available.
+- `consumeSwapIntentLock(...)` marks the lock as consumed and non-refundable; burn, unshield, PoolManager execution, and output confidential credit are not implemented yet.
