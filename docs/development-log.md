@@ -199,3 +199,20 @@
 - Plain `forge coverage --offline --report summary` fails with a compiler stack-too-deep error because Foundry disables the repo's normal `viaIR` setting for coverage.
 - `forge coverage --offline --ir-minimum --report summary` runs successfully and reports 100% branches and 100% functions for repo-owned contracts, with 97.16% lines and 97.17% statements.
 - The uncovered line map is limited to no-anchor internal calls for `_disableInitializers()`, `__Pausable_init()`, `_pause()`, and `_unpause()` while their enclosing constructors/functions are executed by tests.
+
+## 2026-04-10 — External protocol dependency boundary
+
+### Added
+- Pinned `Uniswap/v4-core@v4.0.0` as a future Foundry fixture / separately-approved executor dependency.
+- Explicit docs and agent guardrails that `AlphaEngineIntentController` and `AlphaEngineConfidentialVault` must remain protocol-agnostic and must not import Uniswap, Pendle, Morpho, Aave, or other route-specific protocol ABIs.
+
+### Decisions
+- Do not add `@uniswap/v4-periphery` speculatively.
+- Treat PoolManager execution as a separate executor boundary, not intent-controller or vault logic.
+- Keep generic UEI execution as a valid future path for arbitrary approved targets instead of installing every target protocol in the core intent contracts.
+- `routeKey` remains opaque and must not be treated as a Uniswap-specific field.
+
+### Temporary Debt
+- `v4-core@v4.0.0` production PoolManager code is pinned to `pragma solidity 0.8.26`, while this repo currently pins `solc = 0.8.25`.
+  - Owner: AlphaEngine contracts repo
+  - Removal trigger: explicit compiler-profile decision before real PoolManager fixture deployment tests or executor implementation

@@ -17,6 +17,8 @@ This is an architecture contract for implementation. Any production change must 
 - Use atomic authorization-based locking for swap intents.
 - Do not implement batching in the first swap-intent phase.
 - Do not add Uniswap hook logic in this repo phase.
+- Keep the intent controller and vault protocol-agnostic; neither contract may import Uniswap, Pendle, Morpho, Aave, or route-specific protocol ABIs.
+- Treat `@uniswap/v4-core` as a future Foundry pool-fixture / separately-approved executor dependency only, not as part of the swap-intent controller surface.
 
 ## Contract Split
 
@@ -49,10 +51,14 @@ Official `FHERC20ERC20Wrapper.shield(...)` transfers underlying ERC20 into the w
 Future swap executor integration owns:
 
 - settlement routing after listener/operator decision;
-- `PoolManager.unlock(...)` and `PoolManager.swap(...)` calls;
 - output accounting handoff back into the vault.
 
-The swap executor path must be introduced only after vault custody and locking invariants are covered.
+The executor boundary may take one of two forms:
+
+- a generic UEI executor that calls approved targets from decoded target/selector/calldata payloads, matching the direction of the old hookathon `SwapManager` UEI path;
+- a protocol-specific executor, such as a Uniswap v4 executor that imports canonical `v4-core` interfaces and owns `PoolManager.unlock(...)` / `PoolManager.swap(...)` handling.
+
+Either executor path must be introduced only after vault custody and locking invariants are covered. It must not move protocol-specific imports into `AlphaEngineIntentController` or `AlphaEngineConfidentialVault`.
 
 ## Atomic Authorization Locking Flow
 
@@ -72,6 +78,8 @@ The returned transferred handle is mandatory because FHERC20 can preserve privac
 In the current controller/vault implementation, `submitSwapIntent(...)` verifies the user's `InEuint64` input while `msg.sender` is still the user, grants the vault handle access, and only then calls the vault with the resulting `euint64`. The vault must not verify user encrypted inputs on behalf of the controller because that would bind verification to the controller/vault caller rather than the original user.
 
 `routeKey` is intentionally opaque in this step. It allows an off-chain route or template registry to be introduced without committing this contract to a premature PoolManager ABI. Route-key semantics must be finalized before settlement execution ships.
+
+Do not treat `routeKey` as a Uniswap-specific field. It can later resolve to a generic UEI execution template, a Uniswap route, or another approved protocol adapter. That resolution belongs outside the current intent controller/vault state machine.
 
 The currently pinned `fhenix-confidential-contracts@v0.3.1` tag exposes `confidentialTransferFrom(...)`, `setOperator(...)`, and `euint64` token amounts. The public FHERC20 docs mention a newer `encTransferFrom(...)` / permit-oriented flow, but that surface is not present in the latest verified tag at this step. Until Fhenix publishes a compatible tagged release, implementation must target the installed package and treat any permit-specific API as unverified.
 
@@ -142,6 +150,7 @@ Fhenix mock policy:
 - Final swap route-key semantics and any execution-template mapping.
 - Final FHERC20 permit API verification if Fhenix publishes a newer tagged package.
 - Vault deployment and upgrade scripts.
-- PoolManager integration.
+- Generic UEI executor and/or protocol-specific executor architecture.
+- PoolManager integration tests through a separate executor boundary, if Uniswap v4 is selected for the first concrete swap route.
 - Batch matching and operator settlement.
 - AVS or EigenLayer middleware registration.

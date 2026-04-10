@@ -14,7 +14,8 @@ remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
     "@fhenixprotocol/cofhe-contracts/=lib/cofhe-contracts/contracts/",
-    "fhenix-confidential-contracts/=lib/fhenix-confidential-contracts/contracts/"
+    "fhenix-confidential-contracts/=lib/fhenix-confidential-contracts/contracts/",
+    "@uniswap/v4-core/=lib/v4-core/"
 ]
 
 [fmt]

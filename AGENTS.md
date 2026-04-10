@@ -90,6 +90,9 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - Pin exact dependency refs.
 - Do not duplicate OpenZeppelin or Fhenix interfaces locally when canonical package imports exist.
 - If a temporary local compatibility shim is required, document owner and removal trigger in `docs/development-log.md`.
+- External protocol dependencies such as Uniswap, Pendle, Morpho, or Aave must not be imported into `AlphaEngineIntentController` or `AlphaEngineConfidentialVault`.
+- `@uniswap/v4-core` may be pinned for Foundry pool fixtures and a future separately approved executor, but it is not an intent-controller dependency.
+- Do not add `@uniswap/v4-periphery` unless a concrete test-fixture blocker is documented; periphery is not a production dependency in this phase.
 
 4. Foundry is canonical.
 - All production development, tests, scripts, fuzzing, invariants, and coverage checks use Foundry.
@@ -114,6 +117,8 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - FHERC20 wrapper creation, deposit/shield, withdraw/unshield, lock, unlock, burn/consume, and output credit belong in `AlphaEngineConfidentialVault`.
 - Wrappers are scoped per underlying ERC20 unless a documented and approved architecture change says otherwise.
 - Batching is out of scope for the first swap-intent implementation.
+- The intent controller and vault must remain protocol-agnostic. Do not import PoolManager, Pendle, Morpho, Aave, or route-specific protocol ABIs into either contract.
+- Generic UEI execution and protocol-specific executors are separate future boundaries; add them only with explicit architecture docs, tests, and size review.
 
 4. Fhenix boundary.
 - Use current CoFHE/FHE Solidity patterns only.

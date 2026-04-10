@@ -13,3 +13,6 @@
 [submodule "lib/fhenix-confidential-contracts"]
 	path = lib/fhenix-confidential-contracts
 	url = https://github.com/FhenixProtocol/fhenix-confidential-contracts
+[submodule "lib/v4-core"]
+	path = lib/v4-core
+	url = https://github.com/Uniswap/v4-core

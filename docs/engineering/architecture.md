@@ -17,6 +17,19 @@
 - Swap lifecycle is submit + cancel with vault escrow lock/unlock only.
 - Market selection is privacy-preserving in v1: the contract accepts and emits an encrypted `marketId` handle rather than a plaintext market address.
 
+## External protocol boundary
+
+`AlphaEngineIntentController` and `AlphaEngineConfidentialVault` must remain protocol-agnostic.
+
+They must not import or directly depend on Uniswap, Pendle, Morpho, Aave, or other route-specific protocol ABIs. Swap intents are custody and lifecycle records at this layer, not a commitment to a concrete execution protocol.
+
+Execution-specific contracts are separate future boundaries:
+- a generic UEI executor may call arbitrary approved targets through decoded target/selector/calldata payloads;
+- a Uniswap v4 executor may import canonical `v4-core` interfaces and implement the PoolManager unlock callback;
+- Pendle, Morpho, Aave, or other typed adapters may be added only if there is a concrete safety or UX reason to avoid generic UEI calls.
+
+`@uniswap/v4-core` is currently allowed as a Foundry fixture dependency for future pool behavior tests. It is not an `AlphaEngineIntentController` or vault dependency. `@uniswap/v4-periphery` remains out of scope unless a specific test-fixture blocker is documented.
+
 ## Next phase: confidential swap vault
 
 The approved next architecture phase is documented in `docs/engineering/confidential-swap-vault-architecture.md`.

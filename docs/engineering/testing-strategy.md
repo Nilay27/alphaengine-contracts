@@ -46,3 +46,11 @@ Foundry is the only framework in v1.
 - Fuzz tests must cover lock/cancel/consume state transitions, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
 - Invariant tests must assert locked intents never double-consume, consumed locks never unlock, cancelled locks never settle, cross-family intent isolation holds, wrapper mappings remain stable, vault escrow status matches intent status, and reserve/escrow accounting never goes negative.
 - PoolManager swap execution tests must not be added until the vault locking model is fully covered.
+
+## External protocol fixture policy
+
+- `@uniswap/v4-core` is allowed only for future Foundry fixtures and a separately-approved executor boundary.
+- Production `AlphaEngineIntentController` and `AlphaEngineConfidentialVault` tests must not require either contract to import Uniswap, Pendle, Morpho, Aave, or any other route-specific protocol ABI.
+- If Uniswap v4 becomes the first concrete execution route, write the PoolManager behavior tests against a dedicated executor/harness, not by embedding PoolManager logic into the intent controller or vault.
+- `@uniswap/v4-periphery` remains excluded unless a specific fixture setup blocker is documented; do not add it speculatively.
+- The pinned `v4-core@v4.0.0` PoolManager implementation uses `pragma solidity 0.8.26`; before compiling/deploying real PoolManager fixtures, make an explicit compiler-profile decision rather than silently changing the repo-wide production compiler.

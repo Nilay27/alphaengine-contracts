@@ -34,5 +34,11 @@
       "name": "v5.0.2",
       "rev": "723f8cab09cdae1aca9ec9cc1cfa040c2d4b06c1"
     }
+  },
+  "lib/v4-core": {
+    "tag": {
+      "name": "v4.0.0",
+      "rev": "e50237c43811bd9b526eff40f26772152a42daba"
+    }
   }
 }
