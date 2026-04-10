@@ -3,14 +3,18 @@ pragma solidity 0.8.25;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ITransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
 
 contract UpgradeAlphaEngineIntentController is Script {
     bytes32 internal constant ADMIN_SLOT =
         0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
 
-    function run() external returns (AlphaEngineIntentController implementation, address proxyAdmin) {
+    function run()
+        external
+        returns (AlphaEngineIntentController implementation, address proxyAdmin)
+    {
         address proxy = vm.envAddress("PROXY_ADDRESS");
 
         vm.startBroadcast();
@@ -18,9 +22,7 @@ contract UpgradeAlphaEngineIntentController is Script {
         implementation = new AlphaEngineIntentController();
         proxyAdmin = _proxyAdmin(proxy);
         ProxyAdmin(proxyAdmin).upgradeAndCall(
-            ITransparentUpgradeableProxy(payable(proxy)),
-            address(implementation),
-            bytes("")
+            ITransparentUpgradeableProxy(payable(proxy)), address(implementation), bytes("")
         );
 
         vm.stopBroadcast();

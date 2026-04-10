@@ -171,3 +171,31 @@
 - Treat `mockStorage(uint256(handle))` as the invariant-test value oracle for current Foundry FHERC20/CoFHE accounting checks.
 - Keep current strategy-only invariants documented as already implemented, and mark mixed strategy/swap plus vault accounting invariants as the next test step.
 - Do not add route or PoolManager settlement invariants until `routeKey` is replaced by finalized execution-template semantics.
+
+## 2026-04-10 — Swap/vault fuzz and invariant coverage
+
+### Added
+- Controller fuzz coverage for shared strategy/swap nonce progression, cross-family cancellation isolation, and unauthorized swap cancellation rejection.
+- Mixed controller invariant handler actions for strategy submit/cancel, swap submit/cancel, listener-operator rotation, and configured-vault rotation.
+- Controller invariant checks for strategy record consistency, swap record/vault lock parity, shared nonce exactness, family-scoped intent ids, non-zero listener operator, and valid configured vault pointer.
+- Vault invariant handler for two users and one wrapper covering deposit/shield, swap lock, unlock, consume, unshield request, and unshield claim flows.
+- Vault invariant checks for wrapper registry stability, lock lifecycle and field immutability, vault escrow conservation, per-user confidential balance conservation, confidential supply conservation, wrapper reserve conservation, claim snapshot consistency, and stable vault owner/intent-controller authority.
+
+### Decisions
+- Keep vault `setIntentController(...)` out of the random invariant action set while locks exist; the current contract does not have an on-chain active-lock counter or per-lock controller authority model.
+- Execute `FHE.asEuint64(...)` in the vault invariant handler through an external self-call under the simulated user sender. This matches the production controller pattern: user input is verified while `msg.sender` is the user, then the authorized controller calls the vault.
+- Use isolated invariant failure-persist directories during focused invariant runs to avoid stale Foundry failure-cache replays affecting diagnosis.
+
+### Validation
+- `forge test --offline --match-contract AlphaEngineIntentControllerFuzzTest`
+- `FOUNDRY_INVARIANT_FAILURE_PERSIST_DIR=/tmp/alphaengine-controller-invariant-failures forge test --offline --match-contract AlphaEngineIntentControllerInvariantTest --fail-fast -vv`
+- `FOUNDRY_INVARIANT_FAILURE_PERSIST_DIR=/tmp/alphaengine-vault-invariant-failures forge test --offline --match-contract AlphaEngineConfidentialVaultInvariantTest --fail-fast -vv`
+- `forge test --offline`
+- `forge fmt --check`
+- `git diff --check`
+- `forge coverage --offline --ir-minimum --report summary`
+
+### Coverage Note
+- Plain `forge coverage --offline --report summary` fails with a compiler stack-too-deep error because Foundry disables the repo's normal `viaIR` setting for coverage.
+- `forge coverage --offline --ir-minimum --report summary` runs successfully and reports 100% branches and 100% functions for repo-owned contracts, with 97.16% lines and 97.17% statements.
+- The uncovered line map is limited to no-anchor internal calls for `_disableInitializers()`, `__Pausable_init()`, `_pause()`, and `_unpause()` while their enclosing constructors/functions are executed by tests.

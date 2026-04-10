@@ -8,8 +8,8 @@ Foundry is the only framework in v1.
 
 - Unit: initialization, submit/cancel/admin flows, vault lock flows, revert paths, event/state parity.
 - Unit tests must assert encrypted market-handle persistence, encrypted amount-handle persistence, and access grants in submit paths.
-- Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized cancellation rejection.
-- Invariant: cancelled intents stay cancelled, handle-count parity, nonce monotonicity, non-zero listener operator after valid initialization.
+- Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized cancellation rejection, shared strategy/swap nonce progression, and cross-family cancellation isolation.
+- Invariant: cancelled intents stay cancelled, handle-count parity, shared strategy/swap nonce exactness, non-zero listener operator after valid initialization, configured-vault validity, controller/vault lock parity, cross-family handle isolation, vault wrapper stability, vault lock lifecycle, and vault reserve/escrow accounting conservation.
 - Confidential swap/vault tests cover vault custody, wrapper creation, deposit/unshield, lock/unlock/consume transitions, canonical FHERC20 returned-handle handling, and accounting parity before any broader custody path ships.
 - The detailed invariant ledger is `docs/engineering/invariant-ledger.md`; update it before changing state machines, custody flows, or accounting rules.
 

@@ -41,7 +41,9 @@ The mock harness intentionally stores the clear value behind a ciphertext handle
 
 ## Currently Implemented Invariants
 
-These are already implemented in `test/invariant/AlphaEngineIntentController.invariant.t.sol`.
+These are implemented in:
+- `test/invariant/AlphaEngineIntentController.invariant.t.sol`
+- `test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`
 
 ### Strategy Cancellation Monotonicity
 
@@ -60,6 +62,7 @@ Current scope:
 - submitter B
 - owner cancellation
 - submitter cancellation
+- mixed controller handler with swap submissions, swap cancellations, listener rotation, and vault rotation
 
 ### Strategy Handle Count Parity
 
@@ -74,21 +77,25 @@ len(SH[id]) == S[id].componentCount
 Current scope:
 - strategy intents only
 - random component count bounded to `[1, 16]`
+- cross-checked against stored strategy snapshots while swap intents are also being submitted and cancelled
 
-### Strategy Nonce Tracking
+### Shared Nonce Tracking
 
-The controller nonce for each tracked submitter must match the handler's count of successful submissions.
+The controller nonce for each tracked submitter must match the handler's count of successful submissions across all implemented intent families.
 
 Expression:
 
 ```text
-nonce(A) == successfulStrategySubmits(A)
-nonce(B) == successfulStrategySubmits(B)
+nonce(A) == successfulStrategySubmits(A) + successfulSwapSubmits(A)
+nonce(B) == successfulStrategySubmits(B) + successfulSwapSubmits(B)
 ```
 
 Current scope:
-- strategy submissions only
-- this must be upgraded now that strategy and swap intents share the same controller nonce
+- strategy submissions
+- swap submissions
+- strategy and swap cancellations
+- listener-operator rotation
+- configured-vault rotation
 
 ### Listener Operator Non-Zero
 
@@ -101,7 +108,45 @@ C.listenerOperator() != address(0)
 ```
 
 Current scope:
-- no listener-operator rotation actions in the invariant handler yet
+- listener-operator rotations between two non-zero operators are part of the controller invariant handler
+
+### Mixed Controller / Vault Parity
+
+Known swap intents must remain internally consistent with the vault lock recorded at submission time, including after vault rotation.
+
+Implemented checks:
+- swap record payload hash determinism
+- non-zero swap submitter, vault, wrapper, route key, lock handle, and future deadline
+- controller requested-input handle access for the controller and recorded vault
+- vault lock account, wrapper, locked handle, and status parity with the controller swap record
+- cancelled swap records map to `Unlocked` vault locks
+- vault rotation affects future swap submissions only because historical swap records keep their recorded vault
+
+### Cross-Family Isolation
+
+Known strategy and swap intent ids must remain unique and family-scoped across mixed submissions.
+
+Implemented checks:
+- each known id belongs to exactly one implemented family
+- strategy component handles are not reused as known swap locked-amount handles
+- known swap locked-amount handles are not reused as strategy component handles
+- cancelling a swap leaves known strategy records and component handles unchanged in fuzz coverage
+- cancelling a strategy leaves known swap records and vault locks unchanged in fuzz coverage
+
+### Vault Lifecycle and Accounting
+
+The vault invariant handler now covers one registered wrapper, two tracked users, and stateful deposit, lock, unlock, consume, unshield-request, and unshield-claim actions.
+
+Implemented checks:
+- wrapper registry stability and wrapper/underlying/rate parity
+- lock identity immutability and status monotonicity for tracked locks
+- vault confidential escrow balance equals active plus consumed tracked locks
+- per-user confidential balance conservation including active locks, consumed locks, and historical unshield requests
+- confidential total supply equals tracked user balances plus vault balance
+- wrapper underlying reserve equals confidential supply plus pending unshield units in the controlled handler
+- vault staged underlying ERC20 balance remains zero after successful deposit/shield
+- unshield claim snapshots remain tied to tracked users and non-zero amounts
+- vault owner and intent-controller authority remain stable in the vault-specific handler
 
 ## Controller Invariants
 
@@ -115,7 +160,7 @@ Expression:
 nonce(a) == successfulStrategySubmits(a) + successfulSwapSubmits(a)
 ```
 
-Required next coverage:
+Implemented coverage:
 - submit strategy
 - submit swap
 - cancel strategy
@@ -937,13 +982,20 @@ sum(userOutputCredited) <= batchOutputReceivedAfterFees
 
 No batching or PoolManager invariant may be asserted until the corresponding contracts exist.
 
-## Implementation Guidance for Next Test Step
+## Implementation Status and Next Test Step
 
-Add invariant coverage in this order:
+Implemented as of 2026-04-10:
 
-1. Extend the controller invariant handler to include both strategy and swap submissions/cancellations.
-2. Add cross-family isolation snapshots for known strategy and swap ids.
-3. Add a vault invariant handler focused on one registered wrapper and two tracked users.
-4. Add accounting conservation checks using `mockStorage` values.
-5. Add unshield accounting only after the handler tracks pending unshield claims explicitly.
-6. Add route/settlement invariants only after `routeKey` is replaced by finalized execution-template semantics.
+1. The controller invariant handler covers both strategy and swap submissions/cancellations.
+2. Cross-family id and handle isolation is asserted for known strategy and swap ids.
+3. Vault rotation is included in the controller invariant handler; historical swap records remain tied to their recorded vault.
+4. A vault invariant handler covers one registered wrapper, two tracked users, deposits, locks, unlocks, consume, unshield requests, and unshield claims.
+5. Vault accounting conservation checks use `mockStorage` values from the local CoFHE test harness.
+6. Pending unshield units are tracked explicitly and included in wrapper reserve conservation.
+
+Next invariant work:
+
+1. Add route/settlement invariants only after `routeKey` is replaced by finalized execution-template semantics.
+2. Add output-mint and burn/unshield invariants only when settlement code exists.
+3. Add batch-level conservation invariants only when batching exists.
+4. Do not randomize vault `setIntentController(...)` while active locks exist unless the contract first gains an explicit unlockability-preserving rotation design.
