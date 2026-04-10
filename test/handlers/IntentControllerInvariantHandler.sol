@@ -13,6 +13,7 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
     address public immutable SUBMITTER_A;
     address public immutable SUBMITTER_B;
     mapping(address submitter => uint64 submissions) public submissionsBySubmitter;
+    mapping(bytes32 intentId => bool) public observedCancelledIntent;
 
     bytes32[] private _intentIds;
     mapping(bytes32 intentId => bool) public knownIntent;
@@ -49,7 +50,9 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
 
         bytes32 intentId = _intentIds[bound(uint256(rawIndex), 0, _intentIds.length - 1)];
         vm.prank(OWNER);
-        try CONTROLLER.cancelStrategyIntent(intentId) {} catch {}
+        try CONTROLLER.cancelStrategyIntent(intentId) {
+            observedCancelledIntent[intentId] = true;
+        } catch {}
     }
 
     function cancelAsSubmitterA(uint8 rawIndex) external {
@@ -59,7 +62,9 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
 
         bytes32 intentId = _intentIds[bound(uint256(rawIndex), 0, _intentIds.length - 1)];
         vm.prank(SUBMITTER_A);
-        try CONTROLLER.cancelStrategyIntent(intentId) {} catch {}
+        try CONTROLLER.cancelStrategyIntent(intentId) {
+            observedCancelledIntent[intentId] = true;
+        } catch {}
     }
 
     function cancelAsSubmitterB(uint8 rawIndex) external {
@@ -69,7 +74,9 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
 
         bytes32 intentId = _intentIds[bound(uint256(rawIndex), 0, _intentIds.length - 1)];
         vm.prank(SUBMITTER_B);
-        try CONTROLLER.cancelStrategyIntent(intentId) {} catch {}
+        try CONTROLLER.cancelStrategyIntent(intentId) {
+            observedCancelledIntent[intentId] = true;
+        } catch {}
     }
 
     function intentIdsLength() external view returns (uint256) {

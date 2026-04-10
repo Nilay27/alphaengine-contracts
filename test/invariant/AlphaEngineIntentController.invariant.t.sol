@@ -3,7 +3,7 @@ pragma solidity 0.8.25;
 
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
 import {AlphaEngineIntentControllerTestBase} from "test/mocks/AlphaEngineIntentControllerTestBase.sol";
-import {IntentControllerInvariantHandler} from "test/mocks/IntentControllerInvariantHandler.sol";
+import {IntentControllerInvariantHandler} from "test/handlers/IntentControllerInvariantHandler.sol";
 
 contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentControllerTestBase {
     IntentControllerInvariantHandler internal handler;
@@ -20,6 +20,14 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
             otherSubmitter
         );
 
+        bytes4[] memory selectors = new bytes4[](5);
+        selectors[0] = IntentControllerInvariantHandler.submitAsA.selector;
+        selectors[1] = IntentControllerInvariantHandler.submitAsB.selector;
+        selectors[2] = IntentControllerInvariantHandler.cancelAsOwner.selector;
+        selectors[3] = IntentControllerInvariantHandler.cancelAsSubmitterA.selector;
+        selectors[4] = IntentControllerInvariantHandler.cancelAsSubmitterB.selector;
+
+        targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
     }
 
@@ -28,7 +36,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
         for (uint256 index = 0; index < length; ++index) {
             bytes32 intentId = handler.intentIdAt(index);
             AlphaEngineIntentController.IntentRecord memory intentRecord = controller.getIntent(intentId);
-            if (intentRecord.status == AlphaEngineIntentController.IntentStatus.Cancelled) {
+            if (handler.observedCancelledIntent(intentId)) {
                 assertEq(uint8(intentRecord.status), uint8(AlphaEngineIntentController.IntentStatus.Cancelled));
             }
         }
