@@ -1,23 +1,44 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IFHERC20ERC20Wrapper} from
     "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {FHERC20WrapperClaimHelper} from
+    "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaimHelper.sol";
 import {AlphaEngineConfidentialVault} from "../../src/vault/AlphaEngineConfidentialVault.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "../../src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockCoFheTest} from "../mocks/MockCoFheTest.sol";
+import {MockERC20, MockSelectiveFeeERC20} from "../mocks/MockERC20.sol";
 
-contract AlphaEngineConfidentialVaultUnitTest is Test {
+contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
     event IntentControllerUpdated(
         address indexed previousIntentController, address indexed newIntentController
     );
     event ConfidentialWrapperRegistered(address indexed underlying, address indexed wrapper);
+    event DepositedAndShielded(
+        address indexed underlying,
+        address indexed wrapper,
+        address indexed depositor,
+        address recipient,
+        uint256 amount,
+        euint64 shieldedAmount
+    );
+    event UnshieldRequested(
+        address indexed wrapper,
+        address indexed account,
+        address indexed recipient,
+        uint64 amount,
+        euint64 unshieldRequestHandle
+    );
+    event UnshieldClaimed(
+        address indexed wrapper, bytes32 indexed unshieldRequestId, uint64 decryptedAmount
+    );
     event Paused(address account);
     event Unpaused(address account);
 
@@ -29,8 +50,11 @@ contract AlphaEngineConfidentialVaultUnitTest is Test {
     address private owner = address(0xA11CE);
     address private intentController = address(0x1A7E17);
     address private user = address(0xB0B);
+    address private recipient = address(0xC0DE);
 
     function setUp() public {
+        _installMockTaskManager();
+
         underlying = new MockERC20("USD Coin", "USDC", 6);
 
         implementation = new AlphaEngineConfidentialVault();
@@ -298,6 +322,30 @@ contract AlphaEngineConfidentialVaultUnitTest is Test {
         vault.registerWrapper(address(underlying), invalidWrapper);
     }
 
+    function testRegisterWrapperRejectsWrapperWithoutRateSurface() public {
+        address invalidWrapper = address(new NoRateWrapperSurface(address(underlying)));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.InvalidWrapper.selector, invalidWrapper
+            )
+        );
+        vault.registerWrapper(address(underlying), invalidWrapper);
+    }
+
+    function testRegisterWrapperRejectsZeroRateWrapper() public {
+        address invalidWrapper = address(new ZeroRateWrapperSurface(address(underlying)));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.InvalidWrapper.selector, invalidWrapper
+            )
+        );
+        vault.registerWrapper(address(underlying), invalidWrapper);
+    }
+
     function testRegisterWrapperRejectsUnderlyingMismatch() public {
         MockERC20 otherUnderlying = new MockERC20("Other Token", "OTHER", 6);
         AlphaEngineFHERC20ERC20Wrapper wrapper =
@@ -313,6 +361,225 @@ contract AlphaEngineConfidentialVaultUnitTest is Test {
             )
         );
         vault.registerWrapper(address(otherUnderlying), address(wrapper));
+    }
+
+    function testDepositAndShieldUsesRegisteredWrapperAndEmitsEvent() public {
+        address wrapper = _createDefaultWrapper();
+        uint256 amount = 100e6;
+        underlying.mint(user, amount);
+
+        vm.startPrank(user);
+        underlying.approve(address(vault), amount);
+
+        vm.expectEmit(true, true, true, false, address(vault));
+        emit DepositedAndShielded(
+            address(underlying), wrapper, user, recipient, amount, euint64.wrap(bytes32(0))
+        );
+
+        (address returnedWrapper, euint64 shieldedAmount) =
+            vault.depositAndShield(address(underlying), amount, recipient);
+        vm.stopPrank();
+
+        assertEq(returnedWrapper, wrapper);
+        assertEq(underlying.balanceOf(user), 0);
+        assertEq(underlying.balanceOf(address(vault)), 0);
+        assertEq(underlying.balanceOf(wrapper), amount);
+        assertEq(mockStorage(uint256(euint64.unwrap(shieldedAmount))), amount);
+
+        euint64 recipientBalance =
+            AlphaEngineFHERC20ERC20Wrapper(wrapper).confidentialBalanceOf(recipient);
+        assertEq(mockStorage(uint256(euint64.unwrap(recipientBalance))), amount);
+    }
+
+    function testDepositAndShieldRejectsUnregisteredUnderlying() public {
+        MockERC20 unregisteredToken = new MockERC20("Unregistered", "NOPE", 6);
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.UnderlyingNotRegistered.selector,
+                address(unregisteredToken)
+            )
+        );
+        vault.depositAndShield(address(unregisteredToken), 1, recipient);
+    }
+
+    function testDepositAndShieldRejectsZeroRecipient() public {
+        _createDefaultWrapper();
+
+        vm.prank(user);
+        vm.expectRevert(AlphaEngineConfidentialVault.ZeroRecipient.selector);
+        vault.depositAndShield(address(underlying), 1, address(0));
+    }
+
+    function testDepositAndShieldRejectsZeroAmount() public {
+        _createDefaultWrapper();
+
+        vm.prank(user);
+        vm.expectRevert(AlphaEngineConfidentialVault.ZeroAmount.selector);
+        vault.depositAndShield(address(underlying), 0, recipient);
+    }
+
+    function testDepositAndShieldRejectsAmountNotMultipleOfRate() public {
+        MockERC20 highPrecisionToken = new MockERC20("High Precision", "HIGH", 18);
+
+        vm.prank(owner);
+        vault.createWrapper(address(highPrecisionToken), "Encrypted HIGH", "eHIGH", "");
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.AmountNotMultipleOfRate.selector, 1, 1e12
+            )
+        );
+        vault.depositAndShield(address(highPrecisionToken), 1, recipient);
+    }
+
+    function testDepositAndShieldRejectsAmountBeyondFHERC20Precision() public {
+        MockERC20 highPrecisionToken = new MockERC20("High Precision", "HIGH", 18);
+        uint256 amount = (uint256(type(uint64).max) + 1) * 1e12;
+
+        vm.prank(owner);
+        vault.createWrapper(address(highPrecisionToken), "Encrypted HIGH", "eHIGH", "");
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.AmountExceedsFHERC20Precision.selector, amount, 1e12
+            )
+        );
+        vault.depositAndShield(address(highPrecisionToken), amount, recipient);
+    }
+
+    function testDepositAndShieldRejectsFeeOnUserTransfer() public {
+        MockSelectiveFeeERC20 feeToken = new MockSelectiveFeeERC20("Fee Token", "FEE", 6);
+        vm.prank(owner);
+        vault.createWrapper(address(feeToken), "Encrypted FEE", "eFEE", "");
+
+        uint256 amount = 100e6;
+        feeToken.mint(user, amount);
+        feeToken.setFeeRoute(user, address(vault));
+
+        vm.startPrank(user);
+        feeToken.approve(address(vault), amount);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.UnexpectedUnderlyingBalance.selector,
+                address(vault),
+                address(feeToken),
+                amount,
+                amount - 1
+            )
+        );
+        vault.depositAndShield(address(feeToken), amount, recipient);
+        vm.stopPrank();
+    }
+
+    function testDepositAndShieldRejectsFeeOnWrapperTransfer() public {
+        MockSelectiveFeeERC20 feeToken = new MockSelectiveFeeERC20("Fee Token", "FEE", 6);
+        vm.prank(owner);
+        address wrapper = vault.createWrapper(address(feeToken), "Encrypted FEE", "eFEE", "");
+
+        uint256 amount = 100e6;
+        feeToken.mint(user, amount);
+        feeToken.setFeeRoute(address(vault), wrapper);
+
+        vm.startPrank(user);
+        feeToken.approve(address(vault), amount);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.UnexpectedUnderlyingBalance.selector,
+                wrapper,
+                address(feeToken),
+                amount,
+                amount - 1
+            )
+        );
+        vault.depositAndShield(address(feeToken), amount, recipient);
+        vm.stopPrank();
+    }
+
+    function testRequestUnshieldAndClaimUsesRegisteredWrapper() public {
+        address wrapper = _createDefaultWrapper();
+        uint256 depositAmount = 100e6;
+        uint64 unshieldAmount = 40e6;
+        underlying.mint(user, depositAmount);
+
+        vm.startPrank(user);
+        underlying.approve(address(vault), depositAmount);
+        vault.depositAndShield(address(underlying), depositAmount, user);
+        AlphaEngineFHERC20ERC20Wrapper(wrapper).setOperator(
+            address(vault), uint48(block.timestamp + 1 hours)
+        );
+
+        vm.expectEmit(true, true, true, false, address(vault));
+        emit UnshieldRequested(wrapper, user, user, unshieldAmount, euint64.wrap(bytes32(0)));
+
+        euint64 unshieldHandle = vault.requestUnshield(wrapper, user, unshieldAmount);
+        vm.stopPrank();
+
+        bytes32 unshieldRequestId = euint64.unwrap(unshieldHandle);
+        assertEq(mockStorage(uint256(unshieldRequestId)), unshieldAmount);
+
+        FHERC20WrapperClaimHelper.Claim memory claim =
+            AlphaEngineFHERC20ERC20Wrapper(wrapper).getClaim(unshieldRequestId);
+        assertEq(claim.to, user);
+        assertEq(claim.ctHash, unshieldRequestId);
+        assertEq(claim.requestedAmount, unshieldAmount);
+        assertFalse(claim.claimed);
+        assertEq(underlying.balanceOf(user), 0);
+
+        taskManager.publishDecryptResult(uint256(unshieldRequestId), unshieldAmount, "");
+
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit UnshieldClaimed(wrapper, unshieldRequestId, unshieldAmount);
+
+        vault.claimUnshielded(wrapper, unshieldRequestId, unshieldAmount, "");
+        assertEq(underlying.balanceOf(user), unshieldAmount);
+
+        FHERC20WrapperClaimHelper.Claim memory claimed =
+            AlphaEngineFHERC20ERC20Wrapper(wrapper).getClaim(unshieldRequestId);
+        assertTrue(claimed.claimed);
+        assertEq(claimed.decryptedAmount, unshieldAmount);
+    }
+
+    function testRequestUnshieldRejectsUnregisteredWrapper() public {
+        address unregisteredWrapper = address(0xF00D);
+
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.WrapperNotRegistered.selector, unregisteredWrapper
+            )
+        );
+        vault.requestUnshield(unregisteredWrapper, user, 1);
+    }
+
+    function testRequestUnshieldRejectsZeroRecipient() public {
+        address wrapper = _createDefaultWrapper();
+
+        vm.prank(user);
+        vm.expectRevert(AlphaEngineConfidentialVault.ZeroRecipient.selector);
+        vault.requestUnshield(wrapper, address(0), 1);
+    }
+
+    function testRequestUnshieldRejectsZeroAmount() public {
+        address wrapper = _createDefaultWrapper();
+
+        vm.prank(user);
+        vm.expectRevert(AlphaEngineConfidentialVault.ZeroAmount.selector);
+        vault.requestUnshield(wrapper, user, 0);
+    }
+
+    function testClaimUnshieldedRejectsUnregisteredWrapper() public {
+        address unregisteredWrapper = address(0xF00D);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.WrapperNotRegistered.selector, unregisteredWrapper
+            )
+        );
+        vault.claimUnshielded(unregisteredWrapper, bytes32("request"), 1, "");
     }
 
     function testPauseAndUnpause() public {
@@ -347,6 +614,11 @@ contract AlphaEngineConfidentialVaultUnitTest is Test {
         new AlphaEngineFHERC20ERC20Wrapper(
             IERC20(invalidUnderlying), "Encrypted Invalid", "eINVALID", ""
         );
+    }
+
+    function _createDefaultWrapper() private returns (address wrapper) {
+        vm.prank(owner);
+        wrapper = vault.createWrapper(address(underlying), "Encrypted USDC", "eUSDC", "");
     }
 
     function _assertWrapperRegisteredLog(
@@ -401,5 +673,33 @@ contract NoWrapperSurface {}
 contract MalformedWrapperSurface {
     function underlying() external pure returns (address, address) {
         return (address(0x01), address(0x02));
+    }
+}
+
+contract NoRateWrapperSurface {
+    address private immutable _underlying;
+
+    constructor(address underlying_) {
+        _underlying = underlying_;
+    }
+
+    function underlying() external view returns (address) {
+        return _underlying;
+    }
+}
+
+contract ZeroRateWrapperSurface {
+    address private immutable _underlying;
+
+    constructor(address underlying_) {
+        _underlying = underlying_;
+    }
+
+    function underlying() external view returns (address) {
+        return _underlying;
+    }
+
+    function rate() external pure returns (uint256) {
+        return 0;
     }
 }

@@ -12,7 +12,7 @@ This is an architecture contract before implementation. Any production change mu
 - Do not revive or fork the old hookathon `HybridFHERC20` design.
 - Add an AlphaEngine-owned upgradeable vault layer for custody and accounting.
 - Keep swap intent submission in `AlphaEngineIntentController`.
-- Keep all confidential token and underlying ERC20 custody in `AlphaEngineConfidentialVault`.
+- Keep confidential token custody orchestration in `AlphaEngineConfidentialVault` and its registered wrapper contracts.
 - Scope vault-managed confidential wrappers per underlying ERC20, not per pool or market.
 - Use atomic authorization-based locking for swap intents.
 - Do not implement batching in the first swap-intent phase.
@@ -44,6 +44,8 @@ This is an architecture contract before implementation. Any production change mu
 - cancellation unlocks and settlement consume/burn behavior;
 - output confidential mint/credit after settlement.
 
+Official `FHERC20ERC20Wrapper.shield(...)` transfers underlying ERC20 into the wrapper contract and mints confidential balance there. Therefore "vault custody" means AlphaEngine-owned orchestration and registry control over vault-managed wrappers; it does not mean the upgradeable vault address must physically retain all underlying ERC20 balances after shielding.
+
 Future swap executor integration owns:
 
 - settlement routing after listener/operator decision;
@@ -54,9 +56,9 @@ The swap executor path must be introduced only after vault custody and locking i
 
 ## Atomic Authorization Locking Flow
 
-1. User deposits an ERC20 into `AlphaEngineConfidentialVault`.
+1. User approves and deposits an ERC20 through `AlphaEngineConfidentialVault`.
 2. Vault deploys or reuses the FHERC20 wrapper for that underlying asset.
-3. Vault credits the user with confidential balance in that wrapper.
+3. Vault delegates to the official FHERC20 wrapper, which receives the underlying ERC20 and credits the user with confidential balance in that wrapper.
 4. User calls `AlphaEngineIntentController.submitSwapIntent(...)` once.
 5. The submit call includes encrypted input amount data and the FHERC20 authorization material required for delegated encrypted transfer.
 6. Intent controller computes and stores `intentId`.
@@ -68,6 +70,8 @@ The swap executor path must be introduced only after vault custody and locking i
 The returned transferred handle is mandatory because FHERC20 can preserve privacy by returning an encrypted zero transfer instead of reverting when a requested confidential transfer exceeds balance. Any swap path that needs plaintext-dependent settlement must use a later decrypt / reveal phase and must not assume the requested amount was actually locked.
 
 The currently pinned `fhenix-confidential-contracts@v0.3.1` tag exposes `confidentialTransferFrom(...)`, `setOperator(...)`, and `euint64` token amounts. The public FHERC20 docs mention a newer `encTransferFrom(...)` / permit-oriented flow, but that surface is not present in the latest verified tag at this step. Until Fhenix publishes a compatible tagged release, implementation must target the installed package and treat any permit-specific API as unverified.
+
+The vault deposit path must not silently accept the wrapper's default rounding behavior. Amounts must be exact multiples of the wrapper `rate()`, and fee-on-transfer or balance-drift behavior must revert instead of leaving wrapper reserves undercollateralized.
 
 ## Cancel And Settlement Semantics
 

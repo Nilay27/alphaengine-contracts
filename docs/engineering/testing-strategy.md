@@ -26,6 +26,8 @@ Foundry is the only framework in v1.
   - `verifyInput`
   - `allow`
   - `isAllowed`
+  - deterministic `trivialEncrypt`, arithmetic, comparison, and `select` operations needed by official FHERC20 wrapper tests
+  - decrypt-result publication and reverting verification semantics for wrapper claim tests
   - deterministic mock-value lookup for stored handles
 - The submit-path assertions cover both encrypted `marketId` handle semantics and encrypted strategy component handle semantics.
 - If upstream mock parity is incomplete, keep Foundry canonical and document the missing integration gap explicitly.
@@ -34,7 +36,8 @@ Foundry is the only framework in v1.
 ## Confidential swap/vault policy
 
 - Use official Fhenix FHERC20 / confidential token behavior as the target surface; do not test against a revived hookathon `HybridFHERC20`.
-- Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield, atomic lock, unlock on cancel, consume on settlement, and output confidential credit/mint.
+- Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield request/claim, atomic lock, unlock on cancel, consume on settlement, and output confidential credit/mint.
+- Deposit/shield tests must assert exact `rate()` multiples and reject fee-on-transfer or other balance-drift behavior.
 - Controller/vault integration tests must assert the intent controller never receives token custody and the vault stores the canonical FHERC20 returned transfer handle.
 - Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, cancel after consume, consume after cancel, expired deadline, and zero or invalid lock result where detectable.
 - Fuzz tests must cover lock/cancel/consume state transitions, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.

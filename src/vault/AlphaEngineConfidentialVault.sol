@@ -6,26 +6,57 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {PausableUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IFHERC20ERC20Wrapper} from
     "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "../fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 
 contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, PausableUpgradeable {
+    using SafeERC20 for IERC20;
+
     error ZeroOwner();
     error ZeroIntentController();
     error ZeroUnderlying();
     error ZeroWrapper();
+    error ZeroRecipient();
+    error ZeroAmount();
     error InvalidUnderlying(address underlying);
     error InvalidWrapper(address wrapper);
     error WrapperAlreadyRegistered(address underlying, address wrapper);
+    error WrapperNotRegistered(address wrapper);
+    error UnderlyingNotRegistered(address underlying);
     error WrapperUnderlyingMismatch(
         address wrapper, address expectedUnderlying, address actualUnderlying
+    );
+    error AmountNotMultipleOfRate(uint256 amount, uint256 rate);
+    error AmountExceedsFHERC20Precision(uint256 amount, uint256 rate);
+    error UnexpectedUnderlyingBalance(
+        address account, address underlying, uint256 expectedBalance, uint256 actualBalance
     );
 
     event IntentControllerUpdated(
         address indexed previousIntentController, address indexed newIntentController
     );
     event ConfidentialWrapperRegistered(address indexed underlying, address indexed wrapper);
+    event DepositedAndShielded(
+        address indexed underlying,
+        address indexed wrapper,
+        address indexed depositor,
+        address recipient,
+        uint256 amount,
+        euint64 shieldedAmount
+    );
+    event UnshieldRequested(
+        address indexed wrapper,
+        address indexed account,
+        address indexed recipient,
+        uint64 amount,
+        euint64 unshieldRequestHandle
+    );
+    event UnshieldClaimed(
+        address indexed wrapper, bytes32 indexed unshieldRequestId, uint64 decryptedAmount
+    );
 
     address public intentController;
 
@@ -106,8 +137,83 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         if (wrapperUnderlying != underlying) {
             revert WrapperUnderlyingMismatch(wrapper, underlying, wrapperUnderlying);
         }
+        _readWrapperRate(wrapper);
 
         _registerWrapper(underlying, wrapper);
+    }
+
+    function depositAndShield(address underlying, uint256 amount, address recipient)
+        external
+        whenNotPaused
+        returns (address wrapper, euint64 shieldedAmount)
+    {
+        if (recipient == address(0)) {
+            revert ZeroRecipient();
+        }
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
+
+        wrapper = _registeredWrapperForUnderlying(underlying);
+        uint256 rate = _readWrapperRate(wrapper);
+        if (amount % rate != 0) {
+            revert AmountNotMultipleOfRate(amount, rate);
+        }
+        if (amount / rate > type(uint64).max) {
+            revert AmountExceedsFHERC20Precision(amount, rate);
+        }
+
+        IERC20 token = IERC20(underlying);
+        uint256 vaultBalanceBefore = token.balanceOf(address(this));
+        uint256 wrapperBalanceBefore = token.balanceOf(wrapper);
+
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        _assertUnderlyingBalance(token, address(this), vaultBalanceBefore + amount);
+
+        token.forceApprove(wrapper, amount);
+        shieldedAmount = IFHERC20ERC20Wrapper(wrapper).shield(recipient, amount);
+        token.forceApprove(wrapper, 0);
+
+        _assertUnderlyingBalance(token, address(this), vaultBalanceBefore);
+        _assertUnderlyingBalance(token, wrapper, wrapperBalanceBefore + amount);
+
+        emit DepositedAndShielded(
+            underlying, wrapper, msg.sender, recipient, amount, shieldedAmount
+        );
+    }
+
+    function requestUnshield(address wrapper, address recipient, uint64 amount)
+        external
+        whenNotPaused
+        returns (euint64 unshieldRequestHandle)
+    {
+        _registeredUnderlyingForWrapper(wrapper);
+        if (recipient == address(0)) {
+            revert ZeroRecipient();
+        }
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
+
+        unshieldRequestHandle =
+            IFHERC20ERC20Wrapper(wrapper).unshield(msg.sender, recipient, amount);
+
+        emit UnshieldRequested(wrapper, msg.sender, recipient, amount, unshieldRequestHandle);
+    }
+
+    function claimUnshielded(
+        address wrapper,
+        bytes32 unshieldRequestId,
+        uint64 decryptedAmount,
+        bytes calldata decryptionProof
+    ) external whenNotPaused {
+        _registeredUnderlyingForWrapper(wrapper);
+
+        IFHERC20ERC20Wrapper(wrapper).claimUnshielded(
+            unshieldRequestId, decryptedAmount, decryptionProof
+        );
+
+        emit UnshieldClaimed(wrapper, unshieldRequestId, decryptedAmount);
     }
 
     function wrapperForUnderlying(address underlying) external view returns (address) {
@@ -145,5 +251,54 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         }
 
         return abi.decode(encodedUnderlying, (address));
+    }
+
+    function _readWrapperRate(address wrapper) private view returns (uint256) {
+        (bool success, bytes memory encodedRate) =
+            wrapper.staticcall(abi.encodeCall(IFHERC20ERC20Wrapper.rate, ()));
+        if (!success || encodedRate.length != 32) {
+            revert InvalidWrapper(wrapper);
+        }
+
+        uint256 rate = abi.decode(encodedRate, (uint256));
+        if (rate == 0) {
+            revert InvalidWrapper(wrapper);
+        }
+
+        return rate;
+    }
+
+    function _registeredWrapperForUnderlying(address underlying)
+        private
+        view
+        returns (address wrapper)
+    {
+        wrapper = _wrappersByUnderlying[underlying];
+        if (wrapper == address(0)) {
+            revert UnderlyingNotRegistered(underlying);
+        }
+    }
+
+    function _registeredUnderlyingForWrapper(address wrapper)
+        private
+        view
+        returns (address underlying)
+    {
+        underlying = _underlyingByWrapper[wrapper];
+        if (underlying == address(0)) {
+            revert WrapperNotRegistered(wrapper);
+        }
+    }
+
+    function _assertUnderlyingBalance(IERC20 token, address account, uint256 expectedBalance)
+        private
+        view
+    {
+        uint256 actualBalance = token.balanceOf(account);
+        if (actualBalance != expectedBalance) {
+            revert UnexpectedUnderlyingBalance(
+                account, address(token), expectedBalance, actualBalance
+            );
+        }
     }
 }

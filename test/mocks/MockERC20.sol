@@ -20,3 +20,28 @@ contract MockERC20 is ERC20 {
         _mint(to, amount);
     }
 }
+
+contract MockSelectiveFeeERC20 is MockERC20 {
+    address private _feeFrom;
+    address private _feeTo;
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_)
+        MockERC20(name_, symbol_, decimals_)
+    {}
+
+    function setFeeRoute(address feeFrom, address feeTo) external {
+        _feeFrom = feeFrom;
+        _feeTo = feeTo;
+    }
+
+    function _update(address from, address to, uint256 value) internal override {
+        if (from == _feeFrom && to == _feeTo && value > 1) {
+            uint256 fee = 1;
+            super._update(from, to, value - fee);
+            super._update(from, address(0), fee);
+            return;
+        }
+
+        super._update(from, to, value);
+    }
+}

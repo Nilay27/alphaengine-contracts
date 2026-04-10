@@ -90,3 +90,18 @@
 - Use official FHERC20 `euint64` token amount semantics for confidential asset balances.
 - Treat the public docs' `encTransferFrom` / permit-style API as unverified until a tagged package exposes it.
 - Keep deposit, withdraw, lock, unlock, consume, settlement, and PoolManager integration out of this scaffold commit.
+
+## 2026-04-10 — Vault deposit and unshield wrappers
+
+### Added
+- `AlphaEngineConfidentialVault.depositAndShield(...)` for registered underlying ERC20 assets.
+- `AlphaEngineConfidentialVault.requestUnshield(...)` and `claimUnshielded(...)` delegation for registered FHERC20 wrappers.
+- Vault events for deposit/shield, unshield request, and unshield claim flows.
+- Explicit tests for successful deposit/shield, unshield request/claim, unsupported asset rejection, precision bounds, non-multiple amount rejection, and fee-on-transfer balance-drift rejection.
+- CoFHE mock-task support for deterministic FHERC20 wrapper operations used by tests: trivial encryption, add/sub, comparisons, select, and decrypt-result verification.
+
+### Decisions
+- The vault is the AlphaEngine custody/orchestration boundary, while official FHERC20 wrapper contracts physically hold underlying ERC20 reserves after `shield(...)`.
+- Deposit amounts must be exact multiples of the wrapper `rate()`; the vault must not silently rely on wrapper rounding.
+- Fee-on-transfer or other balance-drift behavior is rejected in deposit/shield instead of allowing undercollateralized wrapper mints.
+- Swap-intent locking, cancellation unlock, consume/settlement, and PoolManager execution remain out of scope for this step.
