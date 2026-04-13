@@ -595,13 +595,9 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
 
         vm.recordLogs();
-        (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) = _executeSwapIntentWithDefaultRoute(
-            listenerOperator,
-            fixture,
-            intentId,
-            fixture.outputWrapper,
-            decryptedInputAmount,
-            1
+        (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) =
+        _executeSwapIntentWithDefaultRoute(
+            listenerOperator, fixture, intentId, fixture.outputWrapper, decryptedInputAmount, 1
         );
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
@@ -645,6 +641,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             uint64 decryptedInputAmount,
             bytes32 unshieldRequestHandle
         ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        assertTrue(unshieldRequestHandle != bytes32(0));
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -652,12 +649,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         _executeSwapIntentWithDefaultRoute(
-            outsider,
-            fixture,
-            intentId,
-            fixture.outputWrapper,
-            decryptedInputAmount,
-            1
+            outsider, fixture, intentId, fixture.outputWrapper, decryptedInputAmount, 1
         );
     }
 
@@ -670,15 +662,11 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         ) = _prepareExecutableSwapIntentWithoutExecutor(
             100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6
         );
+        assertTrue(unshieldRequestHandle != bytes32(0));
 
         vm.expectRevert(AlphaEngineIntentController.ZeroSwapExecutor.selector);
         _executeSwapIntentWithDefaultRoute(
-            listenerOperator,
-            fixture,
-            intentId,
-            fixture.outputWrapper,
-            decryptedInputAmount,
-            1
+            listenerOperator, fixture, intentId, fixture.outputWrapper, decryptedInputAmount, 1
         );
     }
 
@@ -709,15 +697,11 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             uint64 decryptedInputAmount,
             bytes32 unshieldRequestHandle
         ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        assertTrue(unshieldRequestHandle != bytes32(0));
 
         vm.expectRevert(AlphaEngineIntentController.ZeroOutputWrapper.selector);
         _executeSwapIntentWithDefaultRoute(
-            listenerOperator,
-            fixture,
-            intentId,
-            address(0),
-            decryptedInputAmount,
-            1
+            listenerOperator, fixture, intentId, address(0), decryptedInputAmount, 1
         );
     }
 
@@ -728,6 +712,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             uint64 decryptedInputAmount,
             bytes32 unshieldRequestHandle
         ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        assertTrue(unshieldRequestHandle != bytes32(0));
         uint40 deadline = controller.getSwapIntent(intentId).deadline;
         vm.warp(block.timestamp + 2 hours);
 
@@ -740,12 +725,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         _executeSwapIntentWithDefaultRoute(
-            listenerOperator,
-            fixture,
-            intentId,
-            fixture.outputWrapper,
-            decryptedInputAmount,
-            1
+            listenerOperator, fixture, intentId, fixture.outputWrapper, decryptedInputAmount, 1
         );
     }
 
@@ -756,14 +736,10 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             uint64 decryptedInputAmount,
             bytes32 unshieldRequestHandle
         ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        assertTrue(unshieldRequestHandle != bytes32(0));
 
         _executeSwapIntentWithDefaultRoute(
-            listenerOperator,
-            fixture,
-            intentId,
-            fixture.outputWrapper,
-            decryptedInputAmount,
-            1
+            listenerOperator, fixture, intentId, fixture.outputWrapper, decryptedInputAmount, 1
         );
 
         vm.expectRevert(
@@ -774,12 +750,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         _executeSwapIntentWithDefaultRoute(
-            listenerOperator,
-            fixture,
-            intentId,
-            fixture.outputWrapper,
-            decryptedInputAmount,
-            1
+            listenerOperator, fixture, intentId, fixture.outputWrapper, decryptedInputAmount, 1
         );
     }
 
@@ -946,7 +917,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             bytes32 unshieldRequestHandle
         )
     {
-        (fixture, intentId, decryptedInputAmount, unshieldRequestHandle) = _prepareSwapExecutionFixture(
+        (fixture, intentId, decryptedInputAmount, unshieldRequestHandle) =
+        _prepareSwapExecutionFixture(
             depositAmount, lockAmount, inputLiquidityAmount, outputLiquidityAmount
         );
         _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
@@ -986,9 +958,9 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         )
     {
         (fixture, intentId, decryptedInputAmount, unshieldRequestHandle) =
-            _prepareSwapExecutionFixtureWithoutExecutor(
-                depositAmount, lockAmount, inputLiquidityAmount, outputLiquidityAmount
-            );
+        _prepareSwapExecutionFixtureWithoutExecutor(
+            depositAmount, lockAmount, inputLiquidityAmount, outputLiquidityAmount
+        );
         _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
     }
 

@@ -11,6 +11,7 @@ import {IntentControllerInvariantHandler} from "test/handlers/IntentControllerIn
 import {AlphaEngineIntentControllerTestBase} from
     "test/mocks/AlphaEngineIntentControllerTestBase.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
+import {MockSwapExecutor} from "test/mocks/MockSwapExecutor.sol";
 
 contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentControllerTestBase {
     uint256 private constant USER_STARTING_UNDERLYING = 1_000_000_000e6;
@@ -22,6 +23,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
     MockERC20 internal underlyingB;
     address internal wrapperA;
     address internal wrapperB;
+    MockSwapExecutor internal swapExecutor;
 
     function setUp() public override {
         super.setUp();
@@ -31,6 +33,9 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
 
         vm.prank(owner);
         controller.setConfidentialVault(address(vaultA));
+        swapExecutor = new MockSwapExecutor();
+        vm.prank(owner);
+        controller.setSwapExecutor(address(swapExecutor));
 
         handler = new IntentControllerInvariantHandler(
             controller,
@@ -48,7 +53,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
             updatedListenerOperator
         );
 
-        bytes4[] memory selectors = new bytes4[](11);
+        bytes4[] memory selectors = new bytes4[](13);
         selectors[0] = IntentControllerInvariantHandler.submitStrategyAsA.selector;
         selectors[1] = IntentControllerInvariantHandler.submitStrategyAsB.selector;
         selectors[2] = IntentControllerInvariantHandler.submitSwapAsA.selector;
@@ -60,6 +65,8 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
         selectors[8] = IntentControllerInvariantHandler.rotateListenerToB.selector;
         selectors[9] = IntentControllerInvariantHandler.rotateVaultToA.selector;
         selectors[10] = IntentControllerInvariantHandler.rotateVaultToB.selector;
+        selectors[11] = IntentControllerInvariantHandler.executeSwapAsListenerA.selector;
+        selectors[12] = IntentControllerInvariantHandler.executeSwapAsListenerB.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
@@ -234,6 +241,10 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
         assertEq(
             AlphaEngineConfidentialVault(configuredVault).intentController(), address(controller)
         );
+    }
+
+    function invariant_swapExecutorRemainsConfigured() public view {
+        assertEq(controller.swapExecutor(), address(swapExecutor));
     }
 
     function _prepareSwapVault(string memory salt)

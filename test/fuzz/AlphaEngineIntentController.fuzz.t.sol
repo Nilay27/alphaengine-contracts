@@ -4,12 +4,13 @@ pragma solidity 0.8.26;
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
-import {InEuint64, InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 import {AlphaEngineConfidentialVault} from "src/vault/AlphaEngineConfidentialVault.sol";
 import {AlphaEngineIntentControllerTestBase} from
     "test/mocks/AlphaEngineIntentControllerTestBase.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
+import {MockSwapExecutor} from "test/mocks/MockSwapExecutor.sol";
 
 contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestBase {
     struct StrategyRecordSnapshot {
@@ -28,6 +29,16 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         AlphaEngineConfidentialVault vault;
         address wrapper;
         InEuint64 encryptedInputAmount;
+    }
+
+    struct ExecutableSwapFixture {
+        AlphaEngineConfidentialVault vault;
+        address wrapper;
+        MockSwapExecutor executor;
+        bytes32 intentId;
+        uint64 inputAmount;
+        bytes32 unshieldRequestHandle;
+        uint256 depositAmount;
     }
 
     function testFuzz_nonceMonotonicityAcrossRepeatedSubmits(
@@ -210,6 +221,74 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         );
     }
 
+    function testFuzz_executeSwapIntentMarksExecutedAndConsumesLock(uint64 rawSwapAmount) public {
+        ExecutableSwapFixture memory fixture = _prepareExecutableSwapFixture(rawSwapAmount);
+        taskManager.publishDecryptResult(
+            uint256(fixture.unshieldRequestHandle), fixture.inputAmount, ""
+        );
+
+        vm.prank(listenerOperator);
+        (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) = controller
+            .executeSwapIntent(
+            fixture.intentId,
+            fixture.wrapper,
+            fixture.inputAmount,
+            fixture.inputAmount,
+            "",
+            bytes("")
+        );
+
+        AlphaEngineIntentController.SwapIntentRecord memory swapRecord =
+            controller.getSwapIntent(fixture.intentId);
+        AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
+            fixture.vault.getSwapIntentLock(fixture.intentId);
+        euint64 submitterBalance =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.wrapper).confidentialBalanceOf(submitter);
+
+        assertEq(outputUnderlyingAmount, fixture.inputAmount);
+        assertEq(mockStorage(uint256(shieldedOutputHandle)), fixture.inputAmount);
+        assertEq(mockStorage(uint256(euint64.unwrap(submitterBalance))), fixture.depositAmount);
+        assertEq(uint8(swapRecord.status), uint8(AlphaEngineIntentController.IntentStatus.Executed));
+        assertEq(
+            uint8(intentLock.status),
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed)
+        );
+    }
+
+    function testFuzz_executeSwapIntentPreservesStrategyIntentState(
+        uint128 strategyValue,
+        uint64 rawSwapAmount
+    ) public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
+        bytes32 strategyIntentId = _submit(
+            submitter,
+            marketIdInput,
+            DEFAULT_TIMEFRAME_KEY,
+            _singleInput(strategyValue, submitter),
+            _deadlineAhead(1)
+        );
+        bytes32[] memory strategyHandlesBefore =
+            controller.getIntentComponentHandles(strategyIntentId);
+        StrategyRecordSnapshot memory strategyBefore = _snapshotStrategyRecord(strategyIntentId);
+        ExecutableSwapFixture memory fixture = _prepareExecutableSwapFixture(rawSwapAmount);
+        taskManager.publishDecryptResult(
+            uint256(fixture.unshieldRequestHandle), fixture.inputAmount, ""
+        );
+
+        vm.prank(listenerOperator);
+        controller.executeSwapIntent(
+            fixture.intentId,
+            fixture.wrapper,
+            fixture.inputAmount,
+            fixture.inputAmount,
+            "",
+            bytes("")
+        );
+
+        _assertStrategyRecordEquals(strategyIntentId, strategyBefore);
+        _assertStrategyHandlesEqual(strategyIntentId, strategyHandlesBefore);
+    }
+
     function _prepareSwapFixture(uint64 rawSwapAmount)
         private
         returns (SwapFixture memory fixture)
@@ -237,6 +316,51 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
             vault: vault,
             wrapper: wrapper,
             encryptedInputAmount: createInEuint64(lockAmount, submitter)
+        });
+    }
+
+    function _prepareExecutableSwapFixture(uint64 rawSwapAmount)
+        private
+        returns (ExecutableSwapFixture memory fixture)
+    {
+        uint64 inputAmount = uint64(bound(uint256(rawSwapAmount), 1, 1000));
+        uint256 depositAmount = uint256(inputAmount) + 1000;
+        MockERC20 underlying = new MockERC20("Executable Fuzz USDC", "xefUSDC", 6);
+        AlphaEngineConfidentialVault vault = _deployVault(address(controller));
+        MockSwapExecutor executor = new MockSwapExecutor();
+
+        vm.startPrank(owner);
+        address wrapper = vault.createWrapper(
+            address(underlying), "Encrypted Executable Fuzz USDC", "exefUSDC", ""
+        );
+        controller.setConfidentialVault(address(vault));
+        controller.setSwapExecutor(address(executor));
+        vm.stopPrank();
+
+        underlying.mint(submitter, depositAmount);
+
+        vm.startPrank(submitter);
+        underlying.approve(address(vault), depositAmount);
+        vault.depositAndShield(address(underlying), depositAmount, submitter);
+        AlphaEngineFHERC20ERC20Wrapper(wrapper).setOperator(address(vault), type(uint48).max);
+        vm.stopPrank();
+
+        bytes32 intentId = _submitSwap(
+            submitter,
+            wrapper,
+            DEFAULT_SWAP_ROUTE_KEY,
+            createInEuint64(inputAmount, submitter),
+            _deadlineAhead(2)
+        );
+
+        fixture = ExecutableSwapFixture({
+            vault: vault,
+            wrapper: wrapper,
+            executor: executor,
+            intentId: intentId,
+            inputAmount: inputAmount,
+            unshieldRequestHandle: controller.getSwapIntent(intentId).unshieldRequestHandle,
+            depositAmount: depositAmount
         });
     }
 

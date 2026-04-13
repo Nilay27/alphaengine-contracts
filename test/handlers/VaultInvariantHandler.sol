@@ -8,6 +8,7 @@ import {IFHERC20ERC20Wrapper} from
 import {AlphaEngineConfidentialVault} from "src/vault/AlphaEngineConfidentialVault.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
+import {MockSwapExecutor} from "test/mocks/MockSwapExecutor.sol";
 
 contract VaultInvariantHandler is MockCoFheTest {
     error UnexpectedLockSender(address caller, address expectedAccount);
@@ -36,6 +37,7 @@ contract VaultInvariantHandler is MockCoFheTest {
     address public immutable USER_A;
     address public immutable USER_B;
     uint256 public immutable RATE;
+    MockSwapExecutor public immutable EXECUTOR;
 
     mapping(address account => uint256 units) public shieldedDepositsByAccount;
     mapping(address account => uint256 units) public unshieldRequestedUnitsByAccount;
@@ -66,6 +68,7 @@ contract VaultInvariantHandler is MockCoFheTest {
         USER_A = userA_;
         USER_B = userB_;
         RATE = IFHERC20ERC20Wrapper(wrapper_).rate();
+        EXECUTOR = new MockSwapExecutor();
     }
 
     function depositAsA(uint96 rawAmount) external {
@@ -107,6 +110,36 @@ contract VaultInvariantHandler is MockCoFheTest {
             if (snapshot.vaultClaim) {
                 vaultClaimedSwapUnshieldUnits += snapshot.amount;
             }
+        } catch {}
+    }
+
+    function settleLock(uint8 rawIndex) external {
+        (bytes32 intentId, bool found) = _selectSettleableLock(rawIndex);
+        if (!found) {
+            return;
+        }
+
+        LockSnapshot storage lockEntry = _lockSnapshots[intentId];
+        ClaimSnapshot storage claimEntry = _claimSnapshots[lockEntry.unshieldRequestHandle];
+        taskManager.publishDecryptResult(
+            uint256(lockEntry.unshieldRequestHandle), claimEntry.amount, ""
+        );
+
+        try VAULT.settleSwapIntent(
+            intentId,
+            address(EXECUTOR),
+            WRAPPER,
+            claimEntry.amount,
+            claimEntry.amount * RATE,
+            "",
+            bytes("")
+        ) returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) {
+            assertEq(outputUnderlyingAmount, claimEntry.amount * RATE);
+            assertTrue(shieldedOutputHandle != bytes32(0));
+            lockEntry.expectedStatus = AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed;
+            claimEntry.claimed = true;
+            totalPendingUnshieldUnits -= claimEntry.amount;
+            unshieldRequestedUnitsByAccount[claimEntry.account] -= claimEntry.amount;
         } catch {}
     }
 
@@ -261,6 +294,32 @@ contract VaultInvariantHandler is MockCoFheTest {
         for (uint256 offset = 0; offset < length; ++offset) {
             bytes32 candidate = _claimIds[(startIndex + offset) % length];
             if (!_claimSnapshots[candidate].claimed) {
+                return (candidate, true);
+            }
+        }
+
+        return (bytes32(0), false);
+    }
+
+    function _selectSettleableLock(uint8 rawIndex)
+        private
+        view
+        returns (bytes32 intentId, bool found)
+    {
+        uint256 length = _lockIds.length;
+        if (length == 0) {
+            return (bytes32(0), false);
+        }
+
+        uint256 startIndex = bound(uint256(rawIndex), 0, length - 1);
+        for (uint256 offset = 0; offset < length; ++offset) {
+            bytes32 candidate = _lockIds[(startIndex + offset) % length];
+            LockSnapshot storage snapshot = _lockSnapshots[candidate];
+            if (
+                snapshot.expectedStatus
+                    == AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
+                    && !_claimSnapshots[snapshot.unshieldRequestHandle].claimed
+            ) {
                 return (candidate, true);
             }
         }

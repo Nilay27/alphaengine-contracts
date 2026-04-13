@@ -246,10 +246,38 @@
 - Use 6-decimal assets for the first end-to-end settlement fixture so output shielding remains exact; higher-decimal wrapper rounding and dust policy remain a separate follow-up concern.
 
 ### Remaining Gaps
-- Stateful invariant coverage still stops at submit-side swap accounting; execute-time invariants for claimed input, received output, and shielded output must be added next.
+- Superseded by the later 2026-04-13 parity/invariant entry: execute-time invariants are now implemented for the mock-executor path, while deterministic twin-pool tests cover concrete PoolManager output parity.
 - Current concrete executor coverage is Uniswap v4 exact-input only; no batching, exact-output, UEI, leverage-loop, or result-posting path exists yet.
 
 ### Validation
 - `forge test --offline --match-path test/unit/AlphaEngineIntentController.t.sol`
 - `forge test --offline --match-path test/unit/AlphaEngineConfidentialVault.t.sol`
+- `forge test --offline`
+
+## 2026-04-13 — Twin-pool reference parity and execute-time invariant coverage
+
+### Added
+- `test/integration/AlphaEngineSwapExecutionReference.t.sol` with twin-pool exact-input parity checks:
+  - one direct `PoolSwapTest` reference swap,
+  - one `submitSwapIntent -> executeSwapIntent` path on an identical second pool,
+  - exact `tokenOut` equality assertions in both directions,
+  - minimum-output rejection when `minOutput` exceeds the direct reference quote.
+- Reusable `test/mocks/MockSwapExecutor.sol` for execution-aware fuzz and invariant paths.
+- Controller fuzz coverage for:
+  - successful swap execution status/lock consumption,
+  - strategy-state isolation across swap execution.
+- Controller invariant handler execute selectors for both listener operators.
+- Vault invariant handler settlement selector using same-wrapper settlement through the mock executor.
+- Additional vault invariant checks for consumed-lock claim parity and zero executor residual underlying.
+
+### Decisions
+- Use `PoolSwapTest` as the non-circular deterministic reference path for exact-output parity. This avoids validating `AlphaEngineV4SwapExecutor` with itself.
+- Keep stateful invariant settlement on a same-wrapper path. It exercises claim + consume + re-shield while preserving tight accounting equalities without tracking multi-wrapper output state in the handler.
+- Treat real PoolManager output parity as deterministic integration coverage, not as a random invariant property.
+
+### Validation
+- `forge test --offline --match-path test/integration/AlphaEngineSwapExecutionReference.t.sol`
+- `forge test --offline --match-path test/fuzz/AlphaEngineIntentController.fuzz.t.sol`
+- `forge test --offline --match-path test/invariant/AlphaEngineIntentController.invariant.t.sol`
+- `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`
 - `forge test --offline`

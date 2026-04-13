@@ -42,7 +42,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         _fundAndAuthorize(userA);
         _fundAndAuthorize(userB);
 
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = VaultInvariantHandler.depositAsA.selector;
         selectors[1] = VaultInvariantHandler.depositAsB.selector;
         selectors[2] = VaultInvariantHandler.lockAsA.selector;
@@ -50,6 +50,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         selectors[4] = VaultInvariantHandler.requestUnshieldAsA.selector;
         selectors[5] = VaultInvariantHandler.requestUnshieldAsB.selector;
         selectors[6] = VaultInvariantHandler.claimUnshield.selector;
+        selectors[7] = VaultInvariantHandler.settleLock.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
@@ -131,6 +132,26 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
             assertTrue(snapshot.account == userA || snapshot.account == userB);
             assertTrue(snapshot.amount > 0);
         }
+    }
+
+    function invariant_consumedLocksAlwaysHaveClaimedRequests() public view {
+        uint256 length = handler.lockIdsLength();
+        for (uint256 index = 0; index < length; ++index) {
+            bytes32 intentId = handler.lockIdAt(index);
+            VaultInvariantHandler.LockSnapshot memory snapshot = handler.lockSnapshot(intentId);
+            if (
+                snapshot.expectedStatus
+                    == AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed
+            ) {
+                VaultInvariantHandler.ClaimSnapshot memory claimSnapshot =
+                    handler.claimSnapshot(snapshot.unshieldRequestHandle);
+                assertTrue(claimSnapshot.claimed);
+            }
+        }
+    }
+
+    function invariant_executorDoesNotRetainUnderlying() public view {
+        assertEq(underlying.balanceOf(address(handler.EXECUTOR())), 0);
     }
 
     function invariant_vaultIntentControllerRemainsHandler() public view {

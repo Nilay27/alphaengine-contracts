@@ -16,6 +16,7 @@ import {AlphaEngineConfidentialVault} from "../../src/vault/AlphaEngineConfident
 import {AlphaEngineFHERC20ERC20Wrapper} from "../../src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 import {MockCoFheTest} from "../mocks/MockCoFheTest.sol";
 import {MockERC20, MockSelectiveFeeERC20} from "../mocks/MockERC20.sol";
+import {MockSwapExecutor} from "../mocks/MockSwapExecutor.sol";
 
 contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
     struct SettlementFixture {
@@ -760,19 +761,14 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
             euint64.wrap(bytes32(0))
         );
 
-        (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) = _settleSwapIntent(
-            fixture,
-            decryptedInputAmount,
-            1,
-            abi.encode(outputAmount)
-        );
+        (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) =
+            _settleSwapIntent(fixture, decryptedInputAmount, 1, abi.encode(outputAmount));
 
         AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
             vault.getSwapIntentLock(fixture.intentId);
-        FHERC20WrapperClaimHelper.Claim memory inputClaim =
-            AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).getClaim(
-                fixture.unshieldRequestHandle
-            );
+        FHERC20WrapperClaimHelper.Claim memory inputClaim = AlphaEngineFHERC20ERC20Wrapper(
+            fixture.inputWrapper
+        ).getClaim(fixture.unshieldRequestHandle);
         euint64 outputBalance =
             AlphaEngineFHERC20ERC20Wrapper(fixture.outputWrapper).confidentialBalanceOf(user);
 
@@ -1069,22 +1065,6 @@ contract VaultIntentControllerHarness {
             decryptionProof,
             executionData
         );
-    }
-}
-
-contract MockSwapExecutor {
-    using SafeERC20 for IERC20;
-
-    function executeExactInput(
-        address,
-        address outputToken,
-        uint256,
-        uint256 minAmountOut,
-        address recipient,
-        bytes calldata executionData
-    ) external returns (uint256 amountOut) {
-        amountOut = executionData.length == 0 ? minAmountOut : abi.decode(executionData, (uint256));
-        IERC20(outputToken).safeTransfer(recipient, amountOut);
     }
 }
 

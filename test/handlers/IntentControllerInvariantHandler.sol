@@ -122,6 +122,14 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         _submitSwap(SUBMITTER_B, rawAmount);
     }
 
+    function executeSwapAsListenerA(uint8 rawIndex) external {
+        _executeSwap(LISTENER_A, rawIndex);
+    }
+
+    function executeSwapAsListenerB(uint8 rawIndex) external {
+        _executeSwap(LISTENER_B, rawIndex);
+    }
+
     function cancelStrategyAsOwner(uint8 rawIndex) external {
         _cancelStrategy(OWNER, rawIndex);
     }
@@ -242,6 +250,35 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         } catch {}
     }
 
+    function _executeSwap(address listener, uint8 rawIndex) private {
+        (bytes32 intentId, bool found) = _selectActiveSwapIntent(rawIndex);
+        if (!found) {
+            return;
+        }
+
+        SwapSnapshot storage swapEntry = _swapSnapshots[intentId];
+        LockSnapshot storage lockEntry = _lockSnapshots[intentId];
+        uint64 decryptedInputAmount = uint64(mockStorage(uint256(lockEntry.unshieldRequestHandle)));
+        taskManager.publishDecryptResult(
+            uint256(lockEntry.unshieldRequestHandle), decryptedInputAmount, ""
+        );
+
+        vm.prank(listener);
+        try CONTROLLER.executeSwapIntent(
+            intentId,
+            swapEntry.inputWrapper,
+            decryptedInputAmount,
+            decryptedInputAmount,
+            "",
+            bytes("")
+        ) returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) {
+            assertEq(outputUnderlyingAmount, decryptedInputAmount);
+            assertTrue(shieldedOutputHandle != bytes32(0));
+            swapEntry.expectedStatus = AlphaEngineIntentController.IntentStatus.Executed;
+            lockEntry.expectedStatus = AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed;
+        } catch {}
+    }
+
     function _setListenerOperator(address listenerOperator) private {
         vm.prank(OWNER);
         try CONTROLLER.setListenerOperator(listenerOperator) {} catch {}
@@ -342,5 +379,29 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         }
 
         return (VAULT_A, WRAPPER_A);
+    }
+
+    function _selectActiveSwapIntent(uint8 rawIndex)
+        private
+        view
+        returns (bytes32 intentId, bool found)
+    {
+        uint256 length = _swapIntentIds.length;
+        if (length == 0) {
+            return (bytes32(0), false);
+        }
+
+        uint256 startIndex = bound(uint256(rawIndex), 0, length - 1);
+        for (uint256 offset = 0; offset < length; ++offset) {
+            bytes32 candidate = _swapIntentIds[(startIndex + offset) % length];
+            if (
+                _swapSnapshots[candidate].expectedStatus
+                    == AlphaEngineIntentController.IntentStatus.Active
+            ) {
+                return (candidate, true);
+            }
+        }
+
+        return (bytes32(0), false);
     }
 }
