@@ -37,15 +37,15 @@ Foundry is the only framework in v1.
 ## Confidential swap/vault policy
 
 - Use official Fhenix FHERC20 / confidential token behavior as the target surface; do not test against a revived hookathon `HybridFHERC20`.
-- Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield request/claim, atomic swap lock plus immediate encrypted-amount unshield request, logical consume on settlement, and output confidential credit/mint once the output path exists.
+- Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield request/claim, atomic swap lock plus immediate encrypted-amount unshield request, actual swap settlement, and output confidential credit/mint.
 - Deposit/shield tests must assert exact `rate()` multiples and reject fee-on-transfer or other balance-drift behavior.
 - Controller/vault integration tests must assert the intent controller never receives token custody, validates configured vault identity, and stores the canonical FHERC20 returned transfer handle.
 - Controller swap-intent tests must verify the user's `InEuint64`, grant the vault handle access, and then lock through `lockForSwapIntent(...)` with the verified `euint64`.
-- `routeKey` tests are intentionally limited to event/state parity until PoolManager execution-template semantics are finalized.
+- `routeKey` tests remain limited to event/state parity; the concrete route execution is passed in executor-specific calldata rather than decoded from `routeKey`.
 - Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, expired deadline, and zero or invalid returned lock/unshield result where detectable.
-- Fuzz tests must cover submit/consume ordering, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
+- Fuzz tests must cover submit/execute ordering, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
 - Invariant tests must assert submitted swap intents immediately enter `UnshieldRequested`, cross-family intent isolation holds, wrapper mappings remain stable, vault confidential escrow is zero after auto-unshield, and reserve/escrow accounting never goes negative.
-- PoolManager swap execution tests must not be added until the vault locking model is fully covered.
+- PoolManager swap execution tests now live behind the dedicated executor boundary and must continue to avoid importing Uniswap into the controller or vault.
 
 ## External protocol fixture policy
 

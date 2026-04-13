@@ -9,10 +9,17 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {PoolManager} from "@uniswap/v4-core/src/PoolManager.sol";
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
+import {PoolModifyLiquidityTest} from "@uniswap/v4-core/src/test/PoolModifyLiquidityTest.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
 import {InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {FHERC20WrapperClaimHelper} from
     "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaimHelper.sol";
+import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 import {AlphaEngineConfidentialVault} from "src/vault/AlphaEngineConfidentialVault.sol";
 import {AlphaEngineIntentControllerTestBase} from
@@ -20,11 +27,37 @@ import {AlphaEngineIntentControllerTestBase} from
 import {MockERC20} from "test/mocks/MockERC20.sol";
 
 contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestBase {
+    uint160 private constant SQRT_PRICE_1_1 = 79_228_162_514_264_337_593_543_950_336;
+
     struct SwapFixture {
         AlphaEngineConfidentialVault vault;
         MockERC20 underlying;
         address wrapper;
     }
+
+    struct SwapExecutionFixture {
+        AlphaEngineConfidentialVault vault;
+        MockERC20 inputUnderlying;
+        address inputWrapper;
+        MockERC20 outputUnderlying;
+        address outputWrapper;
+        PoolManager poolManager;
+        PoolModifyLiquidityTest liquidityRouter;
+        AlphaEngineV4SwapExecutor executor;
+        PoolKey poolKey;
+        bool zeroForOne;
+    }
+
+    event SwapExecutorUpdated(address indexed previousExecutor, address indexed newExecutor);
+    event SwapIntentExecuted(
+        bytes32 indexed intentId,
+        address indexed operator,
+        address indexed outputWrapper,
+        bytes32 routeKey,
+        uint64 decryptedInputAmount,
+        uint256 outputUnderlyingAmount,
+        bytes32 shieldedOutputHandle
+    );
 
     function test_constructorDisablesImplementationInitializer() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
@@ -305,6 +338,49 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         controller.setConfidentialVault(address(newVault));
     }
 
+    function test_setSwapExecutorUpdatesStateAndEmitsEvent() public {
+        AlphaEngineV4SwapExecutor executor = new AlphaEngineV4SwapExecutor(
+            IPoolManager(address(new PoolManager(owner))), owner, owner
+        );
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, false, false);
+        emit SwapExecutorUpdated(address(0), address(executor));
+        controller.setSwapExecutor(address(executor));
+
+        assertEq(controller.swapExecutor(), address(executor));
+    }
+
+    function test_setSwapExecutorRejectsZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(AlphaEngineIntentController.ZeroSwapExecutor.selector);
+        controller.setSwapExecutor(address(0));
+    }
+
+    function test_setSwapExecutorRejectsNonContract() public {
+        address invalidExecutor = makeAddr("invalidExecutor");
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.InvalidSwapExecutor.selector, invalidExecutor
+            )
+        );
+        controller.setSwapExecutor(invalidExecutor);
+    }
+
+    function test_setSwapExecutorRejectsUnauthorizedCaller() public {
+        AlphaEngineV4SwapExecutor executor = new AlphaEngineV4SwapExecutor(
+            IPoolManager(address(new PoolManager(owner))), owner, owner
+        );
+
+        vm.prank(outsider);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, outsider)
+        );
+        controller.setSwapExecutor(address(executor));
+    }
+
     function test_submitSwapIntentLocksVaultAndAutoRequestsUnshield() public {
         (SwapFixture memory fixture, InEuint64 memory encryptedInputAmount) =
             _prepareSwapFixture(100e6, 40e6);
@@ -510,6 +586,203 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         );
     }
 
+    function test_executeSwapIntentClaimsSwapsAndShieldsOutput() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+
+        vm.recordLogs();
+        (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) = _executeSwapIntentWithDefaultRoute(
+            listenerOperator,
+            fixture,
+            intentId,
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            1
+        );
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        AlphaEngineIntentController.SwapIntentRecord memory swapRecord =
+            controller.getSwapIntent(intentId);
+        AlphaEngineConfidentialVault.SwapIntentLock memory vaultLock =
+            fixture.vault.getSwapIntentLock(intentId);
+        FHERC20WrapperClaimHelper.Claim memory inputClaim =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).getClaim(unshieldRequestHandle);
+
+        assertEq(uint8(swapRecord.status), uint8(AlphaEngineIntentController.IntentStatus.Executed));
+        assertEq(
+            uint8(vaultLock.status),
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed)
+        );
+        assertTrue(inputClaim.claimed);
+        assertEq(fixture.inputUnderlying.balanceOf(address(fixture.vault)), 0);
+        assertEq(mockStorage(uint256(shieldedOutputHandle)), outputUnderlyingAmount);
+
+        euint64 outputBalance =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.outputWrapper).confidentialBalanceOf(submitter);
+        assertEq(mockStorage(uint256(euint64.unwrap(outputBalance))), outputUnderlyingAmount);
+        assertEq(fixture.outputUnderlying.balanceOf(fixture.outputWrapper), outputUnderlyingAmount);
+
+        _assertSwapExecutionLog(
+            logs,
+            intentId,
+            listenerOperator,
+            fixture.outputWrapper,
+            DEFAULT_SWAP_ROUTE_KEY,
+            decryptedInputAmount,
+            outputUnderlyingAmount,
+            shieldedOutputHandle
+        );
+    }
+
+    function test_executeSwapIntentRejectsUnauthorizedCaller() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.UnauthorizedListenerOperator.selector, outsider
+            )
+        );
+        _executeSwapIntentWithDefaultRoute(
+            outsider,
+            fixture,
+            intentId,
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            1
+        );
+    }
+
+    function test_executeSwapIntentRejectsUnsetSwapExecutor() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareExecutableSwapIntentWithoutExecutor(
+            100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6
+        );
+
+        vm.expectRevert(AlphaEngineIntentController.ZeroSwapExecutor.selector);
+        _executeSwapIntentWithDefaultRoute(
+            listenerOperator,
+            fixture,
+            intentId,
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            1
+        );
+    }
+
+    function test_executeSwapIntentRejectsUnknownIntent() public {
+        PoolManager poolManager = new PoolManager(owner);
+        AlphaEngineV4SwapExecutor executor = new AlphaEngineV4SwapExecutor(
+            IPoolManager(address(poolManager)), owner, makeAddr("authorizedCaller")
+        );
+
+        vm.prank(owner);
+        controller.setSwapExecutor(address(executor));
+
+        vm.prank(listenerOperator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.SwapIntentNotFound.selector, keccak256("unknown-swap")
+            )
+        );
+        controller.executeSwapIntent(
+            keccak256("unknown-swap"), makeAddr("outputWrapper"), 1, 1, "", bytes("")
+        );
+    }
+
+    function test_executeSwapIntentRejectsZeroOutputWrapper() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+
+        vm.expectRevert(AlphaEngineIntentController.ZeroOutputWrapper.selector);
+        _executeSwapIntentWithDefaultRoute(
+            listenerOperator,
+            fixture,
+            intentId,
+            address(0),
+            decryptedInputAmount,
+            1
+        );
+    }
+
+    function test_executeSwapIntentRejectsExpiredIntent() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        uint40 deadline = controller.getSwapIntent(intentId).deadline;
+        vm.warp(block.timestamp + 2 hours);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.IntentExpired.selector,
+                intentId,
+                deadline,
+                uint40(block.timestamp)
+            )
+        );
+        _executeSwapIntentWithDefaultRoute(
+            listenerOperator,
+            fixture,
+            intentId,
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            1
+        );
+    }
+
+    function test_executeSwapIntentRejectsAlreadyExecutedIntent() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+
+        _executeSwapIntentWithDefaultRoute(
+            listenerOperator,
+            fixture,
+            intentId,
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            1
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.SwapIntentNotActive.selector,
+                intentId,
+                AlphaEngineIntentController.IntentStatus.Executed
+            )
+        );
+        _executeSwapIntentWithDefaultRoute(
+            listenerOperator,
+            fixture,
+            intentId,
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            1
+        );
+    }
+
     function test_cancelAllowsSubmitterAndEmitsEvent() public {
         InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 intentId = _submit(
@@ -640,6 +913,125 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         );
     }
 
+    function _prepareSwapExecutionFixture(
+        uint256 depositAmount,
+        uint64 lockAmount,
+        uint256 inputLiquidityAmount,
+        uint256 outputLiquidityAmount
+    )
+        private
+        returns (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        )
+    {
+        return _prepareSwapExecutionFixtureInternal(
+            depositAmount, lockAmount, inputLiquidityAmount, outputLiquidityAmount, true
+        );
+    }
+
+    function _prepareExecutableSwapIntent(
+        uint256 depositAmount,
+        uint64 lockAmount,
+        uint256 inputLiquidityAmount,
+        uint256 outputLiquidityAmount
+    )
+        private
+        returns (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        )
+    {
+        (fixture, intentId, decryptedInputAmount, unshieldRequestHandle) = _prepareSwapExecutionFixture(
+            depositAmount, lockAmount, inputLiquidityAmount, outputLiquidityAmount
+        );
+        _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+    }
+
+    function _prepareSwapExecutionFixtureWithoutExecutor(
+        uint256 depositAmount,
+        uint64 lockAmount,
+        uint256 inputLiquidityAmount,
+        uint256 outputLiquidityAmount
+    )
+        private
+        returns (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        )
+    {
+        return _prepareSwapExecutionFixtureInternal(
+            depositAmount, lockAmount, inputLiquidityAmount, outputLiquidityAmount, false
+        );
+    }
+
+    function _prepareExecutableSwapIntentWithoutExecutor(
+        uint256 depositAmount,
+        uint64 lockAmount,
+        uint256 inputLiquidityAmount,
+        uint256 outputLiquidityAmount
+    )
+        private
+        returns (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        )
+    {
+        (fixture, intentId, decryptedInputAmount, unshieldRequestHandle) =
+            _prepareSwapExecutionFixtureWithoutExecutor(
+                depositAmount, lockAmount, inputLiquidityAmount, outputLiquidityAmount
+            );
+        _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+    }
+
+    function _prepareSwapExecutionFixtureInternal(
+        uint256 depositAmount,
+        uint64 lockAmount,
+        uint256 inputLiquidityAmount,
+        uint256 outputLiquidityAmount,
+        bool configureExecutor
+    )
+        private
+        returns (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        )
+    {
+        fixture = _deploySwapExecutionFixture(
+            inputLiquidityAmount, outputLiquidityAmount, configureExecutor
+        );
+        fixture.inputUnderlying.mint(submitter, depositAmount);
+
+        vm.startPrank(submitter);
+        fixture.inputUnderlying.approve(address(fixture.vault), depositAmount);
+        fixture.vault.depositAndShield(address(fixture.inputUnderlying), depositAmount, submitter);
+        AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).setOperator(
+            address(fixture.vault), uint48(block.timestamp + 1 hours)
+        );
+        vm.stopPrank();
+
+        decryptedInputAmount = lockAmount;
+        InEuint64 memory encryptedInputAmount = createInEuint64(lockAmount, submitter);
+        intentId = _submitSwap(
+            submitter,
+            fixture.inputWrapper,
+            DEFAULT_SWAP_ROUTE_KEY,
+            encryptedInputAmount,
+            _deadlineAhead(1 hours)
+        );
+        unshieldRequestHandle = controller.getSwapIntent(intentId).unshieldRequestHandle;
+    }
+
     function _prepareSwapFixture(uint256 depositAmount, uint64 lockAmount)
         private
         returns (SwapFixture memory fixture, InEuint64 memory encryptedInputAmount)
@@ -682,6 +1074,153 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         vault = _deployControllerVault();
         vm.prank(owner);
         controller.setConfidentialVault(address(vault));
+    }
+
+    function _deploySwapExecutionFixture(
+        uint256 inputLiquidityAmount,
+        uint256 outputLiquidityAmount,
+        bool configureExecutor
+    ) private returns (SwapExecutionFixture memory fixture) {
+        fixture.inputUnderlying = new MockERC20("USD Coin", "USDC", 6);
+        fixture.outputUnderlying = new MockERC20("Tether USD", "USDT", 6);
+        fixture.vault = _deployControllerVault();
+        fixture.poolManager = new PoolManager(owner);
+        fixture.liquidityRouter =
+            new PoolModifyLiquidityTest(IPoolManager(address(fixture.poolManager)));
+
+        vm.startPrank(owner);
+        fixture.inputWrapper = fixture.vault.createWrapper(
+            address(fixture.inputUnderlying), "Encrypted USDC", "eUSDC", ""
+        );
+        fixture.outputWrapper = fixture.vault.createWrapper(
+            address(fixture.outputUnderlying), "Encrypted USDT", "eUSDT", ""
+        );
+        controller.setConfidentialVault(address(fixture.vault));
+        fixture.executor = new AlphaEngineV4SwapExecutor(
+            IPoolManager(address(fixture.poolManager)), owner, address(fixture.vault)
+        );
+        if (configureExecutor) {
+            controller.setSwapExecutor(address(fixture.executor));
+        }
+        vm.stopPrank();
+
+        fixture.inputUnderlying.mint(address(this), inputLiquidityAmount);
+        fixture.outputUnderlying.mint(address(this), outputLiquidityAmount);
+        fixture.inputUnderlying.approve(address(fixture.liquidityRouter), type(uint256).max);
+        fixture.outputUnderlying.approve(address(fixture.liquidityRouter), type(uint256).max);
+
+        Currency inputCurrency = Currency.wrap(address(fixture.inputUnderlying));
+        Currency outputCurrency = Currency.wrap(address(fixture.outputUnderlying));
+        if (address(fixture.inputUnderlying) < address(fixture.outputUnderlying)) {
+            fixture.poolKey = PoolKey({
+                currency0: inputCurrency,
+                currency1: outputCurrency,
+                fee: 3000,
+                tickSpacing: 60,
+                hooks: IHooks(address(0))
+            });
+            fixture.zeroForOne = true;
+        } else {
+            fixture.poolKey = PoolKey({
+                currency0: outputCurrency,
+                currency1: inputCurrency,
+                fee: 3000,
+                tickSpacing: 60,
+                hooks: IHooks(address(0))
+            });
+            fixture.zeroForOne = false;
+        }
+
+        fixture.poolManager.initialize(fixture.poolKey, SQRT_PRICE_1_1);
+        fixture.liquidityRouter.modifyLiquidity(
+            fixture.poolKey,
+            IPoolManager.ModifyLiquidityParams({
+                tickLower: -120,
+                tickUpper: 120,
+                liquidityDelta: 1e12,
+                salt: bytes32(0)
+            }),
+            ""
+        );
+    }
+
+    function _defaultExecutionData(PoolKey memory poolKey, bool zeroForOne)
+        private
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(
+            AlphaEngineV4SwapExecutor.ExactInputParams({
+                key: poolKey,
+                zeroForOne: zeroForOne,
+                sqrtPriceLimitX96: 0,
+                hookData: ""
+            })
+        );
+    }
+
+    function _publishSwapDecryptResult(bytes32 unshieldRequestHandle, uint64 decryptedInputAmount)
+        private
+    {
+        taskManager.publishDecryptResult(uint256(unshieldRequestHandle), decryptedInputAmount, "");
+    }
+
+    function _executeSwapIntentWithDefaultRoute(
+        address caller,
+        SwapExecutionFixture memory fixture,
+        bytes32 intentId,
+        address outputWrapper,
+        uint64 decryptedInputAmount,
+        uint64 minOutputAmount
+    ) private returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) {
+        vm.prank(caller);
+        return controller.executeSwapIntent(
+            intentId,
+            outputWrapper,
+            decryptedInputAmount,
+            minOutputAmount,
+            "",
+            _defaultExecutionData(fixture.poolKey, fixture.zeroForOne)
+        );
+    }
+
+    function _assertSwapExecutionLog(
+        Vm.Log[] memory logs,
+        bytes32 expectedIntentId,
+        address expectedOperator,
+        address expectedOutputWrapper,
+        bytes32 expectedRouteKey,
+        uint64 expectedDecryptedInputAmount,
+        uint256 expectedOutputUnderlyingAmount,
+        bytes32 expectedShieldedOutputHandle
+    ) private pure {
+        bool found;
+        bytes32 topic =
+            keccak256("SwapIntentExecuted(bytes32,address,address,bytes32,uint64,uint256,bytes32)");
+
+        for (uint256 index = 0; index < logs.length; ++index) {
+            Vm.Log memory logEntry = logs[index];
+            if (logEntry.topics.length == 4 && logEntry.topics[0] == topic) {
+                found = true;
+                assertEq(logEntry.topics[1], expectedIntentId);
+                assertEq(address(uint160(uint256(logEntry.topics[2]))), expectedOperator);
+                assertEq(address(uint160(uint256(logEntry.topics[3]))), expectedOutputWrapper);
+
+                (
+                    bytes32 routeKey,
+                    uint64 decryptedInputAmount,
+                    uint256 outputUnderlyingAmount,
+                    bytes32 shieldedOutputHandle
+                ) = abi.decode(logEntry.data, (bytes32, uint64, uint256, bytes32));
+                assertEq(routeKey, expectedRouteKey);
+                assertEq(decryptedInputAmount, expectedDecryptedInputAmount);
+                assertEq(outputUnderlyingAmount, expectedOutputUnderlyingAmount);
+                assertEq(shieldedOutputHandle, expectedShieldedOutputHandle);
+                break;
+            }
+        }
+
+        assertTrue(found, "SwapIntentExecuted log not found");
     }
 
     function _deployControllerVault() private returns (AlphaEngineConfidentialVault vault) {

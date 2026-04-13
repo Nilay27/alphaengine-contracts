@@ -85,6 +85,7 @@ For the current swap lock family, the listener-facing event shape is:
 - `confidentialVault`
 - `routeKey`
 - `lockedAmountHandle`
+- `unshieldRequestHandle`
 - `deadline`
 - `payloadHash`
 - `submitterNonce`
@@ -118,5 +119,7 @@ Current vault lock semantics are intentionally narrow:
 - `lockForSwapIntent(...)` now performs the FHERC20 transfer and then immediately calls the temporary encrypted-amount unshield overload in the same transaction.
 - After a successful swap submit, the vault lock is already in `UnshieldRequested` state and records both the actual returned locked handle and the actual returned unshield request handle.
 - Swap intent submission is therefore final in the current architecture; there is no `cancelSwapIntent(...)` refund path.
-- `consumeSwapIntentLock(...)` is a later settlement marker for an already unshield-requested swap lock; final claim, PoolManager execution, and output confidential credit are not implemented yet.
+- `executeSwapIntent(...)` is listener-operator-only and routes through the recorded vault plus a separately configured executor boundary.
+- `settleSwapIntent(...)` on the vault claims the actual unshield handle, transfers exact underlying input into the executor, receives output underlying back to vault custody, and shields output confidential balance to the original submitter.
+- `AlphaEngineV4SwapExecutor` is the first concrete executor boundary and is the only contract that imports `v4-core` in the current swap path.
 - Vault rotation affects future swap submissions only because each `SwapIntentRecord` stores the vault used for that intent.

@@ -10,7 +10,7 @@ The current implementation has two stateful domains:
 - `AlphaEngineIntentController`: strategy and swap-intent lifecycle.
 - `AlphaEngineConfidentialVault`: FHERC20 wrapper registry, deposit/shield, unshield delegation, and swap-intent escrow locks.
 
-PoolManager swap execution, batching, output minting, leverage/UEI families, and settlement result posting are not implemented yet. Their invariants are listed as future sections so they are not forgotten, but they must not be asserted until the corresponding production code exists.
+Exact-input swap settlement through a separate executor boundary is now implemented, but the invariant harnesses still focus on submit-side custody and pre-execution lock relationships. Batching, leverage/UEI families, and settlement result posting are still not implemented.
 
 ## Notation
 
@@ -622,18 +622,24 @@ X[id].lockedAmountHandle == euint64.unwrap(VL[X[id].confidentialVault][id].locke
 X[id].unshieldRequestHandle == euint64.unwrap(VL[X[id].confidentialVault][id].unshieldRequestHandle)
 ```
 
-### Consume Exactness
+### Settlement Consume Exactness
 
-For the current implementation, `consumeSwapIntentLock(...)` only marks an already-unshield-requested lock as non-refundable.
+For the current implementation, `settleSwapIntent(...)` is the only path that moves an already-unshield-requested lock into `Consumed`.
 
 Expression:
 
 ```text
-cbal(W, address(V))' == cbal(W, address(V))
-VL[V][id].status' == SwapIntentLockStatus.Consumed
+status(VL[V][id]) == UnshieldRequested
+-> after settleSwapIntent(...)
+status(VL[V][id])' == Consumed
 ```
 
-Future settlement finalize may replace or extend this with claim/output-credit accounting. That change must update this ledger before implementation.
+Current unit-tested settlement path also enforces:
+
+```text
+claimedUnderlying == decryptedInputAmount * rate(inputWrapper)
+shieldedOutputUnits == outputUnderlyingAmount / rate(outputWrapper)
+```
 
 ### Swap Unshield Request Handle
 
@@ -668,7 +674,7 @@ No lock may be unlocked or consumed more than once.
 Expressions:
 
 ```text
-status(id) == Consumed -> consumeSwapIntentLock(id) reverts
+status(id) == Consumed -> settleSwapIntent(id, ...) reverts
 ```
 
 ### Vault Escrow Balance Conservation
@@ -923,22 +929,23 @@ euint64.unwrap(event.consumedAmount) == originalLockHandle[id]
 
 ## Future Settlement Invariants
 
-These must be finalized before adding PoolManager execution or output minting.
+These must be finalized before adding execute-time invariant selectors for the concrete executor path.
 
 ### Settlement Status
 
-Do not use `Cancelled` to mean settled. Add an explicit settlement state or settlement record.
+Do not use `Cancelled` to mean settled. The current implementation uses `IntentStatus.Executed` for swap intents and `SwapIntentLockStatus.Consumed` for the vault lock.
 
-Required future state machine:
+Current implemented swap state machine:
 
 ```text
-Unset -> Locked -> Cancelled/Unlocked
-Unset -> Locked -> Settled/Consumed
+Unset -> Active submit
+Active submit -> UnshieldRequested lock
+UnshieldRequested lock -> Executed/Consumed
 ```
 
 ### Settlement Accounting
 
-For exact-input settlement, future invariants must specify:
+For exact-input settlement, future execute invariants must specify:
 
 ```text
 inputLockedUnits == inputConsumedUnits
@@ -954,22 +961,22 @@ sum(userInputConsumed) == batchInputConsumed
 sum(userOutputCredited) <= batchOutputReceivedAfterFees
 ```
 
-No batching or PoolManager invariant may be asserted until the corresponding contracts exist.
+No batching invariant may be asserted until the corresponding contracts exist. PoolManager execution invariants should be added next through the dedicated executor boundary.
 
 ## Implementation Status and Next Test Step
 
-Implemented as of 2026-04-10:
+Implemented as of 2026-04-13:
 
 1. The controller invariant handler covers both strategy and swap submissions/cancellations.
 2. Cross-family id and handle isolation is asserted for known strategy and swap ids.
 3. Vault rotation is included in the controller invariant handler; historical swap records remain tied to their recorded vault.
-4. A vault invariant handler covers one registered wrapper, two tracked users, deposits, locks, unlocks, consume, unshield requests, and unshield claims.
+4. A vault invariant handler covers one registered wrapper, two tracked users, deposits, locks, unshield requests, and unshield claims.
 5. Vault accounting conservation checks use `mockStorage` values from the local CoFHE test harness.
 6. Pending unshield units are tracked explicitly and included in wrapper reserve conservation.
 
 Next invariant work:
 
-1. Add route/settlement invariants only after `routeKey` is replaced by finalized execution-template semantics.
-2. Add output-mint and burn/unshield invariants only when settlement code exists.
+1. Add execute-time invariants for claim amount, output receipt, and shielded output through the executor boundary.
+2. Keep `routeKey` metadata-only in invariants until/if a canonical on-chain route registry exists.
 3. Add batch-level conservation invariants only when batching exists.
 4. Do not randomize vault `setIntentController(...)` while active locks exist unless the contract first gains an explicit unlockability-preserving rotation design.

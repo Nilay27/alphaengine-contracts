@@ -14,6 +14,7 @@ import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "../fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 import {IAlphaEngineEncryptedUnshieldFHERC20Wrapper} from
     "../interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
+import {IAlphaEngineSwapExecutor} from "../interfaces/IAlphaEngineSwapExecutor.sol";
 
 contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
@@ -60,6 +61,13 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
     error UnexpectedUnderlyingBalance(
         address account, address underlying, uint256 expectedBalance, uint256 actualBalance
     );
+    error InvalidSwapExecutor(address executor);
+    error UnexpectedClaimedUnderlyingAmount(
+        address underlying, uint256 expectedAmount, uint256 actualAmount
+    );
+    error UnexpectedSettlementOutputAmount(
+        address underlying, uint256 expectedAmount, uint256 actualAmount
+    );
 
     event IntentControllerUpdated(
         address indexed previousIntentController, address indexed newIntentController
@@ -100,6 +108,14 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         address indexed account,
         address indexed inputWrapper,
         euint64 unshieldRequestHandle
+    );
+    event SwapIntentSettled(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed outputWrapper,
+        uint64 decryptedInputAmount,
+        uint256 outputUnderlyingAmount,
+        euint64 shieldedOutputAmount
     );
 
     address public intentController;
@@ -304,20 +320,88 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         _requestSwapIntentUnshield(intentId, _swapIntentLocks[intentId]);
     }
 
-    function consumeSwapIntentLock(bytes32 intentId)
+    function settleSwapIntent(
+        bytes32 intentId,
+        address executor,
+        address outputWrapper,
+        uint64 decryptedInputAmount,
+        uint256 minOutputAmount,
+        bytes calldata decryptionProof,
+        bytes calldata executionData
+    )
         external
         onlyIntentController
         whenNotPaused
-        returns (euint64 consumedAmount)
+        returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle)
     {
+        if (executor == address(0) || executor.code.length == 0) {
+            revert InvalidSwapExecutor(executor);
+        }
+        _registeredUnderlyingForWrapper(outputWrapper);
+        if (decryptedInputAmount == 0) {
+            revert ZeroAmount();
+        }
+
         SwapIntentLock storage intentLock =
             _swapIntentLockInStatus(intentId, SwapIntentLockStatus.UnshieldRequested);
+        address inputUnderlying = _registeredUnderlyingForWrapper(intentLock.wrapper);
+        uint256 inputRate = _readWrapperRate(intentLock.wrapper);
+        uint256 claimedUnderlyingAmount = uint256(decryptedInputAmount) * inputRate;
 
-        consumedAmount = intentLock.lockedAmount;
+        IERC20 inputToken = IERC20(inputUnderlying);
+        uint256 inputVaultBalanceBefore = inputToken.balanceOf(address(this));
+        _claimUnshielded(
+            intentLock.wrapper,
+            euint64.unwrap(intentLock.unshieldRequestHandle),
+            decryptedInputAmount,
+            decryptionProof
+        );
+
+        uint256 inputVaultBalanceAfterClaim = inputToken.balanceOf(address(this));
+        uint256 actualClaimedUnderlyingAmount =
+            inputVaultBalanceAfterClaim - inputVaultBalanceBefore;
+        if (actualClaimedUnderlyingAmount != claimedUnderlyingAmount) {
+            revert UnexpectedClaimedUnderlyingAmount(
+                inputUnderlying, claimedUnderlyingAmount, actualClaimedUnderlyingAmount
+            );
+        }
+
+        inputToken.safeTransfer(executor, claimedUnderlyingAmount);
+
+        address outputUnderlying = _registeredUnderlyingForWrapper(outputWrapper);
+        IERC20 outputToken = IERC20(outputUnderlying);
+        uint256 outputVaultBalanceBefore = outputToken.balanceOf(address(this));
+        outputUnderlyingAmount = IAlphaEngineSwapExecutor(executor).executeExactInput(
+            inputUnderlying,
+            outputUnderlying,
+            claimedUnderlyingAmount,
+            minOutputAmount,
+            address(this),
+            executionData
+        );
+        uint256 actualOutputUnderlyingAmount =
+            outputToken.balanceOf(address(this)) - outputVaultBalanceBefore;
+        if (actualOutputUnderlyingAmount != outputUnderlyingAmount) {
+            revert UnexpectedSettlementOutputAmount(
+                outputUnderlying, outputUnderlyingAmount, actualOutputUnderlyingAmount
+            );
+        }
+
+        euint64 shieldedOutputAmount =
+            _shieldOutputForSettlement(outputWrapper, intentLock.account, outputUnderlyingAmount);
+        shieldedOutputHandle = euint64.unwrap(shieldedOutputAmount);
+
         intentLock.status = SwapIntentLockStatus.Consumed;
-
         emit SwapIntentLockConsumed(
-            intentId, intentLock.account, intentLock.wrapper, consumedAmount
+            intentId, intentLock.account, intentLock.wrapper, intentLock.lockedAmount
+        );
+        emit SwapIntentSettled(
+            intentId,
+            intentLock.account,
+            outputWrapper,
+            decryptedInputAmount,
+            outputUnderlyingAmount,
+            shieldedOutputAmount
         );
     }
 
@@ -439,6 +523,47 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         emit SwapIntentUnshieldRequested(
             intentId, intentLock.account, intentLock.wrapper, unshieldRequestHandle
         );
+    }
+
+    function _claimUnshielded(
+        address wrapper,
+        bytes32 unshieldRequestId,
+        uint64 decryptedAmount,
+        bytes calldata decryptionProof
+    ) private {
+        IFHERC20ERC20Wrapper(wrapper).claimUnshielded(
+            unshieldRequestId, decryptedAmount, decryptionProof
+        );
+
+        emit UnshieldClaimed(wrapper, unshieldRequestId, decryptedAmount);
+    }
+
+    function _shieldOutputForSettlement(address outputWrapper, address recipient, uint256 amount)
+        private
+        returns (euint64 shieldedAmount)
+    {
+        if (recipient == address(0)) {
+            revert ZeroRecipient();
+        }
+        if (amount == 0) {
+            revert ZeroAmount();
+        }
+
+        address outputUnderlying = _registeredUnderlyingForWrapper(outputWrapper);
+        uint256 rate = _readWrapperRate(outputWrapper);
+        if (amount % rate != 0) {
+            revert AmountNotMultipleOfRate(amount, rate);
+        }
+        if (amount / rate > type(uint64).max) {
+            revert AmountExceedsFHERC20Precision(amount, rate);
+        }
+
+        IERC20 outputToken = IERC20(outputUnderlying);
+        uint256 vaultBalanceBefore = outputToken.balanceOf(address(this));
+        outputToken.forceApprove(outputWrapper, amount);
+        shieldedAmount = IFHERC20ERC20Wrapper(outputWrapper).shield(recipient, amount);
+        outputToken.forceApprove(outputWrapper, 0);
+        _assertUnderlyingBalance(outputToken, address(this), vaultBalanceBefore - amount);
     }
 
     function _assertUnderlyingBalance(IERC20 token, address account, uint256 expectedBalance)

@@ -6,9 +6,11 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 
 - One upgradeable production contract: `AlphaEngineIntentController`
 - Current TA / strategy-allocation intent family
-- Current confidential swap-intent lock phase
+- Current confidential swap-intent submit + execute phase
 - One listener/operator address
-- Lifecycle: `submit + cancel`
+- Lifecycle:
+  - strategy intents: `submit + cancel`
+  - swap intents: `submit + execute`
 - EigenCompute-operated only
 - Encrypted market selection is submitted as an encrypted `marketId` handle, not a plaintext market address
 - Encrypted component handles stored/emitted as `bytes32[]` using the current CoFHE Solidity package
@@ -19,8 +21,8 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 
 - Uniswap hooks
 - AVS/EigenLayer middleware registration
-- Result posting or settlement
-- PoolManager execution, swap batching, leverage-loop, arbitrage, or UEI families
+- Result posting
+- Swap batching, leverage-loop, arbitrage, or UEI families
 - Hardhat scaffold or CI
 
 ## Current Fhenix testing stance
@@ -35,8 +37,9 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 - `StrategyIntentSubmitted` emits the encrypted `marketIdHandle`, not a plaintext market address
 - Off-chain listener/runtime resolves the decrypted plaintext `marketId` through the temporary shared market registry currently authored in `simulation-service`
 - `submitSwapIntent(address inputWrapper, bytes32 routeKey, InEuint64 encryptedInputAmount, uint40 deadline)`
-- `SwapIntentSubmitted` emits the vault-returned locked amount handle as canonical
-- `routeKey` is an explicit placeholder for off-chain route semantics until PoolManager settlement is designed
+- `SwapIntentSubmitted` emits both the vault-returned locked amount handle and unshield request handle as canonical
+- `executeSwapIntent(bytes32 intentId, address outputWrapper, uint64 decryptedInputAmount, uint256 minOutputAmount, bytes decryptionProof, bytes executionData)`
+- `routeKey` remains metadata for off-chain route semantics; the concrete execution path is supplied through a dedicated executor boundary
 
 ## Commands
 

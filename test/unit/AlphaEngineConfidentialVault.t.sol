@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Vm} from "forge-std/Vm.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FHE, InEuint64, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -17,6 +18,16 @@ import {MockCoFheTest} from "../mocks/MockCoFheTest.sol";
 import {MockERC20, MockSelectiveFeeERC20} from "../mocks/MockERC20.sol";
 
 contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
+    struct SettlementFixture {
+        VaultIntentControllerHarness controller;
+        address inputWrapper;
+        MockERC20 outputUnderlying;
+        address outputWrapper;
+        bytes32 intentId;
+        bytes32 unshieldRequestHandle;
+        MockSwapExecutor executor;
+    }
+
     event IntentControllerUpdated(
         address indexed previousIntentController, address indexed newIntentController
     );
@@ -56,6 +67,14 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         address indexed account,
         address indexed inputWrapper,
         euint64 unshieldRequestHandle
+    );
+    event SwapIntentSettled(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed outputWrapper,
+        uint64 decryptedInputAmount,
+        uint256 outputUnderlyingAmount,
+        euint64 shieldedOutputAmount
     );
     event Paused(address account);
     event Unpaused(address account);
@@ -721,31 +740,57 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         );
     }
 
-    function testIntentControllerCanConsumeSwapIntentLock() public {
-        (
-            VaultIntentControllerHarness controller,
-            address wrapper,
-            bytes32 intentId,
-            euint64 lockedAmount
-        ) = _createLockedSwapIntent();
+    function testIntentControllerCanSettleSwapIntent() public {
+        uint64 decryptedInputAmount = 40e6;
+        uint256 outputAmount = 39e6;
+        SettlementFixture memory fixture =
+            _prepareExecutableSettlementFixture(decryptedInputAmount, outputAmount);
 
         vm.expectEmit(true, true, true, false, address(vault));
-        emit SwapIntentLockConsumed(intentId, user, wrapper, euint64.wrap(bytes32(0)));
+        emit SwapIntentLockConsumed(
+            fixture.intentId, user, fixture.inputWrapper, euint64.wrap(bytes32(0))
+        );
+        vm.expectEmit(true, true, true, false, address(vault));
+        emit SwapIntentSettled(
+            fixture.intentId,
+            user,
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            outputAmount,
+            euint64.wrap(bytes32(0))
+        );
 
-        euint64 consumedAmount = controller.consume(intentId);
+        (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) = _settleSwapIntent(
+            fixture,
+            decryptedInputAmount,
+            1,
+            abi.encode(outputAmount)
+        );
 
         AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
-            vault.getSwapIntentLock(intentId);
+            vault.getSwapIntentLock(fixture.intentId);
+        FHERC20WrapperClaimHelper.Claim memory inputClaim =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).getClaim(
+                fixture.unshieldRequestHandle
+            );
+        euint64 outputBalance =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.outputWrapper).confidentialBalanceOf(user);
+
+        assertEq(outputUnderlyingAmount, outputAmount);
         assertEq(
             uint8(intentLock.status),
             uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed)
         );
-        assertEq(euint64.unwrap(consumedAmount), euint64.unwrap(lockedAmount));
-        assertEq(mockStorage(uint256(euint64.unwrap(consumedAmount))), 40e6);
+        assertTrue(inputClaim.claimed);
+        assertEq(mockStorage(uint256(shieldedOutputHandle)), outputAmount);
+        assertEq(mockStorage(uint256(euint64.unwrap(outputBalance))), outputAmount);
+        assertEq(fixture.outputUnderlying.balanceOf(fixture.outputWrapper), outputAmount);
+        assertEq(underlying.balanceOf(address(fixture.executor)), decryptedInputAmount);
     }
 
-    function testConsumeSwapIntentLockRejectsUnauthorizedCaller() public {
-        bytes32 intentId = keccak256("intent-a");
+    function testSettleSwapIntentRejectsUnauthorizedCaller() public {
+        address executor = address(new MockSwapExecutor());
+        address outputWrapper = address(new MockSwapExecutor());
 
         vm.prank(user);
         vm.expectRevert(
@@ -753,43 +798,66 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
                 AlphaEngineConfidentialVault.UnauthorizedIntentController.selector, user
             )
         );
-        vault.consumeSwapIntentLock(intentId);
+        vault.settleSwapIntent(keccak256("intent-a"), executor, outputWrapper, 1, 1, "", bytes(""));
     }
 
-    function testConsumeSwapIntentLockRejectsUnknownIntentId() public {
+    function testSettleSwapIntentRejectsUnknownIntentId() public {
         VaultIntentControllerHarness controller = _installControllerHarness();
-        bytes32 intentId = keccak256("missing-intent");
+        address outputWrapper = _createDefaultWrapper();
+        address executor = address(new MockSwapExecutor());
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineConfidentialVault.SwapIntentLockNotFound.selector, intentId
+                AlphaEngineConfidentialVault.SwapIntentLockNotFound.selector,
+                keccak256("missing-intent")
             )
         );
-        controller.consume(intentId);
+        controller.settle(keccak256("missing-intent"), executor, outputWrapper, 1, 1, "", bytes(""));
     }
 
-    function testConsumeSwapIntentLockRejectsInactiveLock() public {
-        (VaultIntentControllerHarness controller,, bytes32 intentId,) = _createLockedSwapIntent();
-        controller.consume(intentId);
+    function testSettleSwapIntentRejectsInvalidExecutor() public {
+        SettlementFixture memory fixture = _prepareExecutableSettlementFixture(40e6, 39e6);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.InvalidSwapExecutor.selector,
+                makeAddr("invalid-executor")
+            )
+        );
+        fixture.controller.settle(
+            fixture.intentId,
+            makeAddr("invalid-executor"),
+            fixture.outputWrapper,
+            40e6,
+            1,
+            "",
+            bytes("")
+        );
+    }
+
+    function testSettleSwapIntentRejectsInactiveLock() public {
+        SettlementFixture memory fixture = _prepareExecutableSettlementFixture(40e6, 39e6);
+
+        _settleSwapIntent(fixture, 40e6, 1, abi.encode(39e6));
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 AlphaEngineConfidentialVault.SwapIntentLockNotActive.selector,
-                intentId,
+                fixture.intentId,
                 AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed
             )
         );
-        controller.consume(intentId);
+        _settleSwapIntent(fixture, 40e6, 1, abi.encode(39e6));
     }
 
-    function testConsumeSwapIntentLockRejectsWhenPaused() public {
-        (VaultIntentControllerHarness controller,, bytes32 intentId,) = _createLockedSwapIntent();
+    function testSettleSwapIntentRejectsWhenPaused() public {
+        SettlementFixture memory fixture = _prepareExecutableSettlementFixture(40e6, 39e6);
 
         vm.prank(owner);
         vault.pause();
 
         vm.expectRevert();
-        controller.consume(intentId);
+        _settleSwapIntent(fixture, 40e6, 1, bytes(""));
     }
 
     function testPauseAndUnpause() public {
@@ -876,6 +944,66 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         lockedAmount = controller.lockWithInput(intentId, user, wrapper, encryptedLockAmount);
     }
 
+    function _createSettlementReadySwapIntent()
+        private
+        returns (
+            VaultIntentControllerHarness controller,
+            address inputWrapper,
+            MockERC20 outputUnderlying,
+            address outputWrapper,
+            bytes32 intentId,
+            bytes32 unshieldRequestHandle
+        )
+    {
+        (controller, inputWrapper, intentId,) = _createLockedSwapIntent();
+        outputUnderlying = new MockERC20("Tether USD", "USDT", 6);
+
+        vm.prank(owner);
+        outputWrapper =
+            vault.createWrapper(address(outputUnderlying), "Encrypted USDT", "eUSDT", "");
+
+        unshieldRequestHandle =
+            euint64.unwrap(vault.getSwapIntentLock(intentId).unshieldRequestHandle);
+    }
+
+    function _prepareExecutableSettlementFixture(uint64 decryptedInputAmount, uint256 outputAmount)
+        private
+        returns (SettlementFixture memory fixture)
+    {
+        (
+            fixture.controller,
+            fixture.inputWrapper,
+            fixture.outputUnderlying,
+            fixture.outputWrapper,
+            fixture.intentId,
+            fixture.unshieldRequestHandle
+        ) = _createSettlementReadySwapIntent();
+        fixture.executor = new MockSwapExecutor();
+        fixture.outputUnderlying.mint(address(fixture.executor), outputAmount);
+        _publishDecryptResult(fixture.unshieldRequestHandle, decryptedInputAmount);
+    }
+
+    function _publishDecryptResult(bytes32 encryptedHandle, uint64 decryptedAmount) private {
+        taskManager.publishDecryptResult(uint256(encryptedHandle), decryptedAmount, "");
+    }
+
+    function _settleSwapIntent(
+        SettlementFixture memory fixture,
+        uint64 decryptedInputAmount,
+        uint256 minOutputAmount,
+        bytes memory executionData
+    ) private returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) {
+        return fixture.controller.settle(
+            fixture.intentId,
+            address(fixture.executor),
+            fixture.outputWrapper,
+            decryptedInputAmount,
+            minOutputAmount,
+            "",
+            executionData
+        );
+    }
+
     function _assertWrapperRegisteredLog(
         Vm.Log[] memory logs,
         address expectedUnderlying,
@@ -923,8 +1051,40 @@ contract VaultIntentControllerHarness {
         return _vault.lockForSwapIntent(intentId, account, wrapper, amount);
     }
 
-    function consume(bytes32 intentId) external returns (euint64) {
-        return _vault.consumeSwapIntentLock(intentId);
+    function settle(
+        bytes32 intentId,
+        address executor,
+        address outputWrapper,
+        uint64 decryptedInputAmount,
+        uint256 minOutputAmount,
+        bytes calldata decryptionProof,
+        bytes calldata executionData
+    ) external returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) {
+        return _vault.settleSwapIntent(
+            intentId,
+            executor,
+            outputWrapper,
+            decryptedInputAmount,
+            minOutputAmount,
+            decryptionProof,
+            executionData
+        );
+    }
+}
+
+contract MockSwapExecutor {
+    using SafeERC20 for IERC20;
+
+    function executeExactInput(
+        address,
+        address outputToken,
+        uint256,
+        uint256 minAmountOut,
+        address recipient,
+        bytes calldata executionData
+    ) external returns (uint256 amountOut) {
+        amountOut = executionData.length == 0 ? minAmountOut : abi.decode(executionData, (uint256));
+        IERC20(outputToken).safeTransfer(recipient, amountOut);
     }
 }
 

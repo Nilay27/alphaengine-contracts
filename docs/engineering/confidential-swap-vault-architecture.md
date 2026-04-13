@@ -78,7 +78,7 @@ The returned transferred handle is mandatory because FHERC20 can preserve privac
 
 In the current controller/vault implementation, `submitSwapIntent(...)` verifies the user's `InEuint64` input while `msg.sender` is still the user, grants the vault handle access, and only then calls the vault with the resulting `euint64`. The vault must not verify user encrypted inputs on behalf of the controller because that would bind verification to the controller/vault caller rather than the original user.
 
-`routeKey` is intentionally opaque in this step. It allows an off-chain route or template registry to be introduced without committing this contract to a premature PoolManager ABI. Route-key semantics must be finalized before settlement execution ships.
+`routeKey` remains intentionally opaque after the first concrete Uniswap v4 executor was added. It allows an off-chain route or template registry to evolve without committing the controller or vault to a route-specific ABI. The current `AlphaEngineV4SwapExecutor` consumes explicit execution data; `routeKey` remains metadata, not an on-chain route decoder.
 
 Do not treat `routeKey` as a Uniswap-specific field. It can later resolve to a generic UEI execution template, a Uniswap route, or another approved protocol adapter. That resolution belongs outside the current intent controller/vault state machine.
 
@@ -106,10 +106,8 @@ Settlement:
 
 - only applies to active submitted swap intents whose vault lock is already `UnshieldRequested`;
 - must prove and act on the actual returned unshield/burn handle, not just the originally requested encrypted input;
-- must finalize later by verifying the actual unshield handle, claiming/releasing the underlying, executing the route, and shielding the output token;
+- currently finalizes by verifying the actual unshield handle, claiming underlying into vault custody, executing through a separately configured executor, and shielding the output token back to the submitter;
 - must not directly release underlying ERC20 based only on the stored locked handle before proving the actual unshield handle.
-
-The current `consumeSwapIntentLock(...)` implementation is a logical post-submit settlement marker only. The unshield request now happens during `lockForSwapIntent(...)` itself; claim/finalize, PoolManager routing, and output confidential credit are still deferred.
 
 Batching:
 
@@ -124,12 +122,12 @@ Unit tests must cover:
 - deposit / shield and withdraw / unshield accounting;
 - atomic submit + lock integration between controller and vault;
 - canonical locked-handle event/state parity;
-- cancellation unlock and settlement consume paths;
+- actual settlement through a dedicated executor boundary, including claim, exact-input swap, and output confidential credit;
 - every access-control and invalid-state revert path.
 
 Fuzz tests must cover:
 
-- lock, cancel, unlock, and consume state transitions;
+- lock, execute, and consume/finalize state transitions;
 - wrapper uniqueness per underlying asset;
 - nonce and intent ID uniqueness;
 - token accounting bounds;
@@ -144,6 +142,11 @@ Invariant tests must cover:
 - vault escrow records remain consistent with intent status;
 - reserve and escrow accounting never go negative.
 
+Current gap:
+
+- stateful invariant coverage still focuses on submit-side accounting and pre-execution lock relationships;
+- execute-time route/output invariants must be added in a later step now that the concrete executor path exists.
+
 Fhenix mock policy:
 
 - use the best current Foundry-compatible official mock path when it matches pinned production contracts;
@@ -157,6 +160,6 @@ Fhenix mock policy:
 - Final FHERC20 permit API verification if Fhenix publishes a newer tagged package.
 - Vault deployment and upgrade scripts.
 - Generic UEI executor and/or protocol-specific executor architecture.
-- PoolManager integration tests through a separate executor boundary, if Uniswap v4 is selected for the first concrete swap route.
+- Deeper PoolManager execution invariants and swap-output vector tests through the separate executor boundary.
 - Batch matching and operator settlement.
 - AVS or EigenLayer middleware registration.

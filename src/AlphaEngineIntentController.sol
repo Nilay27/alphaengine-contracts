@@ -16,7 +16,8 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     enum IntentStatus {
         Unset,
         Active,
-        Cancelled
+        Cancelled,
+        Executed
     }
 
     struct IntentRecord {
@@ -50,13 +51,20 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     error ZeroConfidentialVault();
     error InvalidConfidentialVault(address vault);
     error ZeroInputWrapper();
+    error ZeroOutputWrapper();
     error ZeroTimeframeKey();
     error ZeroSwapRouteKey();
     error DeadlineNotInFuture(uint40 deadline, uint40 currentTimestamp);
     error InvalidComponentCount(uint256 componentCount);
     error IntentNotFound(bytes32 intentId);
+    error SwapIntentNotFound(bytes32 intentId);
     error IntentAlreadyCancelled(bytes32 intentId);
+    error SwapIntentNotActive(bytes32 intentId, IntentStatus status);
     error UnauthorizedCancel(address actor, bytes32 intentId);
+    error UnauthorizedListenerOperator(address actor);
+    error IntentExpired(bytes32 intentId, uint40 deadline, uint40 currentTimestamp);
+    error ZeroSwapExecutor();
+    error InvalidSwapExecutor(address executor);
 
     event StrategyIntentSubmitted(
         bytes32 indexed intentId,
@@ -81,8 +89,18 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         bytes32 payloadHash,
         uint64 submitterNonce
     );
+    event SwapIntentExecuted(
+        bytes32 indexed intentId,
+        address indexed operator,
+        address indexed outputWrapper,
+        bytes32 routeKey,
+        uint64 decryptedInputAmount,
+        uint256 outputUnderlyingAmount,
+        bytes32 shieldedOutputHandle
+    );
     event ListenerOperatorUpdated(address indexed previousOperator, address indexed newOperator);
     event ConfidentialVaultUpdated(address indexed previousVault, address indexed newVault);
+    event SwapExecutorUpdated(address indexed previousExecutor, address indexed newExecutor);
 
     address public listenerOperator;
 
@@ -91,9 +109,10 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     mapping(address submitter => uint64 nonce) public submitterNonces;
 
     address public confidentialVault;
+    address public swapExecutor;
     mapping(bytes32 intentId => SwapIntentRecord swapIntentRecord) private _swapIntentRecords;
 
-    uint256[44] private __gap;
+    uint256[43] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -274,6 +293,65 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         emit StrategyIntentCancelled(intentId, msg.sender);
     }
 
+    function executeSwapIntent(
+        bytes32 intentId,
+        address outputWrapper,
+        uint64 decryptedInputAmount,
+        uint256 minOutputAmount,
+        bytes calldata decryptionProof,
+        bytes calldata executionData
+    )
+        external
+        whenNotPaused
+        returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle)
+    {
+        if (msg.sender != listenerOperator) {
+            revert UnauthorizedListenerOperator(msg.sender);
+        }
+        if (outputWrapper == address(0)) {
+            revert ZeroOutputWrapper();
+        }
+
+        address executor = swapExecutor;
+        if (executor == address(0)) {
+            revert ZeroSwapExecutor();
+        }
+
+        SwapIntentRecord storage swapRecord = _swapIntentRecords[intentId];
+        if (swapRecord.status == IntentStatus.Unset) {
+            revert SwapIntentNotFound(intentId);
+        }
+        if (swapRecord.status != IntentStatus.Active) {
+            revert SwapIntentNotActive(intentId, swapRecord.status);
+        }
+        if (swapRecord.deadline <= block.timestamp) {
+            revert IntentExpired(intentId, swapRecord.deadline, uint40(block.timestamp));
+        }
+
+        (outputUnderlyingAmount, shieldedOutputHandle) = AlphaEngineConfidentialVault(
+            swapRecord.confidentialVault
+        ).settleSwapIntent(
+            intentId,
+            executor,
+            outputWrapper,
+            decryptedInputAmount,
+            minOutputAmount,
+            decryptionProof,
+            executionData
+        );
+        swapRecord.status = IntentStatus.Executed;
+
+        emit SwapIntentExecuted(
+            intentId,
+            msg.sender,
+            outputWrapper,
+            swapRecord.routeKey,
+            decryptedInputAmount,
+            outputUnderlyingAmount,
+            shieldedOutputHandle
+        );
+    }
+
     function setListenerOperator(address newOperator) external onlyOwner {
         if (newOperator == address(0)) {
             revert ZeroListenerOperator();
@@ -297,6 +375,20 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         confidentialVault = newVault;
 
         emit ConfidentialVaultUpdated(previousVault, newVault);
+    }
+
+    function setSwapExecutor(address newExecutor) external onlyOwner {
+        if (newExecutor == address(0)) {
+            revert ZeroSwapExecutor();
+        }
+        if (newExecutor.code.length == 0) {
+            revert InvalidSwapExecutor(newExecutor);
+        }
+
+        address previousExecutor = swapExecutor;
+        swapExecutor = newExecutor;
+
+        emit SwapExecutorUpdated(previousExecutor, newExecutor);
     }
 
     function pause() external onlyOwner {

@@ -227,3 +227,29 @@
 - `forge test --offline --match-contract AlphaEngineConfidentialVaultUnitTest`
 - `forge test --offline --match-contract AlphaEngineConfidentialVaultInvariantTest --fail-fast`
 - `forge test --offline`
+
+## 2026-04-13 — Swap execution boundary and first concrete Uniswap v4 settlement
+
+### Added
+- Added `swapExecutor` configuration plus `executeSwapIntent(...)` on `AlphaEngineIntentController`.
+- Added `AlphaEngineConfidentialVault.settleSwapIntent(...)` to claim the actual unshield handle, transfer exact underlying input into an executor boundary, and shield output confidential balance back to the submitter.
+- Added `AlphaEngineV4SwapExecutor` as the first concrete executor boundary that imports canonical `v4-core` and performs exact-input swaps through `PoolManager.unlock(...)`.
+- Added deterministic unit coverage for:
+  - controller execute success and failure paths;
+  - vault settlement success and failure paths;
+  - real `PoolManager` initialization, liquidity seeding, and swap execution behind the executor boundary.
+
+### Decisions
+- Keep `AlphaEngineIntentController` and `AlphaEngineConfidentialVault` protocol-agnostic even after enabling swap execution. Uniswap-specific code lives only in the separate executor contract.
+- Keep `routeKey` metadata-only. The concrete route is passed through executor-specific calldata and is not decoded by the controller or vault.
+- Enforce exact input consumption at the executor boundary. If a route does not consume the full claimed input, the execution reverts instead of leaving partial input stranded.
+- Use 6-decimal assets for the first end-to-end settlement fixture so output shielding remains exact; higher-decimal wrapper rounding and dust policy remain a separate follow-up concern.
+
+### Remaining Gaps
+- Stateful invariant coverage still stops at submit-side swap accounting; execute-time invariants for claimed input, received output, and shielded output must be added next.
+- Current concrete executor coverage is Uniswap v4 exact-input only; no batching, exact-output, UEI, leverage-loop, or result-posting path exists yet.
+
+### Validation
+- `forge test --offline --match-path test/unit/AlphaEngineIntentController.t.sol`
+- `forge test --offline --match-path test/unit/AlphaEngineConfidentialVault.t.sol`
+- `forge test --offline`
