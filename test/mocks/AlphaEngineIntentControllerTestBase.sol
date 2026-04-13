@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {Vm} from "forge-std/Vm.sol";
 import {TransparentUpgradeableProxy} from
@@ -22,13 +22,13 @@ abstract contract AlphaEngineIntentControllerTestBase is MockCoFheTest {
         address confidentialVault;
         bytes32 routeKey;
         bytes32 lockedAmountHandle;
+        bytes32 unshieldRequestHandle;
         uint40 deadline;
         bytes32 payloadHash;
         uint64 submitterNonce;
     }
 
     event StrategyIntentCancelled(bytes32 indexed intentId, address indexed actor);
-    event SwapIntentCancelled(bytes32 indexed intentId, address indexed actor);
     event ListenerOperatorUpdated(address indexed previousOperator, address indexed newOperator);
     event ConfidentialVaultUpdated(address indexed previousVault, address indexed newVault);
     event Paused(address account);
@@ -40,7 +40,7 @@ abstract contract AlphaEngineIntentControllerTestBase is MockCoFheTest {
         "StrategyIntentSubmitted(bytes32,address,bytes32,bytes32,bytes32[],uint40,bytes32,uint64)"
     );
     bytes32 internal constant SWAP_INTENT_SUBMITTED_TOPIC = keccak256(
-        "SwapIntentSubmitted(bytes32,address,address,address,bytes32,bytes32,uint40,bytes32,uint64)"
+        "SwapIntentSubmitted(bytes32,address,address,address,bytes32,bytes32,bytes32,uint40,bytes32,uint64)"
     );
     bytes32 internal constant DEFAULT_TIMEFRAME_KEY = keccak256("1h");
     bytes32 internal constant DEFAULT_SWAP_ROUTE_KEY = keccak256("USDC_TO_WETH_EXACT_INPUT");
@@ -176,6 +176,7 @@ abstract contract AlphaEngineIntentControllerTestBase is MockCoFheTest {
         address expectedConfidentialVault,
         bytes32 expectedRouteKey,
         bytes32 expectedLockedAmountHandle,
+        bytes32 expectedUnshieldRequestHandle,
         uint40 expectedDeadline,
         bytes32 expectedPayloadHash,
         uint64 expectedSubmitterNonce
@@ -196,6 +197,7 @@ abstract contract AlphaEngineIntentControllerTestBase is MockCoFheTest {
                     expectedConfidentialVault,
                     expectedRouteKey,
                     expectedLockedAmountHandle,
+                    expectedUnshieldRequestHandle,
                     expectedDeadline,
                     expectedPayloadHash,
                     expectedSubmitterNonce
@@ -231,10 +233,11 @@ abstract contract AlphaEngineIntentControllerTestBase is MockCoFheTest {
             decodedLog.confidentialVault,
             decodedLog.routeKey,
             decodedLog.lockedAmountHandle,
+            decodedLog.unshieldRequestHandle,
             decodedLog.deadline,
             decodedLog.payloadHash,
             decodedLog.submitterNonce
-        ) = abi.decode(data, (address, bytes32, bytes32, uint40, bytes32, uint64));
+        ) = abi.decode(data, (address, bytes32, bytes32, bytes32, uint40, bytes32, uint64));
     }
 
     function _assertSubmittedLogData(
@@ -264,6 +267,7 @@ abstract contract AlphaEngineIntentControllerTestBase is MockCoFheTest {
         address expectedConfidentialVault,
         bytes32 expectedRouteKey,
         bytes32 expectedLockedAmountHandle,
+        bytes32 expectedUnshieldRequestHandle,
         uint40 expectedDeadline,
         bytes32 expectedPayloadHash,
         uint64 expectedSubmitterNonce
@@ -271,6 +275,7 @@ abstract contract AlphaEngineIntentControllerTestBase is MockCoFheTest {
         assertEq(decodedLog.confidentialVault, expectedConfidentialVault);
         assertEq(decodedLog.routeKey, expectedRouteKey);
         assertEq(decodedLog.lockedAmountHandle, expectedLockedAmountHandle);
+        assertEq(decodedLog.unshieldRequestHandle, expectedUnshieldRequestHandle);
         assertEq(decodedLog.deadline, expectedDeadline);
         assertEq(decodedLog.payloadHash, expectedPayloadHash);
         assertEq(decodedLog.submitterNonce, expectedSubmitterNonce);

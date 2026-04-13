@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {TransparentUpgradeableProxy} from
@@ -48,7 +48,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
             updatedListenerOperator
         );
 
-        bytes4[] memory selectors = new bytes4[](14);
+        bytes4[] memory selectors = new bytes4[](11);
         selectors[0] = IntentControllerInvariantHandler.submitStrategyAsA.selector;
         selectors[1] = IntentControllerInvariantHandler.submitStrategyAsB.selector;
         selectors[2] = IntentControllerInvariantHandler.submitSwapAsA.selector;
@@ -56,13 +56,10 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
         selectors[4] = IntentControllerInvariantHandler.cancelStrategyAsOwner.selector;
         selectors[5] = IntentControllerInvariantHandler.cancelStrategyAsSubmitterA.selector;
         selectors[6] = IntentControllerInvariantHandler.cancelStrategyAsSubmitterB.selector;
-        selectors[7] = IntentControllerInvariantHandler.cancelSwapAsOwner.selector;
-        selectors[8] = IntentControllerInvariantHandler.cancelSwapAsSubmitterA.selector;
-        selectors[9] = IntentControllerInvariantHandler.cancelSwapAsSubmitterB.selector;
-        selectors[10] = IntentControllerInvariantHandler.rotateListenerToA.selector;
-        selectors[11] = IntentControllerInvariantHandler.rotateListenerToB.selector;
-        selectors[12] = IntentControllerInvariantHandler.rotateVaultToA.selector;
-        selectors[13] = IntentControllerInvariantHandler.rotateVaultToB.selector;
+        selectors[7] = IntentControllerInvariantHandler.rotateListenerToA.selector;
+        selectors[8] = IntentControllerInvariantHandler.rotateListenerToB.selector;
+        selectors[9] = IntentControllerInvariantHandler.rotateVaultToA.selector;
+        selectors[10] = IntentControllerInvariantHandler.rotateVaultToB.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
@@ -149,6 +146,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
             assertEq(swapRecord.inputWrapper, swapSnapshot.inputWrapper);
             assertEq(swapRecord.routeKey, swapSnapshot.routeKey);
             assertEq(swapRecord.lockedAmountHandle, swapSnapshot.lockedAmountHandle);
+            assertEq(swapRecord.unshieldRequestHandle, swapSnapshot.unshieldRequestHandle);
             assertEq(swapRecord.deadline, swapSnapshot.deadline);
             assertEq(swapRecord.createdAt, swapSnapshot.createdAt);
             assertEq(swapRecord.submitterNonce, swapSnapshot.submitterNonce);
@@ -162,7 +160,8 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
                         swapRecord.inputWrapper,
                         swapRecord.routeKey,
                         swapRecord.deadline,
-                        swapRecord.lockedAmountHandle
+                        swapRecord.lockedAmountHandle,
+                        swapRecord.unshieldRequestHandle
                     )
                 )
             );
@@ -171,6 +170,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
             assertTrue(swapRecord.inputWrapper != address(0));
             assertTrue(swapRecord.routeKey != bytes32(0));
             assertTrue(swapRecord.lockedAmountHandle != bytes32(0));
+            assertTrue(swapRecord.unshieldRequestHandle != bytes32(0));
             assertTrue(swapRecord.deadline > swapRecord.createdAt);
             assertTrue(
                 taskManager.isAllowed(
@@ -186,10 +186,16 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
             assertEq(intentLock.account, lockSnapshot.account);
             assertEq(intentLock.wrapper, lockSnapshot.wrapper);
             assertEq(euint64.unwrap(intentLock.lockedAmount), lockSnapshot.lockedAmountHandle);
+            assertEq(
+                euint64.unwrap(intentLock.unshieldRequestHandle), lockSnapshot.unshieldRequestHandle
+            );
             assertEq(uint8(intentLock.status), uint8(lockSnapshot.expectedStatus));
             assertEq(intentLock.account, swapRecord.submitter);
             assertEq(intentLock.wrapper, swapRecord.inputWrapper);
             assertEq(euint64.unwrap(intentLock.lockedAmount), swapRecord.lockedAmountHandle);
+            assertEq(
+                euint64.unwrap(intentLock.unshieldRequestHandle), swapRecord.unshieldRequestHandle
+            );
             assertTrue(
                 taskManager.isAllowed(
                     uint256(swapRecord.lockedAmountHandle), swapRecord.confidentialVault

@@ -108,11 +108,15 @@ The old hookathon `HybridFHERC20` pattern is a reference only, not production di
 
 The confidential swap phase must use official Fhenix FHERC20 / confidential token contracts and keep an AlphaEngine vault as the custody boundary. The vault owns wrapper registration, deposit orchestration, unshield orchestration, and lock/settlement records; the official wrapper contract may hold the underlying ERC20 reserves after `shield(...)`. FHERC20 encrypted transfers can return an actual transferred encrypted value that differs from the requested encrypted value, including encrypted zero replacement. Vault lock state and swap-intent events must therefore use the actual returned handle as canonical.
 
+Until Fhenix publishes official encrypted-amount unshield support, `AlphaEngineFHERC20ERC20Wrapper` carries a temporary `unshield(address from, address to, euint64 amount)` overload. This is an integration bridge for swap settlement only: it burns/requests unshield against the actual vault-held locked eUSDC handle and stores a claim for the returned actual unshield handle. Do not replace this with a direct release of underlying ERC20 based only on the pre-burn locked handle.
+
 Current vault lock semantics are intentionally narrow:
 - `setConfidentialVault(...)` validates that the configured vault is a contract and that its `intentController()` points back to this controller.
 - `submitSwapIntent(...)` verifies the user's `InEuint64` amount while `msg.sender` is still the user, grants the vault access, and then locks through the vault.
 - `lockForSwapIntent(...)` is callable only by the configured intent controller.
 - The caller must pass a controller-verified `euint64` amount handle that has already been allowed to the vault.
-- `unlockSwapIntent(...)` refunds to the original locked account and is allowed while the vault is paused so cancellation/refund remains available.
-- `consumeSwapIntentLock(...)` marks the lock as consumed and non-refundable; burn, unshield, PoolManager execution, and output confidential credit are not implemented yet.
+- `lockForSwapIntent(...)` now performs the FHERC20 transfer and then immediately calls the temporary encrypted-amount unshield overload in the same transaction.
+- After a successful swap submit, the vault lock is already in `UnshieldRequested` state and records both the actual returned locked handle and the actual returned unshield request handle.
+- Swap intent submission is therefore final in the current architecture; there is no `cancelSwapIntent(...)` refund path.
+- `consumeSwapIntentLock(...)` is a later settlement marker for an already unshield-requested swap lock; final claim, PoolManager execution, and output confidential credit are not implemented yet.
 - Vault rotation affects future swap submissions only because each `SwapIntentRecord` stores the vault used for that intent.

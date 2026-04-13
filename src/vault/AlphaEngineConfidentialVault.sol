@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -12,6 +12,8 @@ import {IFHERC20ERC20Wrapper} from
     "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
 import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "../fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
+import {IAlphaEngineEncryptedUnshieldFHERC20Wrapper} from
+    "../interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
 
 contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
@@ -20,13 +22,15 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         Unset,
         Locked,
         Unlocked,
-        Consumed
+        Consumed,
+        UnshieldRequested
     }
 
     struct SwapIntentLock {
         address account;
         address wrapper;
         euint64 lockedAmount;
+        euint64 unshieldRequestHandle;
         SwapIntentLockStatus status;
     }
 
@@ -85,17 +89,17 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         address indexed wrapper,
         euint64 lockedAmount
     );
-    event SwapIntentUnlocked(
-        bytes32 indexed intentId,
-        address indexed account,
-        address indexed wrapper,
-        euint64 refundedAmount
-    );
     event SwapIntentLockConsumed(
         bytes32 indexed intentId,
         address indexed account,
         address indexed wrapper,
         euint64 consumedAmount
+    );
+    event SwapIntentUnshieldRequested(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed inputWrapper,
+        euint64 unshieldRequestHandle
     );
 
     address public intentController;
@@ -107,9 +111,7 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
     uint256[46] private __gap;
 
     modifier onlyIntentController() {
-        if (msg.sender != intentController) {
-            revert UnauthorizedIntentController(msg.sender);
-        }
+        _onlyIntentController();
         _;
     }
 
@@ -294,29 +296,12 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
             account: account,
             wrapper: wrapper,
             lockedAmount: lockedAmount,
+            unshieldRequestHandle: euint64.wrap(bytes32(0)),
             status: SwapIntentLockStatus.Locked
         });
 
         emit SwapIntentLocked(intentId, account, wrapper, lockedAmount);
-    }
-
-    function unlockSwapIntent(bytes32 intentId)
-        external
-        onlyIntentController
-        returns (euint64 refundedAmount)
-    {
-        SwapIntentLock storage intentLock = _lockedSwapIntent(intentId);
-
-        refundedAmount = IERC7984(intentLock.wrapper).confidentialTransfer(
-            intentLock.account, intentLock.lockedAmount
-        );
-        if (euint64.unwrap(refundedAmount) == bytes32(0)) {
-            revert UninitializedEncryptedAmount();
-        }
-
-        intentLock.status = SwapIntentLockStatus.Unlocked;
-
-        emit SwapIntentUnlocked(intentId, intentLock.account, intentLock.wrapper, refundedAmount);
+        _requestSwapIntentUnshield(intentId, _swapIntentLocks[intentId]);
     }
 
     function consumeSwapIntentLock(bytes32 intentId)
@@ -325,7 +310,8 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         whenNotPaused
         returns (euint64 consumedAmount)
     {
-        SwapIntentLock storage intentLock = _lockedSwapIntent(intentId);
+        SwapIntentLock storage intentLock =
+            _swapIntentLockInStatus(intentId, SwapIntentLockStatus.UnshieldRequested);
 
         consumedAmount = intentLock.lockedAmount;
         intentLock.status = SwapIntentLockStatus.Consumed;
@@ -360,6 +346,12 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         _underlyingByWrapper[wrapper] = underlying;
 
         emit ConfidentialWrapperRegistered(underlying, wrapper);
+    }
+
+    function _onlyIntentController() private view {
+        if (msg.sender != intentController) {
+            revert UnauthorizedIntentController(msg.sender);
+        }
     }
 
     function _readWrapperUnderlying(address wrapper) private view returns (address) {
@@ -413,7 +405,7 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         }
     }
 
-    function _lockedSwapIntent(bytes32 intentId)
+    function _swapIntentLockInStatus(bytes32 intentId, SwapIntentLockStatus expectedStatus)
         private
         view
         returns (SwapIntentLock storage intentLock)
@@ -426,9 +418,27 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         if (intentLock.status == SwapIntentLockStatus.Unset) {
             revert SwapIntentLockNotFound(intentId);
         }
-        if (intentLock.status != SwapIntentLockStatus.Locked) {
+        if (intentLock.status != expectedStatus) {
             revert SwapIntentLockNotActive(intentId, intentLock.status);
         }
+    }
+
+    function _requestSwapIntentUnshield(bytes32 intentId, SwapIntentLock storage intentLock)
+        private
+    {
+        euint64 unshieldRequestHandle = IAlphaEngineEncryptedUnshieldFHERC20Wrapper(
+            intentLock.wrapper
+        ).unshield(address(this), address(this), intentLock.lockedAmount);
+        if (euint64.unwrap(unshieldRequestHandle) == bytes32(0)) {
+            revert UninitializedEncryptedAmount();
+        }
+
+        intentLock.unshieldRequestHandle = unshieldRequestHandle;
+        intentLock.status = SwapIntentLockStatus.UnshieldRequested;
+
+        emit SwapIntentUnshieldRequested(
+            intentId, intentLock.account, intentLock.wrapper, unshieldRequestHandle
+        );
     }
 
     function _assertUnderlyingBalance(IERC20 token, address account, uint256 expectedBalance)

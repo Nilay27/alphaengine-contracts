@@ -71,7 +71,8 @@ Either executor path must be introduced only after vault custody and locking inv
 7. Intent controller calls `AlphaEngineConfidentialVault.lockForSwapIntent(...)`.
 8. Vault calls official FHERC20 delegated encrypted transfer from user to vault escrow.
 9. Vault stores the FHERC20-returned actual transferred encrypted handle as canonical for the lock.
-10. Intent controller stores the swap-intent record and emits `SwapIntentSubmitted` with the canonical locked handle, not just the requested encrypted amount.
+10. In the same transaction, vault immediately calls the temporary encrypted-amount `unshield(...)` overload against that locked handle and stores the returned actual unshield request handle.
+11. Intent controller stores the swap-intent record and emits `SwapIntentSubmitted` with both the canonical locked handle and the canonical unshield request handle.
 
 The returned transferred handle is mandatory because FHERC20 can preserve privacy by returning an encrypted zero transfer instead of reverting when a requested confidential transfer exceeds balance. Any swap path that needs plaintext-dependent settlement must use a later decrypt / reveal phase and must not assume the requested amount was actually locked.
 
@@ -83,27 +84,32 @@ Do not treat `routeKey` as a Uniswap-specific field. It can later resolve to a g
 
 The currently pinned `fhenix-confidential-contracts@v0.3.1` tag exposes `confidentialTransferFrom(...)`, `setOperator(...)`, and `euint64` token amounts. The public FHERC20 docs mention a newer `encTransferFrom(...)` / permit-oriented flow, but that surface is not present in the latest verified tag at this step. Until Fhenix publishes a compatible tagged release, implementation must target the installed package and treat any permit-specific API as unverified.
 
+The official installed `FHERC20ERC20Wrapper.unshield(...)` only accepts a plaintext `uint64` amount. For encrypted swap intents, a plaintext-only unshield surface forces an extra intermediate decrypt step. AlphaEngine therefore carries a temporary wrapper overload:
+
+```solidity
+unshield(address from, address to, euint64 amount) returns (euint64 actualUnshieldHandle)
+```
+
+This overload exists only as an integration bridge while Fhenix reviews adding official encrypted-amount unshield support. It must be removed or delegated to the official wrapper surface once upstream support lands.
+
 The vault deposit path must not silently accept the wrapper's default rounding behavior. Amounts must be exact multiples of the wrapper `rate()`, and fee-on-transfer or balance-drift behavior must revert instead of leaving wrapper reserves undercollateralized.
 
 ## Cancel And Settlement Semantics
 
 Cancellation:
 
-- only applies before a lock is consumed;
-- changes intent status in `AlphaEngineIntentController`;
-- calls the vault to unlock/refund the escrowed confidential input;
-- must not burn the locked input.
+- applies to strategy intents only in the current implementation;
+- does not apply to swap intents because swap submit now auto-requests unshield in the same transaction;
+- must not be reintroduced for swap intents unless the vault lifecycle is redesigned around claim refund or re-shield refund semantics.
 
 Settlement:
 
-- only applies to active locked intents;
-- consumes the vault lock exactly once;
-- currently marks the lock as `Consumed` so it can never be unlocked again;
-- later burns or otherwise accounts for the locked input according to the official FHERC20 integration surface;
-- uses underlying vault reserves for the real swap path;
-- credits or mints output confidential balance to the user after the output asset is received.
+- only applies to active submitted swap intents whose vault lock is already `UnshieldRequested`;
+- must prove and act on the actual returned unshield/burn handle, not just the originally requested encrypted input;
+- must finalize later by verifying the actual unshield handle, claiming/releasing the underlying, executing the route, and shielding the output token;
+- must not directly release underlying ERC20 based only on the stored locked handle before proving the actual unshield handle.
 
-The current `consumeSwapIntentLock(...)` implementation is a logical settlement marker only. It does not burn, unshield, or route underlying ERC20 yet; those behaviors are deferred until the swap executor and settlement surface are introduced.
+The current `consumeSwapIntentLock(...)` implementation is a logical post-submit settlement marker only. The unshield request now happens during `lockForSwapIntent(...)` itself; claim/finalize, PoolManager routing, and output confidential credit are still deferred.
 
 Batching:
 

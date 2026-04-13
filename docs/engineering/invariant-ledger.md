@@ -354,23 +354,7 @@ after cancelStrategyIntent(s):
         VL[X[x].confidentialVault][x] == snapshotBefore.VL[X[x].confidentialVault][x]
 ```
 
-Cancelling a swap intent must not mutate strategy records.
-
-Expression:
-
-```text
-after cancelSwapIntent(x):
-    for all known strategy ids s:
-        S[s] == snapshotBefore.S[s]
-        SH[s] == snapshotBefore.SH[s]
-```
-
-The expected mutation for swap cancellation is limited to:
-
-```text
-X[x].status' == IntentStatus.Cancelled
-VL[X[x].confidentialVault][x].status' == SwapIntentLockStatus.Unlocked
-```
+Swap intents are final after submit in the current implementation. There is no `cancelSwapIntent(...)` path.
 
 ### Handle Namespace Isolation
 
@@ -419,7 +403,7 @@ after setConfidentialVault(V2):
 
 ### Pause Isolation
 
-Pause must block new submissions for every implemented family, but cancellation must remain available.
+Pause must block new submissions for every implemented family, while implemented cancellation paths remain available.
 
 Expressions:
 
@@ -428,7 +412,6 @@ C.paused() == true:
     submitStrategyIntent(...) reverts
     submitSwapIntent(...) reverts
     cancelStrategyIntent(activeStrategyId) may succeed
-    cancelSwapIntent(activeSwapId) may succeed
 ```
 
 ## Vault Registry Invariants
@@ -626,35 +609,22 @@ For a successful lock:
 lockedValue = evalue(VL[V][id].lockedAmount)
 
 cbal(W, account)' == cbal(W, account) - lockedValue
-cbal(W, address(V))' == cbal(W, address(V)) + lockedValue
-VL[V][id].status' == SwapIntentLockStatus.Locked
+cbal(W, address(V))' == 0
+VL[V][id].status' == SwapIntentLockStatus.UnshieldRequested
 ```
 
-The stored lock amount must be the FHERC20-returned actual transferred amount, not merely the requested encrypted input.
+The stored lock amount must be the FHERC20-returned actual transferred amount, not merely the requested encrypted input. The vault immediately requests unshield on that locked amount in the same transaction, so the vault does not retain confidential escrow balance after submit.
 
 Expression:
 
 ```text
 X[id].lockedAmountHandle == euint64.unwrap(VL[X[id].confidentialVault][id].lockedAmount)
+X[id].unshieldRequestHandle == euint64.unwrap(VL[X[id].confidentialVault][id].unshieldRequestHandle)
 ```
-
-### Unlock Exactness
-
-For a successful unlock:
-
-```text
-lockedValue = evalue(VL[V][id].lockedAmount)
-
-cbal(W, VL[V][id].account)' == cbal(W, VL[V][id].account) + lockedValue
-cbal(W, address(V))' == cbal(W, address(V)) - lockedValue
-VL[V][id].status' == SwapIntentLockStatus.Unlocked
-```
-
-Unlock must refund the original lock account, not `msg.sender`, owner, listener, or current vault.
 
 ### Consume Exactness
 
-For the current implementation, consume only marks the escrow lock as non-refundable. It does not burn or unshield.
+For the current implementation, `consumeSwapIntentLock(...)` only marks an already-unshield-requested lock as non-refundable.
 
 Expression:
 
@@ -663,7 +633,33 @@ cbal(W, address(V))' == cbal(W, address(V))
 VL[V][id].status' == SwapIntentLockStatus.Consumed
 ```
 
-Future settlement may replace this with burn/unshield/output-credit accounting. That change must update this ledger before implementation.
+Future settlement finalize may replace or extend this with claim/output-credit accounting. That change must update this ledger before implementation.
+
+### Swap Unshield Request Handle
+
+For a successful swap unshield request:
+
+```text
+status(VL[V][id]) == Locked
+lockedAmount(VL[V][id]) == L
+```
+
+After:
+
+```text
+status(VL[V][id])' == UnshieldRequested
+unshieldRequestHandle(VL[V][id])' == U
+euint64.unwrap(U) != bytes32(0)
+evalue(U) == actualBurnedUnits
+```
+
+For the controlled happy path where the vault still owns the full locked amount:
+
+```text
+actualBurnedUnits == evalue(L)
+```
+
+The finalize path must verify `U`, not the original requested encrypted input. If `actualBurnedUnits == 0`, settlement must not execute a swap.
 
 ### Double Spend Prevention
 
@@ -672,9 +668,6 @@ No lock may be unlocked or consumed more than once.
 Expressions:
 
 ```text
-status(id) == Unlocked -> unlockSwapIntent(id) reverts
-status(id) == Unlocked -> consumeSwapIntentLock(id) reverts
-status(id) == Consumed -> unlockSwapIntent(id) reverts
 status(id) == Consumed -> consumeSwapIntentLock(id) reverts
 ```
 
@@ -762,34 +755,14 @@ For each known active swap intent:
 
 ```text
 uint8(X[id].status) == uint8(IntentStatus.Active)
-uint8(VL[X[id].confidentialVault][id].status) == uint8(SwapIntentLockStatus.Locked)
+uint8(VL[X[id].confidentialVault][id].status) == uint8(SwapIntentLockStatus.UnshieldRequested)
 VL[X[id].confidentialVault][id].account == X[id].submitter
 VL[X[id].confidentialVault][id].wrapper == X[id].inputWrapper
 euint64.unwrap(VL[X[id].confidentialVault][id].lockedAmount) == X[id].lockedAmountHandle
+euint64.unwrap(VL[X[id].confidentialVault][id].unshieldRequestHandle) == X[id].unshieldRequestHandle
 ```
 
-### Cancelled Swap Parity
-
-For each known cancelled swap intent:
-
-```text
-uint8(X[id].status) == uint8(IntentStatus.Cancelled)
-uint8(VL[X[id].confidentialVault][id].status) == uint8(SwapIntentLockStatus.Unlocked)
-```
-
-This remains true because current cancellation always unlocks/refunds. If future settlement adds a settled status, do not allow `Cancelled` to represent settled/consumed locks.
-
-### Historical Vault Parity
-
-Swap cancellation must use the vault recorded on the intent, not the currently configured vault.
-
-Expression:
-
-```text
-cancelSwapIntent(id):
-    mutates VL[X[id].confidentialVault][id]
-    does not mutate VL[C.confidentialVault()][id] unless C.confidentialVault() == X[id].confidentialVault
-```
+Swap intents are final after submit in the current implementation. There is no cancelled-swap parity state.
 
 ## Access and Permission Invariants
 
@@ -913,6 +886,7 @@ event.inputWrapper == X[id].inputWrapper
 event.confidentialVault == X[id].confidentialVault
 event.routeKey == X[id].routeKey
 event.lockedAmountHandle == X[id].lockedAmountHandle
+event.unshieldRequestHandle == X[id].unshieldRequestHandle
 event.deadline == X[id].deadline
 event.payloadHash == X[id].payloadHash
 event.submitterNonce == X[id].submitterNonce
@@ -929,13 +903,13 @@ event.wrapper == VL[V][id].wrapper
 euint64.unwrap(event.lockedAmount) == euint64.unwrap(VL[V][id].lockedAmount)
 ```
 
-For every `SwapIntentUnlocked` event:
+For every `SwapIntentUnshieldRequested` event:
 
 ```text
 event.intentId == id
-event.account == originalLockAccount[id]
-event.wrapper == originalLockWrapper[id]
-euint64.unwrap(event.refundedAmount) != bytes32(0)
+event.account == VL[V][id].account
+event.inputWrapper == VL[V][id].wrapper
+euint64.unwrap(event.unshieldRequestHandle) == euint64.unwrap(VL[V][id].unshieldRequestHandle)
 ```
 
 For every `SwapIntentLockConsumed` event:

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -158,9 +158,10 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         );
     }
 
-    function testFuzz_crossFamilyCancellationIsolation(uint128 strategyValue, uint64 rawSwapAmount)
-        public
-    {
+    function testFuzz_crossFamilyStrategyCancellationIsolation(
+        uint128 strategyValue,
+        uint64 rawSwapAmount
+    ) public {
         SwapFixture memory fixture = _prepareSwapFixture(rawSwapAmount);
         InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 strategyIntentId = _submit(
@@ -184,21 +185,11 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
             controller.getSwapIntent(swapIntentId);
 
         vm.prank(submitter);
-        controller.cancelSwapIntent(swapIntentId);
+        controller.cancelStrategyIntent(strategyIntentId);
 
+        strategyBefore.status = AlphaEngineIntentController.IntentStatus.Cancelled;
         _assertStrategyRecordEquals(strategyIntentId, strategyBefore);
         _assertStrategyHandlesEqual(strategyIntentId, strategyHandlesBefore);
-        assertEq(
-            uint8(controller.getSwapIntent(swapIntentId).status),
-            uint8(AlphaEngineIntentController.IntentStatus.Cancelled)
-        );
-        assertEq(
-            uint8(fixture.vault.getSwapIntentLock(swapIntentId).status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked)
-        );
-
-        vm.prank(submitter);
-        controller.cancelStrategyIntent(strategyIntentId);
 
         AlphaEngineIntentController.SwapIntentRecord memory swapAfter =
             controller.getSwapIntent(swapIntentId);
@@ -207,41 +198,16 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         assertEq(swapAfter.inputWrapper, swapBefore.inputWrapper);
         assertEq(swapAfter.routeKey, swapBefore.routeKey);
         assertEq(swapAfter.lockedAmountHandle, swapBefore.lockedAmountHandle);
+        assertEq(swapAfter.unshieldRequestHandle, swapBefore.unshieldRequestHandle);
         assertEq(swapAfter.deadline, swapBefore.deadline);
         assertEq(swapAfter.createdAt, swapBefore.createdAt);
         assertEq(swapAfter.submitterNonce, swapBefore.submitterNonce);
         assertEq(swapAfter.payloadHash, swapBefore.payloadHash);
-        assertEq(uint8(swapAfter.status), uint8(AlphaEngineIntentController.IntentStatus.Cancelled));
+        assertEq(uint8(swapAfter.status), uint8(AlphaEngineIntentController.IntentStatus.Active));
         assertEq(
             uint8(fixture.vault.getSwapIntentLock(swapIntentId).status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked)
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested)
         );
-    }
-
-    function testFuzz_unauthorizedSwapCancellationRejection(address attacker, uint64 rawSwapAmount)
-        public
-    {
-        vm.assume(attacker != address(0));
-        vm.assume(attacker != submitter);
-        vm.assume(attacker != owner);
-        vm.assume(attacker != _proxyAdmin());
-
-        SwapFixture memory fixture = _prepareSwapFixture(rawSwapAmount);
-        bytes32 swapIntentId = _submitSwap(
-            submitter,
-            fixture.wrapper,
-            DEFAULT_SWAP_ROUTE_KEY,
-            fixture.encryptedInputAmount,
-            _deadlineAhead(1)
-        );
-
-        vm.prank(attacker);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineIntentController.UnauthorizedCancel.selector, attacker, swapIntentId
-            )
-        );
-        controller.cancelSwapIntent(swapIntentId);
     }
 
     function _prepareSwapFixture(uint64 rawSwapAmount)

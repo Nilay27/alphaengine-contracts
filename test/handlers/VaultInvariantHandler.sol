@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {FHE, InEuint64, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
@@ -16,6 +16,7 @@ contract VaultInvariantHandler is MockCoFheTest {
         address account;
         address wrapper;
         bytes32 lockedAmountHandle;
+        bytes32 unshieldRequestHandle;
         uint256 lockedValue;
         AlphaEngineConfidentialVault.SwapIntentLockStatus expectedStatus;
     }
@@ -24,6 +25,7 @@ contract VaultInvariantHandler is MockCoFheTest {
         address account;
         bytes32 requestId;
         uint64 amount;
+        bool vaultClaim;
         bool claimed;
     }
 
@@ -37,12 +39,9 @@ contract VaultInvariantHandler is MockCoFheTest {
 
     mapping(address account => uint256 units) public shieldedDepositsByAccount;
     mapping(address account => uint256 units) public unshieldRequestedUnitsByAccount;
-    mapping(address account => uint256 units) public activeLockedUnitsByAccount;
-    mapping(address account => uint256 units) public consumedLockedUnitsByAccount;
     uint256 public totalShieldedDeposits;
     uint256 public totalPendingUnshieldUnits;
-    uint256 public activeLockedUnits;
-    uint256 public consumedLockedUnits;
+    uint256 public vaultClaimedSwapUnshieldUnits;
 
     mapping(bytes32 intentId => bool known) public knownLock;
     mapping(bytes32 intentId => LockSnapshot snapshot) private _lockSnapshots;
@@ -85,39 +84,6 @@ contract VaultInvariantHandler is MockCoFheTest {
         _lock(USER_B, rawAmount);
     }
 
-    function unlock(uint8 rawIndex) external {
-        (bytes32 intentId, bool found) = _selectLock(rawIndex);
-        if (!found) {
-            return;
-        }
-
-        LockSnapshot storage snapshot = _lockSnapshots[intentId];
-        try VAULT.unlockSwapIntent(intentId) returns (euint64 refundedAmount) {
-            assertEq(_evalue(refundedAmount), snapshot.lockedValue);
-            snapshot.expectedStatus = AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked;
-            activeLockedUnits -= snapshot.lockedValue;
-            activeLockedUnitsByAccount[snapshot.account] -= snapshot.lockedValue;
-        } catch {}
-    }
-
-    function consume(uint8 rawIndex) external {
-        (bytes32 intentId, bool found) = _selectLock(rawIndex);
-        if (!found) {
-            return;
-        }
-
-        LockSnapshot storage snapshot = _lockSnapshots[intentId];
-        try VAULT.consumeSwapIntentLock(intentId) returns (euint64 consumedAmount) {
-            assertEq(euint64.unwrap(consumedAmount), snapshot.lockedAmountHandle);
-            assertEq(_evalue(consumedAmount), snapshot.lockedValue);
-            snapshot.expectedStatus = AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed;
-            activeLockedUnits -= snapshot.lockedValue;
-            activeLockedUnitsByAccount[snapshot.account] -= snapshot.lockedValue;
-            consumedLockedUnits += snapshot.lockedValue;
-            consumedLockedUnitsByAccount[snapshot.account] += snapshot.lockedValue;
-        } catch {}
-    }
-
     function requestUnshieldAsA(uint64 rawAmount) external {
         _requestUnshield(USER_A, rawAmount);
     }
@@ -138,6 +104,9 @@ contract VaultInvariantHandler is MockCoFheTest {
         try VAULT.claimUnshielded(WRAPPER, requestId, snapshot.amount, "") {
             snapshot.claimed = true;
             totalPendingUnshieldUnits -= snapshot.amount;
+            if (snapshot.vaultClaim) {
+                vaultClaimedSwapUnshieldUnits += snapshot.amount;
+            }
         } catch {}
     }
 
@@ -229,11 +198,23 @@ contract VaultInvariantHandler is MockCoFheTest {
                 account: account,
                 wrapper: WRAPPER,
                 lockedAmountHandle: lockedAmountHandle,
+                unshieldRequestHandle: euint64.unwrap(
+                    VAULT.getSwapIntentLock(intentId).unshieldRequestHandle
+                ),
                 lockedValue: lockedValue,
-                expectedStatus: AlphaEngineConfidentialVault.SwapIntentLockStatus.Locked
+                expectedStatus: AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
             });
-            activeLockedUnits += lockedValue;
-            activeLockedUnitsByAccount[account] += lockedValue;
+            _claimIds.push(_lockSnapshots[intentId].unshieldRequestHandle);
+            _claimSnapshots[_lockSnapshots[intentId].unshieldRequestHandle] = ClaimSnapshot({
+                account: account,
+                requestId: _lockSnapshots[intentId].unshieldRequestHandle,
+                // forge-lint: disable-next-line(unsafe-typecast)
+                amount: uint64(lockedValue),
+                vaultClaim: true,
+                claimed: false
+            });
+            unshieldRequestedUnitsByAccount[account] += lockedValue;
+            totalPendingUnshieldUnits += lockedValue;
         } catch {}
     }
 
@@ -258,31 +239,12 @@ contract VaultInvariantHandler is MockCoFheTest {
                 requestId: requestId,
                 // forge-lint: disable-next-line(unsafe-typecast)
                 amount: uint64(amount),
+                vaultClaim: false,
                 claimed: false
             });
             unshieldRequestedUnitsByAccount[account] += amount;
             totalPendingUnshieldUnits += amount;
         } catch {}
-    }
-
-    function _selectLock(uint8 rawIndex) private view returns (bytes32 intentId, bool found) {
-        uint256 length = _lockIds.length;
-        if (length == 0) {
-            return (bytes32(0), false);
-        }
-
-        uint256 startIndex = bound(uint256(rawIndex), 0, length - 1);
-        for (uint256 offset = 0; offset < length; ++offset) {
-            bytes32 candidate = _lockIds[(startIndex + offset) % length];
-            if (
-                _lockSnapshots[candidate].expectedStatus
-                    == AlphaEngineConfidentialVault.SwapIntentLockStatus.Locked
-            ) {
-                return (candidate, true);
-            }
-        }
-
-        return (bytes32(0), false);
     }
 
     function _selectPendingClaim(uint8 rawIndex)

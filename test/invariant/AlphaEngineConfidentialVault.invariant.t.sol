@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
@@ -42,16 +42,14 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         _fundAndAuthorize(userA);
         _fundAndAuthorize(userB);
 
-        bytes4[] memory selectors = new bytes4[](9);
+        bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = VaultInvariantHandler.depositAsA.selector;
         selectors[1] = VaultInvariantHandler.depositAsB.selector;
         selectors[2] = VaultInvariantHandler.lockAsA.selector;
         selectors[3] = VaultInvariantHandler.lockAsB.selector;
-        selectors[4] = VaultInvariantHandler.unlock.selector;
-        selectors[5] = VaultInvariantHandler.consume.selector;
-        selectors[6] = VaultInvariantHandler.requestUnshieldAsA.selector;
-        selectors[7] = VaultInvariantHandler.requestUnshieldAsB.selector;
-        selectors[8] = VaultInvariantHandler.claimUnshield.selector;
+        selectors[4] = VaultInvariantHandler.requestUnshieldAsA.selector;
+        selectors[5] = VaultInvariantHandler.requestUnshieldAsB.selector;
+        selectors[6] = VaultInvariantHandler.claimUnshield.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
@@ -80,16 +78,23 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
             assertEq(euint64.unwrap(intentLock.lockedAmount), snapshot.lockedAmountHandle);
             assertEq(_evalue(intentLock.lockedAmount), snapshot.lockedValue);
             assertEq(uint8(intentLock.status), uint8(snapshot.expectedStatus));
+            assertEq(
+                euint64.unwrap(intentLock.unshieldRequestHandle), snapshot.unshieldRequestHandle
+            );
+            if (
+                snapshot.expectedStatus
+                    == AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
+            ) {
+                assertTrue(snapshot.unshieldRequestHandle != bytes32(0));
+                assertEq(_evalue(intentLock.unshieldRequestHandle), snapshot.lockedValue);
+            }
             assertTrue(intentLock.account == userA || intentLock.account == userB);
             assertEq(intentLock.wrapper, wrapper);
         }
     }
 
     function invariant_vaultEscrowBalanceMatchesActiveAndConsumedLocks() public view {
-        assertEq(
-            _confidentialBalance(address(vault)),
-            handler.activeLockedUnits() + handler.consumedLockedUnits()
-        );
+        assertEq(_confidentialBalance(address(vault)), 0);
     }
 
     function invariant_userConfidentialBalancesRemainConserved() public view {
@@ -111,7 +116,9 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
             underlying.balanceOf(wrapper) / rate,
             _confidentialTotalSupply() + handler.totalPendingUnshieldUnits()
         );
-        assertEq(underlying.balanceOf(address(vault)), 0);
+        assertEq(
+            underlying.balanceOf(address(vault)) / rate, handler.vaultClaimedSwapUnshieldUnits()
+        );
     }
 
     function invariant_claimSnapshotsRemainConsistent() public view {
@@ -133,9 +140,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
 
     function _assertUserConservation(address account) private view {
         assertEq(
-            _confidentialBalance(account) + handler.activeLockedUnitsByAccount(account)
-                + handler.consumedLockedUnitsByAccount(account)
-                + handler.unshieldRequestedUnitsByAccount(account),
+            _confidentialBalance(account) + handler.unshieldRequestedUnitsByAccount(account),
             handler.shieldedDepositsByAccount(account)
         );
     }

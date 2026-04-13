@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -37,6 +37,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         address inputWrapper;
         bytes32 routeKey;
         bytes32 lockedAmountHandle;
+        bytes32 unshieldRequestHandle;
         uint40 deadline;
         uint40 createdAt;
         uint64 submitterNonce;
@@ -75,11 +76,11 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         address confidentialVault,
         bytes32 routeKey,
         bytes32 lockedAmountHandle,
+        bytes32 unshieldRequestHandle,
         uint40 deadline,
         bytes32 payloadHash,
         uint64 submitterNonce
     );
-    event SwapIntentCancelled(bytes32 indexed intentId, address indexed actor);
     event ListenerOperatorUpdated(address indexed previousOperator, address indexed newOperator);
     event ConfidentialVaultUpdated(address indexed previousVault, address indexed newVault);
 
@@ -213,9 +214,20 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         euint64 lockedAmount = AlphaEngineConfidentialVault(activeVault).lockForSwapIntent(
             intentId, msg.sender, inputWrapper, internalizedInputAmount
         );
+        AlphaEngineConfidentialVault.SwapIntentLock memory vaultLock =
+            AlphaEngineConfidentialVault(activeVault).getSwapIntentLock(intentId);
         bytes32 lockedAmountHandle = FHE.unwrap(lockedAmount);
-        bytes32 payloadHash =
-            keccak256(abi.encode(activeVault, inputWrapper, routeKey, deadline, lockedAmountHandle));
+        bytes32 unshieldRequestHandle = FHE.unwrap(vaultLock.unshieldRequestHandle);
+        bytes32 payloadHash = keccak256(
+            abi.encode(
+                activeVault,
+                inputWrapper,
+                routeKey,
+                deadline,
+                lockedAmountHandle,
+                unshieldRequestHandle
+            )
+        );
 
         _swapIntentRecords[intentId] = SwapIntentRecord({
             submitter: msg.sender,
@@ -223,6 +235,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             inputWrapper: inputWrapper,
             routeKey: routeKey,
             lockedAmountHandle: lockedAmountHandle,
+            unshieldRequestHandle: unshieldRequestHandle,
             deadline: deadline,
             createdAt: uint40(block.timestamp),
             submitterNonce: submitterNonce,
@@ -237,6 +250,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             activeVault,
             routeKey,
             lockedAmountHandle,
+            unshieldRequestHandle,
             deadline,
             payloadHash,
             submitterNonce
@@ -258,25 +272,6 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
 
         intentRecord.status = IntentStatus.Cancelled;
         emit StrategyIntentCancelled(intentId, msg.sender);
-    }
-
-    function cancelSwapIntent(bytes32 intentId) external {
-        SwapIntentRecord storage swapIntentRecord = _swapIntentRecords[intentId];
-
-        if (swapIntentRecord.status == IntentStatus.Unset) {
-            revert IntentNotFound(intentId);
-        }
-        if (swapIntentRecord.status == IntentStatus.Cancelled) {
-            revert IntentAlreadyCancelled(intentId);
-        }
-        if (msg.sender != swapIntentRecord.submitter && msg.sender != owner()) {
-            revert UnauthorizedCancel(msg.sender, intentId);
-        }
-
-        swapIntentRecord.status = IntentStatus.Cancelled;
-        AlphaEngineConfidentialVault(swapIntentRecord.confidentialVault).unlockSwapIntent(intentId);
-
-        emit SwapIntentCancelled(intentId, msg.sender);
     }
 
     function setListenerOperator(address newOperator) external onlyOwner {

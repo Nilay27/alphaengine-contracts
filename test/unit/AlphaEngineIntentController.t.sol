@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from
@@ -11,6 +11,8 @@ import {TransparentUpgradeableProxy} from
 import {Vm} from "forge-std/Vm.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
 import {InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {FHERC20WrapperClaimHelper} from
+    "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaimHelper.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 import {AlphaEngineConfidentialVault} from "src/vault/AlphaEngineConfidentialVault.sol";
 import {AlphaEngineIntentControllerTestBase} from
@@ -303,7 +305,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         controller.setConfidentialVault(address(newVault));
     }
 
-    function test_submitSwapIntentLocksVaultAndEmitsEvent() public {
+    function test_submitSwapIntentLocksVaultAndAutoRequestsUnshield() public {
         (SwapFixture memory fixture, InEuint64 memory encryptedInputAmount) =
             _prepareSwapFixture(100e6, 40e6);
         uint40 deadline = _deadlineAhead(1 hours);
@@ -324,7 +326,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
                 fixture.wrapper,
                 DEFAULT_SWAP_ROUTE_KEY,
                 deadline,
-                swapRecord.lockedAmountHandle
+                swapRecord.lockedAmountHandle,
+                swapRecord.unshieldRequestHandle
             )
         );
 
@@ -332,6 +335,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(swapRecord.confidentialVault, address(fixture.vault));
         assertEq(swapRecord.inputWrapper, fixture.wrapper);
         assertEq(swapRecord.routeKey, DEFAULT_SWAP_ROUTE_KEY);
+        assertTrue(swapRecord.lockedAmountHandle != bytes32(0));
+        assertTrue(swapRecord.unshieldRequestHandle != bytes32(0));
         assertEq(swapRecord.deadline, deadline);
         assertEq(swapRecord.createdAt, uint40(block.timestamp));
         assertEq(swapRecord.submitterNonce, 0);
@@ -348,10 +353,13 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(vaultLock.account, submitter);
         assertEq(vaultLock.wrapper, fixture.wrapper);
         assertEq(euint64.unwrap(vaultLock.lockedAmount), swapRecord.lockedAmountHandle);
+        assertEq(euint64.unwrap(vaultLock.unshieldRequestHandle), swapRecord.unshieldRequestHandle);
         assertEq(
-            uint8(vaultLock.status), uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Locked)
+            uint8(vaultLock.status),
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested)
         );
         assertEq(mockStorage(uint256(swapRecord.lockedAmountHandle)), 40e6);
+        assertEq(mockStorage(uint256(swapRecord.unshieldRequestHandle)), 40e6);
 
         euint64 submitterBalance =
             AlphaEngineFHERC20ERC20Wrapper(fixture.wrapper).confidentialBalanceOf(submitter);
@@ -359,7 +367,15 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             address(fixture.vault)
         );
         assertEq(mockStorage(uint256(euint64.unwrap(submitterBalance))), 60e6);
-        assertEq(mockStorage(uint256(euint64.unwrap(vaultBalance))), 40e6);
+        assertEq(mockStorage(uint256(euint64.unwrap(vaultBalance))), 0);
+
+        FHERC20WrapperClaimHelper.Claim memory claim = AlphaEngineFHERC20ERC20Wrapper(
+            fixture.wrapper
+        ).getClaim(swapRecord.unshieldRequestHandle);
+        assertEq(claim.to, address(fixture.vault));
+        assertEq(claim.ctHash, swapRecord.unshieldRequestHandle);
+        assertEq(claim.requestedAmount, 0);
+        assertFalse(claim.claimed);
 
         _expectSwapSubmittedLog(
             logs,
@@ -369,6 +385,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             address(fixture.vault),
             DEFAULT_SWAP_ROUTE_KEY,
             swapRecord.lockedAmountHandle,
+            swapRecord.unshieldRequestHandle,
             deadline,
             expectedPayloadHash,
             0
@@ -451,87 +468,6 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(controller.getSwapIntent(intentId).submitter, submitter);
     }
 
-    function test_cancelSwapIntentUnlocksVaultAndEmitsEvent() public {
-        (SwapFixture memory fixture, bytes32 intentId) = _submitDefaultSwapIntent();
-
-        vm.prank(submitter);
-        vm.expectEmit(true, true, false, false);
-        emit SwapIntentCancelled(intentId, submitter);
-        controller.cancelSwapIntent(intentId);
-
-        assertEq(
-            uint8(controller.getSwapIntent(intentId).status),
-            uint8(AlphaEngineIntentController.IntentStatus.Cancelled)
-        );
-
-        AlphaEngineConfidentialVault.SwapIntentLock memory vaultLock =
-            fixture.vault.getSwapIntentLock(intentId);
-        assertEq(
-            uint8(vaultLock.status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked)
-        );
-
-        euint64 submitterBalance =
-            AlphaEngineFHERC20ERC20Wrapper(fixture.wrapper).confidentialBalanceOf(submitter);
-        assertEq(mockStorage(uint256(euint64.unwrap(submitterBalance))), 100e6);
-    }
-
-    function test_cancelSwapIntentAllowsOwnerWhilePaused() public {
-        (, bytes32 intentId) = _submitDefaultSwapIntent();
-
-        vm.prank(owner);
-        controller.pause();
-
-        vm.prank(owner);
-        vm.expectEmit(true, true, false, false);
-        emit SwapIntentCancelled(intentId, owner);
-        controller.cancelSwapIntent(intentId);
-
-        assertEq(
-            uint8(controller.getSwapIntent(intentId).status),
-            uint8(AlphaEngineIntentController.IntentStatus.Cancelled)
-        );
-    }
-
-    function test_cancelSwapIntentRejectsUnauthorizedCaller() public {
-        (, bytes32 intentId) = _submitDefaultSwapIntent();
-
-        vm.prank(outsider);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineIntentController.UnauthorizedCancel.selector, outsider, intentId
-            )
-        );
-        controller.cancelSwapIntent(intentId);
-    }
-
-    function test_cancelSwapIntentRejectsUnknownIntent() public {
-        bytes32 unknownIntentId = keccak256("unknown-swap-intent");
-
-        vm.prank(submitter);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineIntentController.IntentNotFound.selector, unknownIntentId
-            )
-        );
-        controller.cancelSwapIntent(unknownIntentId);
-    }
-
-    function test_cancelSwapIntentRejectsAlreadyCancelledIntent() public {
-        (, bytes32 intentId) = _submitDefaultSwapIntent();
-
-        vm.prank(submitter);
-        controller.cancelSwapIntent(intentId);
-
-        vm.prank(submitter);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineIntentController.IntentAlreadyCancelled.selector, intentId
-            )
-        );
-        controller.cancelSwapIntent(intentId);
-    }
-
     function test_confidentialVaultRotationOnlyAffectsFutureSwapSubmissions() public {
         (SwapFixture memory firstFixture, InEuint64 memory firstInputAmount) =
             _prepareSwapFixture(100e6, 40e6);
@@ -564,16 +500,13 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(controller.submitterNonces(submitter), 1);
         assertEq(controller.submitterNonces(otherSubmitter), 1);
 
-        vm.prank(submitter);
-        controller.cancelSwapIntent(firstIntentId);
-
         assertEq(
             uint8(firstFixture.vault.getSwapIntentLock(firstIntentId).status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked)
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested)
         );
         assertEq(
             uint8(secondFixture.vault.getSwapIntentLock(secondIntentId).status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Locked)
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested)
         );
     }
 
@@ -689,6 +622,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(swapIntentRecord.submitter, address(0));
         assertEq(swapIntentRecord.confidentialVault, address(0));
         assertEq(swapIntentRecord.lockedAmountHandle, bytes32(0));
+        assertEq(swapIntentRecord.unshieldRequestHandle, bytes32(0));
     }
 
     function _submitDefaultSwapIntent()

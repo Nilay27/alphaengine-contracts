@@ -6,11 +6,11 @@ Foundry is the only framework in v1.
 
 ## Required suites
 
-- Unit: initialization, submit/cancel/admin flows, vault lock flows, revert paths, event/state parity.
+- Unit: initialization, strategy submit/cancel/admin flows, swap submit/admin flows, vault lock flows, revert paths, event/state parity.
 - Unit tests must assert encrypted market-handle persistence, encrypted amount-handle persistence, and access grants in submit paths.
-- Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized cancellation rejection, shared strategy/swap nonce progression, and cross-family cancellation isolation.
+- Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized strategy-cancellation rejection, shared strategy/swap nonce progression, and cross-family strategy-cancellation isolation.
 - Invariant: cancelled intents stay cancelled, handle-count parity, shared strategy/swap nonce exactness, non-zero listener operator after valid initialization, configured-vault validity, controller/vault lock parity, cross-family handle isolation, vault wrapper stability, vault lock lifecycle, and vault reserve/escrow accounting conservation.
-- Confidential swap/vault tests cover vault custody, wrapper creation, deposit/unshield, lock/unlock/consume transitions, canonical FHERC20 returned-handle handling, and accounting parity before any broader custody path ships.
+- Confidential swap/vault tests cover vault custody, wrapper creation, deposit/unshield, auto-lock plus auto-unshield transitions, canonical FHERC20 returned-handle handling, and accounting parity before any broader custody path ships.
 - The detailed invariant ledger is `docs/engineering/invariant-ledger.md`; update it before changing state machines, custody flows, or accounting rules.
 
 ## Coverage
@@ -37,14 +37,14 @@ Foundry is the only framework in v1.
 ## Confidential swap/vault policy
 
 - Use official Fhenix FHERC20 / confidential token behavior as the target surface; do not test against a revived hookathon `HybridFHERC20`.
-- Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield request/claim, atomic lock, unlock on cancel, logical consume on settlement, and output confidential credit/mint once the output path exists.
+- Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield request/claim, atomic swap lock plus immediate encrypted-amount unshield request, logical consume on settlement, and output confidential credit/mint once the output path exists.
 - Deposit/shield tests must assert exact `rate()` multiples and reject fee-on-transfer or other balance-drift behavior.
 - Controller/vault integration tests must assert the intent controller never receives token custody, validates configured vault identity, and stores the canonical FHERC20 returned transfer handle.
 - Controller swap-intent tests must verify the user's `InEuint64`, grant the vault handle access, and then lock through `lockForSwapIntent(...)` with the verified `euint64`.
 - `routeKey` tests are intentionally limited to event/state parity until PoolManager execution-template semantics are finalized.
-- Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, cancel after consume, consume after cancel, expired deadline, and zero or invalid lock result where detectable.
-- Fuzz tests must cover lock/cancel/consume state transitions, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
-- Invariant tests must assert locked intents never double-consume, consumed locks never unlock, cancelled locks never settle, cross-family intent isolation holds, wrapper mappings remain stable, vault escrow status matches intent status, and reserve/escrow accounting never goes negative.
+- Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, expired deadline, and zero or invalid returned lock/unshield result where detectable.
+- Fuzz tests must cover submit/consume ordering, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
+- Invariant tests must assert submitted swap intents immediately enter `UnshieldRequested`, cross-family intent isolation holds, wrapper mappings remain stable, vault confidential escrow is zero after auto-unshield, and reserve/escrow accounting never goes negative.
 - PoolManager swap execution tests must not be added until the vault locking model is fully covered.
 
 ## External protocol fixture policy
@@ -53,4 +53,4 @@ Foundry is the only framework in v1.
 - Production `AlphaEngineIntentController` and `AlphaEngineConfidentialVault` tests must not require either contract to import Uniswap, Pendle, Morpho, Aave, or any other route-specific protocol ABI.
 - If Uniswap v4 becomes the first concrete execution route, write the PoolManager behavior tests against a dedicated executor/harness, not by embedding PoolManager logic into the intent controller or vault.
 - `@uniswap/v4-periphery` remains excluded unless a specific fixture setup blocker is documented; do not add it speculatively.
-- The pinned `v4-core@v4.0.0` PoolManager implementation uses `pragma solidity 0.8.26`; before compiling/deploying real PoolManager fixtures, make an explicit compiler-profile decision rather than silently changing the repo-wide production compiler.
+- The pinned `v4-core@v4.0.0` PoolManager implementation uses `pragma solidity 0.8.26`; this repo now pins `solc = 0.8.26` so future PoolManager fixture work must preserve that compiler profile unless explicitly approved and documented.

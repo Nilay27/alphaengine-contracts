@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {Vm} from "forge-std/Vm.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -45,17 +45,17 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         address indexed wrapper,
         euint64 lockedAmount
     );
-    event SwapIntentUnlocked(
-        bytes32 indexed intentId,
-        address indexed account,
-        address indexed wrapper,
-        euint64 refundedAmount
-    );
     event SwapIntentLockConsumed(
         bytes32 indexed intentId,
         address indexed account,
         address indexed wrapper,
         euint64 consumedAmount
+    );
+    event SwapIntentUnshieldRequested(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed inputWrapper,
+        euint64 unshieldRequestHandle
     );
     event Paused(address account);
     event Unpaused(address account);
@@ -620,15 +620,23 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         assertEq(euint64.unwrap(intentLock.lockedAmount), euint64.unwrap(lockedAmount));
         assertEq(
             uint8(intentLock.status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Locked)
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested)
         );
         assertEq(mockStorage(uint256(euint64.unwrap(lockedAmount))), lockAmount);
+        assertEq(mockStorage(uint256(euint64.unwrap(intentLock.unshieldRequestHandle))), lockAmount);
 
         euint64 userBalance = AlphaEngineFHERC20ERC20Wrapper(wrapper).confidentialBalanceOf(user);
         euint64 vaultBalance =
             AlphaEngineFHERC20ERC20Wrapper(wrapper).confidentialBalanceOf(address(vault));
         assertEq(mockStorage(uint256(euint64.unwrap(userBalance))), 60e6);
-        assertEq(mockStorage(uint256(euint64.unwrap(vaultBalance))), lockAmount);
+        assertEq(mockStorage(uint256(euint64.unwrap(vaultBalance))), 0);
+
+        FHERC20WrapperClaimHelper.Claim memory claim = AlphaEngineFHERC20ERC20Wrapper(wrapper)
+            .getClaim(euint64.unwrap(intentLock.unshieldRequestHandle));
+        assertEq(claim.to, address(vault));
+        assertEq(claim.ctHash, euint64.unwrap(intentLock.unshieldRequestHandle));
+        assertEq(claim.requestedAmount, 0);
+        assertFalse(claim.claimed);
     }
 
     function testLockForSwapIntentRejectsUnauthorizedCaller() public {
@@ -711,110 +719,6 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         controller.lockWithHandle(
             keccak256("intent"), user, address(wrapper), euint64.wrap(bytes32("a"))
         );
-    }
-
-    function testUnlockSwapIntentRefundsOriginalAccount() public {
-        (
-            VaultIntentControllerHarness controller,
-            address wrapper,
-            bytes32 intentId,
-            euint64 lockedAmount
-        ) = _createLockedSwapIntent();
-
-        vm.expectEmit(true, true, true, false, address(vault));
-        emit SwapIntentUnlocked(intentId, user, wrapper, euint64.wrap(bytes32(0)));
-
-        euint64 refundedAmount = controller.unlock(intentId);
-
-        AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
-            vault.getSwapIntentLock(intentId);
-        assertEq(
-            uint8(intentLock.status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked)
-        );
-        assertEq(mockStorage(uint256(euint64.unwrap(refundedAmount))), 40e6);
-        assertEq(mockStorage(uint256(euint64.unwrap(lockedAmount))), 40e6);
-
-        euint64 userBalance = AlphaEngineFHERC20ERC20Wrapper(wrapper).confidentialBalanceOf(user);
-        assertEq(mockStorage(uint256(euint64.unwrap(userBalance))), 100e6);
-    }
-
-    function testUnlockSwapIntentRejectsUnauthorizedCaller() public {
-        bytes32 intentId = keccak256("intent-a");
-
-        vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineConfidentialVault.UnauthorizedIntentController.selector, user
-            )
-        );
-        vault.unlockSwapIntent(intentId);
-    }
-
-    function testUnlockSwapIntentRejectsZeroIntentId() public {
-        VaultIntentControllerHarness controller = _installControllerHarness();
-
-        vm.expectRevert(AlphaEngineConfidentialVault.ZeroIntentId.selector);
-        controller.unlock(bytes32(0));
-    }
-
-    function testUnlockSwapIntentRejectsUnknownIntentId() public {
-        VaultIntentControllerHarness controller = _installControllerHarness();
-        bytes32 intentId = keccak256("missing-intent");
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineConfidentialVault.SwapIntentLockNotFound.selector, intentId
-            )
-        );
-        controller.unlock(intentId);
-    }
-
-    function testUnlockSwapIntentRejectsInactiveLock() public {
-        (VaultIntentControllerHarness controller,, bytes32 intentId,) = _createLockedSwapIntent();
-        controller.unlock(intentId);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineConfidentialVault.SwapIntentLockNotActive.selector,
-                intentId,
-                AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked
-            )
-        );
-        controller.unlock(intentId);
-    }
-
-    function testUnlockSwapIntentRejectsUninitializedRefundHandle() public {
-        ZeroRefundWrapperSurface wrapper = new ZeroRefundWrapperSurface(address(underlying));
-        VaultIntentControllerHarness controller = _installControllerHarness();
-        bytes32 intentId = keccak256("intent-a");
-
-        vm.prank(owner);
-        vault.registerWrapper(address(underlying), address(wrapper));
-
-        controller.lockWithHandle(intentId, user, address(wrapper), euint64.wrap(bytes32("a")));
-
-        vm.expectRevert(AlphaEngineConfidentialVault.UninitializedEncryptedAmount.selector);
-        controller.unlock(intentId);
-    }
-
-    function testUnlockSwapIntentStillWorksWhenPaused() public {
-        (VaultIntentControllerHarness controller, address wrapper, bytes32 intentId,) =
-            _createLockedSwapIntent();
-
-        vm.prank(owner);
-        vault.pause();
-
-        euint64 refundedAmount = controller.unlock(intentId);
-
-        AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
-            vault.getSwapIntentLock(intentId);
-        assertEq(
-            uint8(intentLock.status),
-            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked)
-        );
-        assertEq(mockStorage(uint256(euint64.unwrap(refundedAmount))), 40e6);
-        assertEq(wrapper, intentLock.wrapper);
     }
 
     function testIntentControllerCanConsumeSwapIntentLock() public {
@@ -1017,10 +921,6 @@ contract VaultIntentControllerHarness {
         returns (euint64)
     {
         return _vault.lockForSwapIntent(intentId, account, wrapper, amount);
-    }
-
-    function unlock(bytes32 intentId) external returns (euint64) {
-        return _vault.unlockSwapIntent(intentId);
     }
 
     function consume(bytes32 intentId) external returns (euint64) {

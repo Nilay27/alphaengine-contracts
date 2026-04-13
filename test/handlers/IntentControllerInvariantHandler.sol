@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
@@ -27,6 +27,7 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         bytes32 routeKey;
         bytes32 requestedInputHandle;
         bytes32 lockedAmountHandle;
+        bytes32 unshieldRequestHandle;
         uint40 deadline;
         uint40 createdAt;
         uint64 submitterNonce;
@@ -38,6 +39,7 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         address account;
         address wrapper;
         bytes32 lockedAmountHandle;
+        bytes32 unshieldRequestHandle;
         AlphaEngineConfidentialVault.SwapIntentLockStatus expectedStatus;
     }
 
@@ -130,18 +132,6 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
 
     function cancelStrategyAsSubmitterB(uint8 rawIndex) external {
         _cancelStrategy(SUBMITTER_B, rawIndex);
-    }
-
-    function cancelSwapAsOwner(uint8 rawIndex) external {
-        _cancelSwap(OWNER, rawIndex);
-    }
-
-    function cancelSwapAsSubmitterA(uint8 rawIndex) external {
-        _cancelSwap(SUBMITTER_A, rawIndex);
-    }
-
-    function cancelSwapAsSubmitterB(uint8 rawIndex) external {
-        _cancelSwap(SUBMITTER_B, rawIndex);
     }
 
     function rotateListenerToA() external {
@@ -252,21 +242,6 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         } catch {}
     }
 
-    function _cancelSwap(address actor, uint8 rawIndex) private {
-        if (_swapIntentIds.length == 0) {
-            return;
-        }
-
-        bytes32 intentId = _swapIntentIds[bound(uint256(rawIndex), 0, _swapIntentIds.length - 1)];
-        vm.prank(actor);
-        try CONTROLLER.cancelSwapIntent(intentId) {
-            _swapSnapshots[intentId].expectedStatus =
-                AlphaEngineIntentController.IntentStatus.Cancelled;
-            _lockSnapshots[intentId].expectedStatus =
-                AlphaEngineConfidentialVault.SwapIntentLockStatus.Unlocked;
-        } catch {}
-    }
-
     function _setListenerOperator(address listenerOperator) private {
         vm.prank(OWNER);
         try CONTROLLER.setListenerOperator(listenerOperator) {} catch {}
@@ -340,6 +315,7 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
             routeKey: swapRecord.routeKey,
             requestedInputHandle: bytes32(requestedInputHandle),
             lockedAmountHandle: swapRecord.lockedAmountHandle,
+            unshieldRequestHandle: swapRecord.unshieldRequestHandle,
             deadline: swapRecord.deadline,
             createdAt: swapRecord.createdAt,
             submitterNonce: swapRecord.submitterNonce,
@@ -350,7 +326,8 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
             account: intentLock.account,
             wrapper: intentLock.wrapper,
             lockedAmountHandle: lockedAmountHandle,
-            expectedStatus: AlphaEngineConfidentialVault.SwapIntentLockStatus.Locked
+            unshieldRequestHandle: euint64.unwrap(intentLock.unshieldRequestHandle),
+            expectedStatus: AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
         });
     }
 
