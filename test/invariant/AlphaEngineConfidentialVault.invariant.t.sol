@@ -72,6 +72,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
     }
 
     function invariant_lockLifecycleAndFieldsRemainConsistent() public view {
+        uint256 liveLockCount;
         uint256 length = handler.lockIdsLength();
         for (uint256 index = 0; index < length; ++index) {
             bytes32 intentId = handler.lockIdAt(index);
@@ -95,6 +96,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
                 snapshot.expectedStatus
                     == AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
             ) {
+                liveLockCount += 1;
                 assertTrue(snapshot.unshieldRequestHandle != bytes32(0));
                 assertEq(_evalue(intentLock.unshieldRequestHandle), snapshot.lockedValue);
                 assertEq(snapshot.outputWrapper, address(0));
@@ -113,6 +115,8 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
                 assertTrue(snapshot.outputConfidentialUnits > 0);
             }
         }
+
+        assertEq(vault.liveSwapLockCount(), liveLockCount);
     }
 
     function invariant_vaultAndExecutorDoNotRetainUnderlying() public view {

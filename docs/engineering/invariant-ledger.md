@@ -865,7 +865,7 @@ or:
     all active historical locks remain unlockable/consumable by an authorized controller path
 ```
 
-Current implementation does not track `activeLockCount(V)` on-chain and does not maintain per-lock controller authority. Therefore, next invariant handlers must not randomly call `setIntentController(...)` after locks exist unless the contract is first changed to preserve unlockability.
+Current implementation now tracks `liveSwapLockCount(V)` on-chain and forbids `setIntentController(...)` while the count is non-zero. Therefore, random invariant handlers still should not rotate the vault controller while locks exist, but the safety rule is now enforced by contract state rather than by convention only.
 
 ## Event/State Parity Properties
 
@@ -984,4 +984,4 @@ Next invariant work:
 1. Keep `routeKey` metadata-only in invariants until/if a canonical on-chain route registry exists.
 2. Add batch-level conservation invariants only when batching exists.
 3. Extend the two-wrapper settlement model to more than one output wrapper only when the protocol introduces multiple approved confidential output assets in the same invariant run.
-4. Do not randomize vault `setIntentController(...)` while active locks exist unless the contract first gains an explicit unlockability-preserving rotation design.
+4. Do not randomize vault `setIntentController(...)` while active locks exist unless the contract later gains an explicit unlockability-preserving rotation design beyond the current `liveSwapLockCount == 0` gate.

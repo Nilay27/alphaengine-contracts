@@ -56,6 +56,7 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
     error SwapIntentLockAlreadyExists(bytes32 intentId);
     error SwapIntentLockNotFound(bytes32 intentId);
     error SwapIntentLockNotActive(bytes32 intentId, SwapIntentLockStatus status);
+    error ActiveSwapLocksPresent(uint256 liveSwapLockCount);
     error AmountNotMultipleOfRate(uint256 amount, uint256 rate);
     error AmountExceedsFHERC20Precision(uint256 amount, uint256 rate);
     error UnexpectedUnderlyingBalance(
@@ -119,12 +120,13 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
     );
 
     address public intentController;
+    uint256 public liveSwapLockCount;
 
     mapping(address underlying => address wrapper) private _wrappersByUnderlying;
     mapping(address wrapper => address underlying) private _underlyingByWrapper;
     mapping(bytes32 intentId => SwapIntentLock lock) private _swapIntentLocks;
 
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 
     modifier onlyIntentController() {
         _onlyIntentController();
@@ -153,6 +155,9 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
     function setIntentController(address newIntentController) external onlyOwner {
         if (newIntentController == address(0)) {
             revert ZeroIntentController();
+        }
+        if (liveSwapLockCount != 0) {
+            revert ActiveSwapLocksPresent(liveSwapLockCount);
         }
 
         address previousIntentController = intentController;
@@ -315,6 +320,7 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
             unshieldRequestHandle: euint64.wrap(bytes32(0)),
             status: SwapIntentLockStatus.Locked
         });
+        liveSwapLockCount += 1;
 
         emit SwapIntentLocked(intentId, account, wrapper, lockedAmount);
         _requestSwapIntentUnshield(intentId, _swapIntentLocks[intentId]);
@@ -392,6 +398,7 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         shieldedOutputHandle = euint64.unwrap(shieldedOutputAmount);
 
         intentLock.status = SwapIntentLockStatus.Consumed;
+        liveSwapLockCount -= 1;
         emit SwapIntentLockConsumed(
             intentId, intentLock.account, intentLock.wrapper, intentLock.lockedAmount
         );

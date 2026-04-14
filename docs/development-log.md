@@ -177,7 +177,7 @@
 - Vault invariant checks for wrapper registry stability, lock lifecycle and field immutability, vault escrow conservation, per-user confidential balance conservation, confidential supply conservation, wrapper reserve conservation, claim snapshot consistency, and stable vault owner/intent-controller authority.
 
 ### Decisions
-- Keep vault `setIntentController(...)` out of the random invariant action set while locks exist; the current contract does not have an on-chain active-lock counter or per-lock controller authority model.
+- Keep vault `setIntentController(...)` out of the random invariant action set while locks exist; the eventual safe design is either an on-chain active-lock counter gate or an explicit per-lock controller-binding model.
 - Execute `FHE.asEuint64(...)` in the vault invariant handler through an external self-call under the simulated user sender. This matches the production controller pattern: user input is verified while `msg.sender` is the user, then the authorized controller calls the vault.
 - Use isolated invariant failure-persist directories during focused invariant runs to avoid stale Foundry failure-cache replays affecting diagnosis.
 
@@ -305,4 +305,23 @@
 - The invariant executor is intentionally mock-only and mint-based. Deterministic price/output parity remains the job of the real PoolManager integration suite.
 
 ### Validation
+- `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`
+
+## 2026-04-14 — Live-lock controller rotation guard
+
+### Added
+- On-chain `liveSwapLockCount` tracking inside `AlphaEngineConfidentialVault`.
+- `setIntentController(...)` now rejects rotation while any swap lock is still live.
+- Unit, fuzz, and invariant coverage proving:
+  - lock creation increments the live-lock counter,
+  - successful settlement decrements it,
+  - controller rotation is blocked while the counter is non-zero.
+
+### Decisions
+- For the current MVP, forbidding controller rotation while live locks exist is safer and simpler than introducing per-lock controller binding.
+- This keeps the vault under a single controller authority model and avoids split historical settlement authority.
+
+### Validation
+- `forge test --offline --match-path test/unit/AlphaEngineConfidentialVault.t.sol`
+- `forge test --offline --match-path test/fuzz/AlphaEngineIntentController.fuzz.t.sol`
 - `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`

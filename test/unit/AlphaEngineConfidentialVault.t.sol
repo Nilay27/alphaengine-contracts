@@ -160,6 +160,33 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         assertEq(vault.intentController(), newIntentController);
     }
 
+    function testSetIntentControllerRejectsWhenLiveSwapLocksExist() public {
+        _createLockedSwapIntent();
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.ActiveSwapLocksPresent.selector, uint256(1)
+            )
+        );
+        vault.setIntentController(address(0xCA11));
+    }
+
+    function testSetIntentControllerAllowsRotationAfterAllLiveSwapLocksConsume() public {
+        SettlementFixture memory fixture = _prepareExecutableSettlementFixture(40e6, 39e6);
+        address newIntentController = address(0xCA11);
+
+        _settleSwapIntent(fixture, 40e6, 1, abi.encode(39e6));
+
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit IntentControllerUpdated(address(fixture.controller), newIntentController);
+
+        vm.prank(owner);
+        vault.setIntentController(newIntentController);
+
+        assertEq(vault.intentController(), newIntentController);
+    }
+
     function testSetIntentControllerRejectsUnauthorizedCaller() public {
         vm.prank(user);
         vm.expectRevert();
@@ -635,6 +662,7 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
 
         AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
             vault.getSwapIntentLock(intentId);
+        assertEq(vault.liveSwapLockCount(), 1);
         assertEq(intentLock.account, user);
         assertEq(intentLock.wrapper, wrapper);
         assertEq(euint64.unwrap(intentLock.lockedAmount), euint64.unwrap(lockedAmount));
@@ -773,6 +801,7 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
             AlphaEngineFHERC20ERC20Wrapper(fixture.outputWrapper).confidentialBalanceOf(user);
 
         assertEq(outputUnderlyingAmount, outputAmount);
+        assertEq(vault.liveSwapLockCount(), 0);
         assertEq(
             uint8(intentLock.status),
             uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed)

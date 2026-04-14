@@ -223,6 +223,7 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
 
     function testFuzz_executeSwapIntentMarksExecutedAndConsumesLock(uint64 rawSwapAmount) public {
         ExecutableSwapFixture memory fixture = _prepareExecutableSwapFixture(rawSwapAmount);
+        assertEq(fixture.vault.liveSwapLockCount(), 1);
         taskManager.publishDecryptResult(
             uint256(fixture.unshieldRequestHandle), fixture.inputAmount, ""
         );
@@ -248,6 +249,7 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         assertEq(outputUnderlyingAmount, fixture.inputAmount);
         assertEq(mockStorage(uint256(shieldedOutputHandle)), fixture.inputAmount);
         assertEq(mockStorage(uint256(euint64.unwrap(submitterBalance))), fixture.depositAmount);
+        assertEq(fixture.vault.liveSwapLockCount(), 0);
         assertEq(uint8(swapRecord.status), uint8(AlphaEngineIntentController.IntentStatus.Executed));
         assertEq(
             uint8(intentLock.status),
