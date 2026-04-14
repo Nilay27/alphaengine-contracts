@@ -992,7 +992,7 @@ No batching invariant may be asserted until the corresponding contracts exist. C
 
 Implemented as of 2026-04-14:
 
-1. The controller invariant handler covers strategy submit/cancel, swap submit/execute, listener rotation, and vault rotation.
+1. The controller invariant handler covers strategy submit/cancel, swap submit/execute/refund, listener rotation, and vault rotation.
 2. Cross-family id and handle isolation is asserted for known strategy and swap ids.
 3. Vault rotation is included in the controller invariant handler; historical swap records remain tied to their recorded vault.
 4. A vault invariant handler covers two registered wrappers, two tracked users, deposits, locks, unshield requests, unshield claims, cross-wrapper settlement, and dust-settle attempts through a mock executor.

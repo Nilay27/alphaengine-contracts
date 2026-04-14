@@ -110,7 +110,7 @@
 
 ### Added
 - `AlphaEngineConfidentialVault.lockForSwapIntent(...)` for controller-only FHERC20 escrow locking.
-- `AlphaEngineConfidentialVault.consumeSwapIntentLock(...)` for controller-only logical consume / non-refundable settlement marker.
+- At this stage the vault used a temporary controller-only consume marker for swap locks. This was later replaced by the real `settleSwapIntent(...)` and `refundSwapIntent(...)` lifecycle.
 - `AlphaEngineConfidentialVault.getSwapIntentLock(...)` for deterministic lock-state inspection.
 - Swap lock events:
   - `SwapIntentLocked`
@@ -170,10 +170,10 @@
 ## 2026-04-10 — Swap/vault fuzz and invariant coverage
 
 ### Added
-- Controller fuzz coverage for shared strategy/swap nonce progression, cross-family cancellation isolation, and unauthorized swap cancellation rejection.
-- Mixed controller invariant handler actions for strategy submit/cancel, swap submit/cancel, listener-operator rotation, and configured-vault rotation.
+- Superseded later by execute/refund fuzz coverage: at this stage controller fuzz coverage focused on shared strategy/swap nonce progression and cross-family cancellation isolation.
+- Superseded later by execute/refund coverage: at this stage the mixed controller invariant handler focused on strategy submit/cancel, early swap submit-state coverage, listener-operator rotation, and configured-vault rotation.
 - Controller invariant checks for strategy record consistency, swap record/vault lock parity, shared nonce exactness, family-scoped intent ids, non-zero listener operator, and valid configured vault pointer.
-- Vault invariant handler for two users and one wrapper covering deposit/shield, swap lock, unlock, consume, unshield request, and unshield claim flows.
+- Superseded later by the two-wrapper settlement harness: at this stage the vault invariant handler covered deposit/shield, early swap lock state, unshield request, and unshield claim flows.
 - Vault invariant checks for wrapper registry stability, lock lifecycle and field immutability, vault escrow conservation, per-user confidential balance conservation, confidential supply conservation, wrapper reserve conservation, claim snapshot consistency, and stable vault owner/intent-controller authority.
 
 ### Decisions

@@ -118,7 +118,8 @@ Current vault lock semantics are intentionally narrow:
 - The caller must pass a controller-verified `euint64` amount handle that has already been allowed to the vault.
 - `lockForSwapIntent(...)` now performs the FHERC20 transfer and then immediately calls the temporary encrypted-amount unshield overload in the same transaction.
 - After a successful swap submit, the vault lock is already in `UnshieldRequested` state and records both the actual returned locked handle and the actual returned unshield request handle.
-- Swap intent submission is therefore final in the current architecture; there is no `cancelSwapIntent(...)` refund path.
+- Swap intent submission is therefore final in the current architecture; there is no user-cancel path for swap intents.
+- Expired or pause-blocked live swaps may still take the terminal `refundSwapIntent(...)` rescue path, which claims the pending unshield handle and re-shields the recovered underlying back into the original input wrapper for the original submitter.
 - `executeSwapIntent(...)` is listener-operator-only and routes through the recorded vault plus a separately configured executor boundary.
 - `settleSwapIntent(...)` on the vault claims the actual unshield handle, transfers exact underlying input into the executor, receives output underlying back to vault custody, and shields output confidential balance to the original submitter.
 - `AlphaEngineV4SwapExecutor` is the first concrete executor boundary and is the only contract that imports `v4-core` in the current swap path.
