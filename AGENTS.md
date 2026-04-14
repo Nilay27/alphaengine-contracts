@@ -30,6 +30,10 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - V1 is intentionally light, but the repo must be structured so fuzzing, invariants, coverage gates, and future security-review workflows can be added without redesign.
 - TODO: install and adopt `https://github.com/pashov/skills` when contract scope expands beyond the current single-family controller.
 
+6. Custody-safe modularity.
+- Intent lifecycle contracts must not silently become custody contracts.
+- Any confidential token custody, wrapper lifecycle, reserve accounting, lock, unlock, burn, or settlement-credit behavior must live behind a dedicated vault boundary.
+
 ---
 
 ## 2. Non-negotiable runtime and contract rules
@@ -56,8 +60,17 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - Changes to permission behavior require synchronized tests and docs updates.
 
 6. No hidden lifecycle expansion.
-- V1 supports only TA / strategy-allocation submit + cancel.
+- The currently implemented production controller supports only TA / strategy-allocation submit + cancel.
+- Confidential swap and vault work is a separate next phase and must follow `docs/engineering/confidential-swap-vault-architecture.md`.
 - Do not sneak in execution, result posting, batching, or operator settlement paths under convenience rationale.
+
+7. Vault and token custody discipline.
+- `AlphaEngineIntentController` must never hold FHERC20 balances or underlying ERC20 reserves.
+- Swap-intent input must be locked in an AlphaEngine vault, not in the intent controller.
+- Atomic FHERC20 authorization-based locking must store the actual returned transferred handle as canonical.
+- Do not trust a requested encrypted amount as the amount actually locked.
+- Official Fhenix FHERC20 contracts are the target token surface; do not reintroduce the hookathon `HybridFHERC20` as production code.
+- For the pinned `fhenix-confidential-contracts@v0.3.1` package, the installed `confidentialTransferFrom(...)` / `setOperator(...)` surface is authoritative over untagged or docs-only permit terminology.
 
 ---
 
@@ -77,6 +90,9 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - Pin exact dependency refs.
 - Do not duplicate OpenZeppelin or Fhenix interfaces locally when canonical package imports exist.
 - If a temporary local compatibility shim is required, document owner and removal trigger in `docs/development-log.md`.
+- External protocol dependencies such as Uniswap, Pendle, Morpho, or Aave must not be imported into `AlphaEngineIntentController` or `AlphaEngineConfidentialVault`.
+- `@uniswap/v4-core` may be pinned for Foundry pool fixtures and a future separately approved executor, but it is not an intent-controller dependency.
+- Do not add `@uniswap/v4-periphery` unless a concrete test-fixture blocker is documented; periphery is not a production dependency in this phase.
 
 4. Foundry is canonical.
 - All production development, tests, scripts, fuzzing, invariants, and coverage checks use Foundry.
@@ -87,19 +103,31 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 ## 4. Architecture constraints
 
 1. Production scope.
-- One production contract only in v1: `AlphaEngineIntentController`.
-- Transparent proxy pattern with `ProxyAdmin` is the only approved upgrade path in v1.
+- Production code is limited to `AlphaEngineIntentController` and the approved `AlphaEngineConfidentialVault` / FHERC20 wrapper phase.
+- Additional deposit, withdraw, lock, unlock, consume, settlement, batching, or executor paths require explicit docs and tests in the same change set.
+- Transparent proxy pattern with `ProxyAdmin` is the only approved upgrade path for upgradeable production contracts in v1 and the confidential vault phase.
 
 2. Intent-family boundary.
-- V1 family is TA / strategy-allocation only.
+- Current implemented family is TA / strategy-allocation only.
+- Future swap-intent work must remain family-specific and additive.
 - Listener-facing event and getter surfaces must not assume hookathon ABI or future UEI/execution families.
 
-3. Fhenix boundary.
+3. Confidential swap boundary.
+- Swap intent submission belongs in `AlphaEngineIntentController`.
+- FHERC20 wrapper creation, deposit/shield, withdraw/unshield, lock, unlock, burn/consume, and output credit belong in `AlphaEngineConfidentialVault`.
+- Wrappers are scoped per underlying ERC20 unless a documented and approved architecture change says otherwise.
+- Batching is out of scope for the first swap-intent implementation.
+- The intent controller and vault must remain protocol-agnostic. Do not import PoolManager, Pendle, Morpho, Aave, or route-specific protocol ABIs into either contract.
+- Generic UEI execution and protocol-specific executors are separate future boundaries; add them only with explicit architecture docs, tests, and size review.
+
+4. Fhenix boundary.
 - Use current CoFHE/FHE Solidity patterns only.
 - Do not rely on deprecated `cofhejs` assumptions.
+- Use official Fhenix FHERC20/confidential token contracts for confidential token behavior once this phase is implemented.
+- If exact FHERC20 Solidity interface names differ from docs, the installed pinned package is authoritative and docs/tests must be updated in the same change set.
 - If Foundry-local Fhenix mocks are incomplete, isolate that as documented integration debt instead of downgrading the repo to Hardhat.
 
-4. No AVS/middleware scope in v1.
+5. No AVS/middleware scope in v1.
 - This repo is EigenCompute-operated only for now.
 - No EigenLayer registration contracts, middleware plumbing, or operator registry logic in v1.
 
@@ -125,6 +153,11 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 4. Fhenix-specific assertions.
 - If current mocks work in Foundry, test encrypted input internalization and access grants directly.
 - If not, document the missing parity explicitly and keep all contract-owned logic fully covered in Foundry anyway.
+
+5. Confidential swap/vault assertions.
+- Vault work must add unit, fuzz, and invariant coverage before any real asset-custody path is considered complete.
+- Tests must assert lock/cancel/consume state transitions and vault accounting parity.
+- Tests must assert the canonical lock handle comes from the FHERC20 transfer result, not the requested encrypted amount.
 
 ---
 

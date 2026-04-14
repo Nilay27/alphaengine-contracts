@@ -6,3 +6,4 @@ broadcast/
 coverage/
 *.gas-snapshot
 .env
+x-ray/

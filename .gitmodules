@@ -10,3 +10,9 @@
 [submodule "lib/cofhe-contracts"]
 	path = lib/cofhe-contracts
 	url = https://github.com/fhenixprotocol/cofhe-contracts
+[submodule "lib/fhenix-confidential-contracts"]
+	path = lib/fhenix-confidential-contracts
+	url = https://github.com/FhenixProtocol/fhenix-confidential-contracts
+[submodule "lib/v4-core"]
+	path = lib/v4-core
+	url = https://github.com/Uniswap/v4-core
