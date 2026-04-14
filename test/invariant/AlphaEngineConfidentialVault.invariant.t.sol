@@ -14,11 +14,13 @@ import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 
 contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
-    uint256 private constant USER_STARTING_UNDERLYING = 1_000_000_000e6;
+    uint256 private constant USER_STARTING_INPUT_UNDERLYING = 1_000_000_000e6;
 
     AlphaEngineConfidentialVault internal vault;
-    MockERC20 internal underlying;
-    address internal wrapper;
+    MockERC20 internal inputUnderlying;
+    MockERC20 internal outputUnderlying;
+    address internal inputWrapper;
+    address internal outputWrapper;
     VaultInvariantHandler internal handler;
 
     address internal owner = makeAddr("owner");
@@ -28,13 +30,20 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
     function setUp() public {
         _installMockTaskManager();
 
-        underlying = new MockERC20("Invariant USDC", "iUSDC", 6);
+        inputUnderlying = new MockERC20("Invariant USDC", "iUSDC", 6);
+        outputUnderlying = new MockERC20("Invariant WETH", "iWETH", 18);
         vault = _deployVault(owner);
 
-        vm.prank(owner);
-        wrapper = vault.createWrapper(address(underlying), "Encrypted Invariant USDC", "eiUSDC", "");
+        vm.startPrank(owner);
+        inputWrapper =
+            vault.createWrapper(address(inputUnderlying), "Encrypted Invariant USDC", "eiUSDC", "");
+        outputWrapper =
+            vault.createWrapper(address(outputUnderlying), "Encrypted Invariant WETH", "eiWETH", "");
+        vm.stopPrank();
 
-        handler = new VaultInvariantHandler(vault, underlying, wrapper, owner, userA, userB);
+        handler = new VaultInvariantHandler(
+            vault, inputUnderlying, inputWrapper, outputUnderlying, outputWrapper, userA, userB
+        );
 
         vm.prank(owner);
         vault.setIntentController(address(handler));
@@ -42,7 +51,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         _fundAndAuthorize(userA);
         _fundAndAuthorize(userB);
 
-        bytes4[] memory selectors = new bytes4[](8);
+        bytes4[] memory selectors = new bytes4[](9);
         selectors[0] = VaultInvariantHandler.depositAsA.selector;
         selectors[1] = VaultInvariantHandler.depositAsB.selector;
         selectors[2] = VaultInvariantHandler.lockAsA.selector;
@@ -51,18 +60,15 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         selectors[5] = VaultInvariantHandler.requestUnshieldAsB.selector;
         selectors[6] = VaultInvariantHandler.claimUnshield.selector;
         selectors[7] = VaultInvariantHandler.settleLock.selector;
+        selectors[8] = VaultInvariantHandler.attemptDustSettle.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
     }
 
     function invariant_wrapperRegistryRemainsStable() public view {
-        assertEq(vault.wrapperForUnderlying(address(underlying)), wrapper);
-        assertEq(vault.underlyingForWrapper(wrapper), address(underlying));
-        assertEq(IFHERC20ERC20Wrapper(wrapper).underlying(), address(underlying));
-        assertTrue(wrapper != address(0));
-        assertTrue(address(underlying) != address(0));
-        assertTrue(IFHERC20ERC20Wrapper(wrapper).rate() > 0);
+        _assertWrapperStable(inputUnderlying, inputWrapper);
+        _assertWrapperStable(outputUnderlying, outputWrapper);
     }
 
     function invariant_lockLifecycleAndFieldsRemainConsistent() public view {
@@ -82,43 +88,69 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
             assertEq(
                 euint64.unwrap(intentLock.unshieldRequestHandle), snapshot.unshieldRequestHandle
             );
+            assertTrue(intentLock.account == userA || intentLock.account == userB);
+            assertEq(intentLock.wrapper, inputWrapper);
+
             if (
                 snapshot.expectedStatus
                     == AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
             ) {
                 assertTrue(snapshot.unshieldRequestHandle != bytes32(0));
                 assertEq(_evalue(intentLock.unshieldRequestHandle), snapshot.lockedValue);
+                assertEq(snapshot.outputWrapper, address(0));
+                assertEq(snapshot.outputShieldedHandle, bytes32(0));
+                assertEq(snapshot.outputUnderlyingAmount, 0);
+                assertEq(snapshot.outputConfidentialUnits, 0);
             }
-            assertTrue(intentLock.account == userA || intentLock.account == userB);
-            assertEq(intentLock.wrapper, wrapper);
+
+            if (
+                snapshot.expectedStatus
+                    == AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed
+            ) {
+                assertEq(snapshot.outputWrapper, outputWrapper);
+                assertTrue(snapshot.outputShieldedHandle != bytes32(0));
+                assertTrue(snapshot.outputUnderlyingAmount > 0);
+                assertTrue(snapshot.outputConfidentialUnits > 0);
+            }
         }
     }
 
-    function invariant_vaultEscrowBalanceMatchesActiveAndConsumedLocks() public view {
-        assertEq(_confidentialBalance(address(vault)), 0);
+    function invariant_vaultAndExecutorDoNotRetainUnderlying() public view {
+        assertEq(inputUnderlying.balanceOf(address(vault)), 0);
+        assertEq(outputUnderlying.balanceOf(address(vault)), 0);
+        assertEq(inputUnderlying.balanceOf(address(handler.EXECUTOR())), 0);
+        assertEq(outputUnderlying.balanceOf(address(handler.EXECUTOR())), 0);
     }
 
-    function invariant_userConfidentialBalancesRemainConserved() public view {
+    function invariant_userConfidentialBalancesRemainConservedAcrossWrappers() public view {
         _assertUserConservation(userA);
         _assertUserConservation(userB);
     }
 
     function invariant_confidentialSupplyMatchesTrackedBalances() public view {
         assertEq(
-            _confidentialTotalSupply(),
-            _confidentialBalance(userA) + _confidentialBalance(userB)
-                + _confidentialBalance(address(vault))
+            _confidentialTotalSupply(inputWrapper),
+            _confidentialBalance(inputWrapper, userA) + _confidentialBalance(inputWrapper, userB)
+                + _confidentialBalance(inputWrapper, address(vault))
+        );
+        assertEq(
+            _confidentialTotalSupply(outputWrapper),
+            _confidentialBalance(outputWrapper, userA) + _confidentialBalance(outputWrapper, userB)
+                + _confidentialBalance(outputWrapper, address(vault))
         );
     }
 
-    function invariant_underlyingReserveMatchesSupplyPlusPendingUnshield() public view {
-        uint256 rate = IFHERC20ERC20Wrapper(wrapper).rate();
+    function invariant_eachWrapperReserveMatchesSupplyPlusPendingUnshield() public view {
+        uint256 inputRate = IFHERC20ERC20Wrapper(inputWrapper).rate();
+        uint256 outputRate = IFHERC20ERC20Wrapper(outputWrapper).rate();
+
         assertEq(
-            underlying.balanceOf(wrapper) / rate,
-            _confidentialTotalSupply() + handler.totalPendingUnshieldUnits()
+            inputUnderlying.balanceOf(inputWrapper) / inputRate,
+            _confidentialTotalSupply(inputWrapper) + handler.totalPendingInputUnshieldUnits()
         );
         assertEq(
-            underlying.balanceOf(address(vault)) / rate, handler.vaultClaimedSwapUnshieldUnits()
+            outputUnderlying.balanceOf(outputWrapper) / outputRate,
+            _confidentialTotalSupply(outputWrapper)
         );
     }
 
@@ -134,8 +166,10 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         }
     }
 
-    function invariant_consumedLocksAlwaysHaveClaimedRequests() public view {
+    function invariant_consumedLocksHaveClaimedInputsAndExactOutputs() public view {
         uint256 length = handler.lockIdsLength();
+        uint256 outputRate = IFHERC20ERC20Wrapper(outputWrapper).rate();
+
         for (uint256 index = 0; index < length; ++index) {
             bytes32 intentId = handler.lockIdAt(index);
             VaultInvariantHandler.LockSnapshot memory snapshot = handler.lockSnapshot(intentId);
@@ -146,12 +180,45 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
                 VaultInvariantHandler.ClaimSnapshot memory claimSnapshot =
                     handler.claimSnapshot(snapshot.unshieldRequestHandle);
                 assertTrue(claimSnapshot.claimed);
+                assertEq(snapshot.outputWrapper, outputWrapper);
+                assertEq(
+                    snapshot.outputUnderlyingAmount, snapshot.outputConfidentialUnits * outputRate
+                );
+                assertEq(
+                    mockStorage(uint256(snapshot.outputShieldedHandle)),
+                    snapshot.outputConfidentialUnits
+                );
             }
         }
     }
 
-    function invariant_executorDoesNotRetainUnderlying() public view {
-        assertEq(underlying.balanceOf(address(handler.EXECUTOR())), 0);
+    function invariant_outputConfidentialBalancesMatchTrackedSettlementCredits() public view {
+        assertEq(
+            _confidentialBalance(outputWrapper, userA), handler.outputCreditedUnitsByAccount(userA)
+        );
+        assertEq(
+            _confidentialBalance(outputWrapper, userB), handler.outputCreditedUnitsByAccount(userB)
+        );
+    }
+
+    function invariant_failedDustSettlesNeverPartiallyConsumePendingLocks() public view {
+        uint256 length = handler.lockIdsLength();
+        for (uint256 index = 0; index < length; ++index) {
+            bytes32 intentId = handler.lockIdAt(index);
+            VaultInvariantHandler.LockSnapshot memory snapshot = handler.lockSnapshot(intentId);
+            if (
+                snapshot.failedDustSettleAttempts > 0
+                    && snapshot.expectedStatus
+                        == AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
+            ) {
+                VaultInvariantHandler.ClaimSnapshot memory claimSnapshot =
+                    handler.claimSnapshot(snapshot.unshieldRequestHandle);
+                assertFalse(claimSnapshot.claimed);
+                assertEq(snapshot.outputShieldedHandle, bytes32(0));
+                assertEq(snapshot.outputUnderlyingAmount, 0);
+                assertEq(snapshot.outputConfidentialUnits, 0);
+            }
+        }
     }
 
     function invariant_vaultIntentControllerRemainsHandler() public view {
@@ -161,26 +228,42 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
 
     function _assertUserConservation(address account) private view {
         assertEq(
-            _confidentialBalance(account) + handler.unshieldRequestedUnitsByAccount(account),
-            handler.shieldedDepositsByAccount(account)
+            _confidentialBalance(inputWrapper, account)
+                + _confidentialBalance(outputWrapper, account)
+                + handler.pendingInputUnshieldUnitsByAccount(account)
+                + handler.claimedInputUnitsByAccount(account),
+            handler.inputDepositedUnitsByAccount(account)
         );
     }
 
+    function _assertWrapperStable(MockERC20 underlyingToken, address wrapperAddress) private view {
+        assertEq(vault.wrapperForUnderlying(address(underlyingToken)), wrapperAddress);
+        assertEq(vault.underlyingForWrapper(wrapperAddress), address(underlyingToken));
+        assertEq(IFHERC20ERC20Wrapper(wrapperAddress).underlying(), address(underlyingToken));
+        assertTrue(wrapperAddress != address(0));
+        assertTrue(address(underlyingToken) != address(0));
+        assertTrue(IFHERC20ERC20Wrapper(wrapperAddress).rate() > 0);
+    }
+
     function _fundAndAuthorize(address account) private {
-        underlying.mint(account, USER_STARTING_UNDERLYING);
+        inputUnderlying.mint(account, USER_STARTING_INPUT_UNDERLYING);
 
         vm.startPrank(account);
-        underlying.approve(address(vault), type(uint256).max);
-        AlphaEngineFHERC20ERC20Wrapper(wrapper).setOperator(address(vault), type(uint48).max);
+        inputUnderlying.approve(address(vault), type(uint256).max);
+        AlphaEngineFHERC20ERC20Wrapper(inputWrapper).setOperator(address(vault), type(uint48).max);
         vm.stopPrank();
     }
 
-    function _confidentialBalance(address account) private view returns (uint256) {
-        return _evalue(IERC7984(wrapper).confidentialBalanceOf(account));
+    function _confidentialBalance(address wrapperAddress, address account)
+        private
+        view
+        returns (uint256)
+    {
+        return _evalue(IERC7984(wrapperAddress).confidentialBalanceOf(account));
     }
 
-    function _confidentialTotalSupply() private view returns (uint256) {
-        return _evalue(IERC7984(wrapper).confidentialTotalSupply());
+    function _confidentialTotalSupply(address wrapperAddress) private view returns (uint256) {
+        return _evalue(IERC7984(wrapperAddress).confidentialTotalSupply());
     }
 
     function _evalue(euint64 encryptedValue) private view returns (uint256) {

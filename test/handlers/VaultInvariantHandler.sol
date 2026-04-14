@@ -8,7 +8,7 @@ import {IFHERC20ERC20Wrapper} from
 import {AlphaEngineConfidentialVault} from "src/vault/AlphaEngineConfidentialVault.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
-import {MockSwapExecutor} from "test/mocks/MockSwapExecutor.sol";
+import {MockMintingSwapExecutor} from "test/mocks/MockMintingSwapExecutor.sol";
 
 contract VaultInvariantHandler is MockCoFheTest {
     error UnexpectedLockSender(address caller, address expectedAccount);
@@ -20,6 +20,11 @@ contract VaultInvariantHandler is MockCoFheTest {
         bytes32 unshieldRequestHandle;
         uint256 lockedValue;
         AlphaEngineConfidentialVault.SwapIntentLockStatus expectedStatus;
+        address outputWrapper;
+        bytes32 outputShieldedHandle;
+        uint256 outputUnderlyingAmount;
+        uint256 outputConfidentialUnits;
+        uint256 failedDustSettleAttempts;
     }
 
     struct ClaimSnapshot {
@@ -31,19 +36,21 @@ contract VaultInvariantHandler is MockCoFheTest {
     }
 
     AlphaEngineConfidentialVault public immutable VAULT;
-    MockERC20 public immutable UNDERLYING;
-    address public immutable WRAPPER;
-    address public immutable OWNER;
+    MockERC20 public immutable INPUT_UNDERLYING;
+    MockERC20 public immutable OUTPUT_UNDERLYING;
+    address public immutable INPUT_WRAPPER;
+    address public immutable OUTPUT_WRAPPER;
     address public immutable USER_A;
     address public immutable USER_B;
-    uint256 public immutable RATE;
-    MockSwapExecutor public immutable EXECUTOR;
+    uint256 public immutable INPUT_RATE;
+    uint256 public immutable OUTPUT_RATE;
+    MockMintingSwapExecutor public immutable EXECUTOR;
 
-    mapping(address account => uint256 units) public shieldedDepositsByAccount;
-    mapping(address account => uint256 units) public unshieldRequestedUnitsByAccount;
-    uint256 public totalShieldedDeposits;
-    uint256 public totalPendingUnshieldUnits;
-    uint256 public vaultClaimedSwapUnshieldUnits;
+    mapping(address account => uint256 units) public inputDepositedUnitsByAccount;
+    mapping(address account => uint256 units) public pendingInputUnshieldUnitsByAccount;
+    mapping(address account => uint256 units) public claimedInputUnitsByAccount;
+    mapping(address account => uint256 units) public outputCreditedUnitsByAccount;
+    uint256 public totalPendingInputUnshieldUnits;
 
     mapping(bytes32 intentId => bool known) public knownLock;
     mapping(bytes32 intentId => LockSnapshot snapshot) private _lockSnapshots;
@@ -54,21 +61,24 @@ contract VaultInvariantHandler is MockCoFheTest {
 
     constructor(
         AlphaEngineConfidentialVault vault_,
-        MockERC20 underlying_,
-        address wrapper_,
-        address owner_,
+        MockERC20 inputUnderlying_,
+        address inputWrapper_,
+        MockERC20 outputUnderlying_,
+        address outputWrapper_,
         address userA_,
         address userB_
     ) {
         _bindMockTaskManager();
         VAULT = vault_;
-        UNDERLYING = underlying_;
-        WRAPPER = wrapper_;
-        OWNER = owner_;
+        INPUT_UNDERLYING = inputUnderlying_;
+        OUTPUT_UNDERLYING = outputUnderlying_;
+        INPUT_WRAPPER = inputWrapper_;
+        OUTPUT_WRAPPER = outputWrapper_;
         USER_A = userA_;
         USER_B = userB_;
-        RATE = IFHERC20ERC20Wrapper(wrapper_).rate();
-        EXECUTOR = new MockSwapExecutor();
+        INPUT_RATE = IFHERC20ERC20Wrapper(inputWrapper_).rate();
+        OUTPUT_RATE = IFHERC20ERC20Wrapper(outputWrapper_).rate();
+        EXECUTOR = new MockMintingSwapExecutor();
     }
 
     function depositAsA(uint96 rawAmount) external {
@@ -96,20 +106,24 @@ contract VaultInvariantHandler is MockCoFheTest {
     }
 
     function claimUnshield(uint8 rawIndex) external {
-        (bytes32 requestId, bool found) = _selectPendingClaim(rawIndex);
+        (bytes32 requestId, bool found) = _selectPendingUserClaim(rawIndex);
         if (!found) {
             return;
         }
 
-        ClaimSnapshot storage snapshot = _claimSnapshots[requestId];
-        taskManager.publishDecryptResult(uint256(requestId), snapshot.amount, "");
+        ClaimSnapshot storage claimEntry = _claimSnapshots[requestId];
+        taskManager.publishDecryptResult(uint256(requestId), claimEntry.amount, "");
 
-        try VAULT.claimUnshielded(WRAPPER, requestId, snapshot.amount, "") {
-            snapshot.claimed = true;
-            totalPendingUnshieldUnits -= snapshot.amount;
-            if (snapshot.vaultClaim) {
-                vaultClaimedSwapUnshieldUnits += snapshot.amount;
-            }
+        uint256 accountBalanceBefore = INPUT_UNDERLYING.balanceOf(claimEntry.account);
+        try VAULT.claimUnshielded(INPUT_WRAPPER, requestId, claimEntry.amount, "") {
+            claimEntry.claimed = true;
+            totalPendingInputUnshieldUnits -= claimEntry.amount;
+            pendingInputUnshieldUnitsByAccount[claimEntry.account] -= claimEntry.amount;
+            claimedInputUnitsByAccount[claimEntry.account] += claimEntry.amount;
+            assertEq(
+                INPUT_UNDERLYING.balanceOf(claimEntry.account) - accountBalanceBefore,
+                uint256(claimEntry.amount) * INPUT_RATE
+            );
         } catch {}
     }
 
@@ -125,22 +139,99 @@ contract VaultInvariantHandler is MockCoFheTest {
             uint256(lockEntry.unshieldRequestHandle), claimEntry.amount, ""
         );
 
+        uint256 outputUnderlyingAmount = uint256(claimEntry.amount) * OUTPUT_RATE;
         try VAULT.settleSwapIntent(
             intentId,
             address(EXECUTOR),
-            WRAPPER,
+            OUTPUT_WRAPPER,
             claimEntry.amount,
-            claimEntry.amount * RATE,
+            outputUnderlyingAmount,
             "",
-            bytes("")
-        ) returns (uint256 outputUnderlyingAmount, bytes32 shieldedOutputHandle) {
-            assertEq(outputUnderlyingAmount, claimEntry.amount * RATE);
+            abi.encode(outputUnderlyingAmount)
+        ) returns (uint256 returnedOutputUnderlyingAmount, bytes32 shieldedOutputHandle) {
+            assertEq(returnedOutputUnderlyingAmount, outputUnderlyingAmount);
             assertTrue(shieldedOutputHandle != bytes32(0));
+
             lockEntry.expectedStatus = AlphaEngineConfidentialVault.SwapIntentLockStatus.Consumed;
+            lockEntry.outputWrapper = OUTPUT_WRAPPER;
+            lockEntry.outputShieldedHandle = shieldedOutputHandle;
+            lockEntry.outputUnderlyingAmount = returnedOutputUnderlyingAmount;
+            lockEntry.outputConfidentialUnits = returnedOutputUnderlyingAmount / OUTPUT_RATE;
+
             claimEntry.claimed = true;
-            totalPendingUnshieldUnits -= claimEntry.amount;
-            unshieldRequestedUnitsByAccount[claimEntry.account] -= claimEntry.amount;
+            totalPendingInputUnshieldUnits -= claimEntry.amount;
+            pendingInputUnshieldUnitsByAccount[claimEntry.account] -= claimEntry.amount;
+            outputCreditedUnitsByAccount[claimEntry.account] += lockEntry.outputConfidentialUnits;
+
+            assertEq(
+                lockEntry.outputUnderlyingAmount, lockEntry.outputConfidentialUnits * OUTPUT_RATE
+            );
+            assertEq(_evalue(euint64.wrap(shieldedOutputHandle)), lockEntry.outputConfidentialUnits);
+            assertEq(INPUT_UNDERLYING.balanceOf(address(VAULT)), 0);
+            assertEq(OUTPUT_UNDERLYING.balanceOf(address(VAULT)), 0);
+            assertEq(INPUT_UNDERLYING.balanceOf(address(EXECUTOR)), 0);
+            assertEq(OUTPUT_UNDERLYING.balanceOf(address(EXECUTOR)), 0);
         } catch {}
+    }
+
+    function attemptDustSettle(uint8 rawIndex) external {
+        (bytes32 intentId, bool found) = _selectSettleableLock(rawIndex);
+        if (!found) {
+            return;
+        }
+
+        LockSnapshot storage lockEntry = _lockSnapshots[intentId];
+        ClaimSnapshot storage claimEntry = _claimSnapshots[lockEntry.unshieldRequestHandle];
+        taskManager.publishDecryptResult(
+            uint256(lockEntry.unshieldRequestHandle), claimEntry.amount, ""
+        );
+
+        uint256 dustOutputAmount = uint256(claimEntry.amount) * OUTPUT_RATE - 1;
+        AlphaEngineConfidentialVault.SwapIntentLock memory lockBefore =
+            VAULT.getSwapIntentLock(intentId);
+        uint256 outputSupplyBefore = _confidentialTotalSupply(OUTPUT_WRAPPER);
+        uint256 userOutputBalanceBefore = _confidentialBalance(OUTPUT_WRAPPER, lockEntry.account);
+        uint256 inputVaultBalanceBefore = INPUT_UNDERLYING.balanceOf(address(VAULT));
+        uint256 outputVaultBalanceBefore = OUTPUT_UNDERLYING.balanceOf(address(VAULT));
+        uint256 inputExecutorBalanceBefore = INPUT_UNDERLYING.balanceOf(address(EXECUTOR));
+        uint256 outputExecutorBalanceBefore = OUTPUT_UNDERLYING.balanceOf(address(EXECUTOR));
+
+        try VAULT.settleSwapIntent(
+            intentId,
+            address(EXECUTOR),
+            OUTPUT_WRAPPER,
+            claimEntry.amount,
+            dustOutputAmount,
+            "",
+            abi.encode(dustOutputAmount)
+        ) {
+            fail();
+        } catch {
+            lockEntry.failedDustSettleAttempts += 1;
+
+            AlphaEngineConfidentialVault.SwapIntentLock memory lockAfter =
+                VAULT.getSwapIntentLock(intentId);
+            assertEq(uint8(lockAfter.status), uint8(lockBefore.status));
+            assertEq(
+                euint64.unwrap(lockAfter.lockedAmount), euint64.unwrap(lockBefore.lockedAmount)
+            );
+            assertEq(
+                euint64.unwrap(lockAfter.unshieldRequestHandle),
+                euint64.unwrap(lockBefore.unshieldRequestHandle)
+            );
+            assertFalse(_claimSnapshots[lockEntry.unshieldRequestHandle].claimed);
+            assertEq(lockEntry.outputShieldedHandle, bytes32(0));
+            assertEq(lockEntry.outputUnderlyingAmount, 0);
+            assertEq(lockEntry.outputConfidentialUnits, 0);
+            assertEq(_confidentialTotalSupply(OUTPUT_WRAPPER), outputSupplyBefore);
+            assertEq(
+                _confidentialBalance(OUTPUT_WRAPPER, lockEntry.account), userOutputBalanceBefore
+            );
+            assertEq(INPUT_UNDERLYING.balanceOf(address(VAULT)), inputVaultBalanceBefore);
+            assertEq(OUTPUT_UNDERLYING.balanceOf(address(VAULT)), outputVaultBalanceBefore);
+            assertEq(INPUT_UNDERLYING.balanceOf(address(EXECUTOR)), inputExecutorBalanceBefore);
+            assertEq(OUTPUT_UNDERLYING.balanceOf(address(EXECUTOR)), outputExecutorBalanceBefore);
+        }
     }
 
     function lockWithInputForInvariant(bytes32 intentId, address account, InEuint64 calldata input)
@@ -154,7 +245,7 @@ contract VaultInvariantHandler is MockCoFheTest {
         euint64 requestedAmount = FHE.asEuint64(input);
         FHE.allow(requestedAmount, address(VAULT));
 
-        lockedAmount = VAULT.lockForSwapIntent(intentId, account, WRAPPER, requestedAmount);
+        lockedAmount = VAULT.lockForSwapIntent(intentId, account, INPUT_WRAPPER, requestedAmount);
     }
 
     function lockIdsLength() external view returns (uint256) {
@@ -182,35 +273,33 @@ contract VaultInvariantHandler is MockCoFheTest {
     }
 
     function _deposit(address account, uint96 rawAmount) private {
-        uint256 availableUnderlying = UNDERLYING.balanceOf(account);
-        if (availableUnderlying < RATE) {
+        uint256 availableUnderlying = INPUT_UNDERLYING.balanceOf(account);
+        if (availableUnderlying < INPUT_RATE) {
             return;
         }
 
-        uint256 maxAmount = _min(availableUnderlying, 1_000_000 * RATE);
-        uint256 units = bound(uint256(rawAmount), 1, maxAmount / RATE);
-        uint256 amount = units * RATE;
+        uint256 maxAmount = _min(availableUnderlying, 1_000_000 * INPUT_RATE);
+        uint256 units = bound(uint256(rawAmount), 1, maxAmount / INPUT_RATE);
+        uint256 amount = units * INPUT_RATE;
 
         vm.prank(account);
-        try VAULT.depositAndShield(address(UNDERLYING), amount, account) returns (
+        try VAULT.depositAndShield(address(INPUT_UNDERLYING), amount, account) returns (
             address returnedWrapper, euint64 shieldedAmount
         ) {
-            assertEq(returnedWrapper, WRAPPER);
+            assertEq(returnedWrapper, INPUT_WRAPPER);
             uint256 shieldedUnits = _evalue(shieldedAmount);
             assertEq(shieldedUnits, units);
-            shieldedDepositsByAccount[account] += shieldedUnits;
-            totalShieldedDeposits += shieldedUnits;
+            inputDepositedUnitsByAccount[account] += shieldedUnits;
         } catch {}
     }
 
     function _lock(address account, uint64 rawAmount) private {
-        uint256 availableBalance = _confidentialBalance(account);
+        uint256 availableBalance = _confidentialBalance(INPUT_WRAPPER, account);
         if (availableBalance == 0) {
             return;
         }
 
         uint256 amount = bound(uint256(rawAmount), 1, _min(availableBalance, 1000));
-        // forge-lint: disable-next-line(unsafe-typecast)
         InEuint64 memory input = createInEuint64(uint64(amount), account);
 
         bytes32 intentId =
@@ -225,34 +314,39 @@ contract VaultInvariantHandler is MockCoFheTest {
             assertEq(lockedValue, amount);
             assertFalse(knownLock[intentId], "duplicate vault lock");
 
+            AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
+                VAULT.getSwapIntentLock(intentId);
+
             knownLock[intentId] = true;
             _lockIds.push(intentId);
             _lockSnapshots[intentId] = LockSnapshot({
                 account: account,
-                wrapper: WRAPPER,
+                wrapper: INPUT_WRAPPER,
                 lockedAmountHandle: lockedAmountHandle,
-                unshieldRequestHandle: euint64.unwrap(
-                    VAULT.getSwapIntentLock(intentId).unshieldRequestHandle
-                ),
+                unshieldRequestHandle: euint64.unwrap(intentLock.unshieldRequestHandle),
                 lockedValue: lockedValue,
-                expectedStatus: AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
+                expectedStatus: AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested,
+                outputWrapper: address(0),
+                outputShieldedHandle: bytes32(0),
+                outputUnderlyingAmount: 0,
+                outputConfidentialUnits: 0,
+                failedDustSettleAttempts: 0
             });
             _claimIds.push(_lockSnapshots[intentId].unshieldRequestHandle);
             _claimSnapshots[_lockSnapshots[intentId].unshieldRequestHandle] = ClaimSnapshot({
                 account: account,
                 requestId: _lockSnapshots[intentId].unshieldRequestHandle,
-                // forge-lint: disable-next-line(unsafe-typecast)
                 amount: uint64(lockedValue),
                 vaultClaim: true,
                 claimed: false
             });
-            unshieldRequestedUnitsByAccount[account] += lockedValue;
-            totalPendingUnshieldUnits += lockedValue;
+            pendingInputUnshieldUnitsByAccount[account] += lockedValue;
+            totalPendingInputUnshieldUnits += lockedValue;
         } catch {}
     }
 
     function _requestUnshield(address account, uint64 rawAmount) private {
-        uint256 availableBalance = _confidentialBalance(account);
+        uint256 availableBalance = _confidentialBalance(INPUT_WRAPPER, account);
         if (availableBalance == 0) {
             return;
         }
@@ -260,9 +354,9 @@ contract VaultInvariantHandler is MockCoFheTest {
         uint256 amount = bound(uint256(rawAmount), 1, _min(availableBalance, 1000));
 
         vm.prank(account);
-        // forge-lint: disable-next-line(unsafe-typecast)
-        try VAULT.requestUnshield(WRAPPER, account, uint64(amount)) returns (euint64 unshieldHandle)
-        {
+        try VAULT.requestUnshield(INPUT_WRAPPER, account, uint64(amount)) returns (
+            euint64 unshieldHandle
+        ) {
             bytes32 requestId = euint64.unwrap(unshieldHandle);
             assertEq(_evalue(unshieldHandle), amount);
 
@@ -270,17 +364,16 @@ contract VaultInvariantHandler is MockCoFheTest {
             _claimSnapshots[requestId] = ClaimSnapshot({
                 account: account,
                 requestId: requestId,
-                // forge-lint: disable-next-line(unsafe-typecast)
                 amount: uint64(amount),
                 vaultClaim: false,
                 claimed: false
             });
-            unshieldRequestedUnitsByAccount[account] += amount;
-            totalPendingUnshieldUnits += amount;
+            pendingInputUnshieldUnitsByAccount[account] += amount;
+            totalPendingInputUnshieldUnits += amount;
         } catch {}
     }
 
-    function _selectPendingClaim(uint8 rawIndex)
+    function _selectPendingUserClaim(uint8 rawIndex)
         private
         view
         returns (bytes32 requestId, bool found)
@@ -293,7 +386,8 @@ contract VaultInvariantHandler is MockCoFheTest {
         uint256 startIndex = bound(uint256(rawIndex), 0, length - 1);
         for (uint256 offset = 0; offset < length; ++offset) {
             bytes32 candidate = _claimIds[(startIndex + offset) % length];
-            if (!_claimSnapshots[candidate].claimed) {
+            ClaimSnapshot storage claimEntry = _claimSnapshots[candidate];
+            if (!claimEntry.claimed && !claimEntry.vaultClaim) {
                 return (candidate, true);
             }
         }
@@ -314,11 +408,11 @@ contract VaultInvariantHandler is MockCoFheTest {
         uint256 startIndex = bound(uint256(rawIndex), 0, length - 1);
         for (uint256 offset = 0; offset < length; ++offset) {
             bytes32 candidate = _lockIds[(startIndex + offset) % length];
-            LockSnapshot storage snapshot = _lockSnapshots[candidate];
+            LockSnapshot storage lockEntry = _lockSnapshots[candidate];
             if (
-                snapshot.expectedStatus
+                lockEntry.expectedStatus
                     == AlphaEngineConfidentialVault.SwapIntentLockStatus.UnshieldRequested
-                    && !_claimSnapshots[snapshot.unshieldRequestHandle].claimed
+                    && !_claimSnapshots[lockEntry.unshieldRequestHandle].claimed
             ) {
                 return (candidate, true);
             }
@@ -327,8 +421,16 @@ contract VaultInvariantHandler is MockCoFheTest {
         return (bytes32(0), false);
     }
 
-    function _confidentialBalance(address account) private view returns (uint256) {
-        return _evalue(IERC7984(WRAPPER).confidentialBalanceOf(account));
+    function _confidentialBalance(address wrapper, address account)
+        private
+        view
+        returns (uint256)
+    {
+        return _evalue(IERC7984(wrapper).confidentialBalanceOf(account));
+    }
+
+    function _confidentialTotalSupply(address wrapper) private view returns (uint256) {
+        return _evalue(IERC7984(wrapper).confidentialTotalSupply());
     }
 
     function _evalue(euint64 encryptedValue) private view returns (uint256) {

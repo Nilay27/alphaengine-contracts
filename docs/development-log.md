@@ -281,3 +281,28 @@
 - `forge test --offline --match-path test/invariant/AlphaEngineIntentController.invariant.t.sol`
 - `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`
 - `forge test --offline`
+
+## 2026-04-14 — Cross-wrapper settlement invariants and dust atomicity
+
+### Added
+- Replaced the vault invariant harness's same-wrapper settlement shortcut with a two-wrapper model:
+  - input wrapper backed by a 6-decimal underlying,
+  - output wrapper backed by an 18-decimal underlying with a non-trivial `rate()`.
+- Added `test/mocks/MockMintingSwapExecutor.sol` so invariant settlement:
+  - consumes the claimed input immediately,
+  - mints output directly to the vault for shielding,
+  - leaves no residual balances on the executor.
+- Added vault invariants for:
+  - per-wrapper reserve backing,
+  - cross-wrapper user-unit conservation,
+  - consumed-lock exact output accounting,
+  - output confidential-balance parity with tracked settlement credits,
+  - dust-settle revert atomicity.
+
+### Decisions
+- Stateful vault invariants should no longer rely on same-wrapper settlement, because that hides the exact class of bugs that can appear when `inputWrapper != outputWrapper` and `rate(input) != rate(output)`.
+- Rate/dust safety is now treated as a stateful invariant property, not only as a unit-test concern.
+- The invariant executor is intentionally mock-only and mint-based. Deterministic price/output parity remains the job of the real PoolManager integration suite.
+
+### Validation
+- `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`

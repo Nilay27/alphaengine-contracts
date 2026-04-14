@@ -10,7 +10,7 @@ The current implementation has two stateful domains:
 - `AlphaEngineIntentController`: strategy and swap-intent lifecycle.
 - `AlphaEngineConfidentialVault`: FHERC20 wrapper registry, deposit/shield, unshield delegation, and swap-intent escrow locks.
 
-Exact-input swap settlement through a separate executor boundary is now implemented, and the invariant harnesses now include execute-time actions through a mock executor plus same-wrapper accounting checks. Batching, leverage/UEI families, and settlement result posting are still not implemented.
+Exact-input swap settlement through a separate executor boundary is now implemented, and the invariant harnesses now include execute-time actions through a two-wrapper mock-settlement model with explicit output-rate and dust-revert checks. Batching, leverage/UEI families, and settlement result posting are still not implemented.
 
 ## Notation
 
@@ -136,19 +136,19 @@ Implemented checks:
 
 ### Vault Lifecycle and Accounting
 
-The vault invariant handler now covers one registered wrapper, two tracked users, and stateful deposit, lock, settle, unshield-request, and unshield-claim actions.
+The vault invariant handler now covers two registered wrappers, two tracked users, and stateful deposit, lock, settle, dust-settle, unshield-request, and unshield-claim actions.
 
 Implemented checks:
-- wrapper registry stability and wrapper/underlying/rate parity
+- wrapper registry stability and wrapper/underlying/rate parity for both input and output wrappers
 - lock identity immutability and status monotonicity for tracked locks
-- vault confidential escrow balance equals active plus consumed tracked locks
-- per-user confidential balance conservation including active locks, consumed locks, and historical unshield requests
-- confidential total supply equals tracked user balances plus vault balance
-- wrapper underlying reserve equals confidential supply plus pending unshield units in the controlled handler
-- vault staged underlying ERC20 balance remains zero after successful deposit/shield
-- unshield claim snapshots remain tied to tracked users and non-zero amounts
-- consumed locks always imply their unshield request was claimed
-- the mock executor retains zero underlying after same-wrapper settlement
+- per-user unit conservation across input confidential balances, output confidential balances, pending input unshield units, and claimed input withdrawals
+- confidential total supply equals tracked user balances plus vault balance for each wrapper independently
+- each wrapper underlying reserve equals confidential supply plus pending unshield units for that wrapper
+- consumed locks always imply their unshield request was claimed exactly once in the handler model
+- consumed locks record exact output wrapper, output underlying amount, and output confidential units
+- output confidential balances equal the handler's tracked settlement credits
+- dust settlement attempts revert atomically without partially consuming the input lock or minting output
+- vault and mock executor retain zero residual underlying after successful settlement
 - vault owner and intent-controller authority remain stable in the vault-specific handler
 
 ## Controller Invariants
@@ -934,7 +934,7 @@ euint64.unwrap(event.consumedAmount) == originalLockHandle[id]
 
 ## Future Settlement Invariants
 
-These are now partially implemented for the same-wrapper mock-executor path. Concrete route-specific output pricing still belongs in deterministic reference/integration tests rather than stateful invariant handlers.
+These are now implemented for a two-wrapper mock-settlement path with explicit output-rate handling and dust-settle reverts. Concrete route-specific output pricing still belongs in deterministic reference/integration tests rather than stateful invariant handlers.
 
 ### Settlement Status
 
@@ -970,12 +970,12 @@ No batching invariant may be asserted until the corresponding contracts exist. C
 
 ## Implementation Status and Next Test Step
 
-Implemented as of 2026-04-13:
+Implemented as of 2026-04-14:
 
 1. The controller invariant handler covers strategy submit/cancel, swap submit/execute, listener rotation, and vault rotation.
 2. Cross-family id and handle isolation is asserted for known strategy and swap ids.
 3. Vault rotation is included in the controller invariant handler; historical swap records remain tied to their recorded vault.
-4. A vault invariant handler covers one registered wrapper, two tracked users, deposits, locks, unshield requests, unshield claims, and same-wrapper settlement through a mock executor.
+4. A vault invariant handler covers two registered wrappers, two tracked users, deposits, locks, unshield requests, unshield claims, cross-wrapper settlement, and dust-settle attempts through a mock executor.
 5. Vault accounting conservation checks use `mockStorage` values from the local CoFHE test harness.
 6. Pending unshield units are tracked explicitly and included in wrapper reserve conservation.
 
@@ -983,5 +983,5 @@ Next invariant work:
 
 1. Keep `routeKey` metadata-only in invariants until/if a canonical on-chain route registry exists.
 2. Add batch-level conservation invariants only when batching exists.
-3. Add multi-wrapper vault settlement invariants when the handler tracks output-wrapper state separately instead of using the same-wrapper settlement simplification.
+3. Extend the two-wrapper settlement model to more than one output wrapper only when the protocol introduces multiple approved confidential output assets in the same invariant run.
 4. Do not randomize vault `setIntentController(...)` while active locks exist unless the contract first gains an explicit unlockability-preserving rotation design.
