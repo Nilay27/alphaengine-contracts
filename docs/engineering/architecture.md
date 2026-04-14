@@ -11,10 +11,10 @@
 - Transparent proxy pattern is canonical.
 - Current intent families:
   - TA / strategy-allocation
-  - confidential swap-intent locking
+  - confidential swap-intent submission and settlement
 - One configured listener/operator address.
 - TA lifecycle is submit + cancel.
-- Swap lifecycle is submit + cancel with vault escrow lock/unlock only.
+- Swap lifecycle is submit -> execute or refund.
 - Market selection is privacy-preserving in v1: the contract accepts and emits an encrypted `marketId` handle rather than a plaintext market address.
 
 ## External protocol boundary

@@ -6,11 +6,11 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 
 - One upgradeable production contract: `AlphaEngineIntentController`
 - Current TA / strategy-allocation intent family
-- Current confidential swap-intent submit + execute phase
+- Current confidential swap-intent submit / execute / refund phase
 - One listener/operator address
 - Lifecycle:
   - strategy intents: `submit + cancel`
-  - swap intents: `submit + execute`
+  - swap intents: `submit + execute`, with terminal `refund` rescue for expired or pause-blocked live swaps
 - EigenCompute-operated only
 - Encrypted market selection is submitted as an encrypted `marketId` handle, not a plaintext market address
 - Encrypted component handles stored/emitted as `bytes32[]` using the current CoFHE Solidity package
@@ -39,6 +39,7 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 - `submitSwapIntent(address inputWrapper, bytes32 routeKey, InEuint64 encryptedInputAmount, uint40 deadline)`
 - `SwapIntentSubmitted` emits both the vault-returned locked amount handle and unshield request handle as canonical
 - `executeSwapIntent(bytes32 intentId, address outputWrapper, uint64 decryptedInputAmount, uint256 minOutputAmount, bytes decryptionProof, bytes executionData)`
+- `refundSwapIntent(bytes32 intentId, uint64 decryptedInputAmount, bytes decryptionProof)` for expired or pause-blocked live swaps
 - `routeKey` remains metadata for off-chain route semantics; the concrete execution path is supplied through a dedicated executor boundary
 
 ## Commands
