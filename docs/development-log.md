@@ -148,7 +148,7 @@
 - Swap storage was added append-only after the existing controller storage and the controller storage gap was reduced by two slots.
 - `payloadHash` for swap intents commits to `confidentialVault`, `inputWrapper`, `routeKey`, `deadline`, the vault-returned `lockedAmountHandle`, and the vault-returned `unshieldRequestHandle`.
 - `routeKey` is intentionally opaque for now and must not be treated as finalized PoolManager execution-template semantics.
-- Swap submission is now final because the vault auto-requests unshield during `lockForSwapIntent(...)`; there is no longer a swap-cancel refund path.
+- Swap submission is now final because the vault auto-requests unshield during `lockForSwapIntent(...)`; there is no user-cancel path for swap intents.
 
 ### Next Steps
 - Add swap-specific fuzz and invariant coverage before introducing PoolManager settlement.
@@ -324,4 +324,32 @@
 ### Validation
 - `forge test --offline --match-path test/unit/AlphaEngineConfidentialVault.t.sol`
 - `forge test --offline --match-path test/fuzz/AlphaEngineIntentController.fuzz.t.sol`
+- `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`
+
+## 2026-04-14 — Expiry/pause refund path for live swap locks
+
+### Added
+- `refundSwapIntent(...)` on `AlphaEngineIntentController` as the terminal rescue path for live swap intents.
+- `refundSwapIntent(...)` on `AlphaEngineConfidentialVault` to:
+  - claim the stored `unshieldRequestHandle`,
+  - verify the claimed underlying matches the decrypted amount and wrapper rate,
+  - re-shield the recovered underlying back into the original input wrapper for the original submitter.
+- New terminal statuses:
+  - `IntentStatus.Refunded`
+  - `SwapIntentLockStatus.Refunded`
+- Unit, fuzz, and invariant coverage for expiry-driven refunds, pause-driven refunds, controller/vault parity after refund, and reserve conservation after re-shield.
+
+### Decisions
+- Swap intents remain non-cancellable after submit. Refund is not a soft cancel path; it is a rescue path for expired or paused live swaps.
+- Refund intentionally bypasses controller/vault `whenNotPaused` gates because pause must not strand already-live user funds.
+- Route execution remains operator-directed for the current MVP:
+  - `routeKey` is metadata only,
+  - concrete `outputWrapper`, `minOutputAmount`, and executor calldata remain listener/operator supplied at execution time.
+- Settlement outcomes remain event-indexed rather than state-backed for the current MVP. Off-chain indexing is the canonical reconstruction path for executed swap results.
+
+### Validation
+- `forge test --offline --match-path test/unit/AlphaEngineIntentController.t.sol`
+- `forge test --offline --match-path test/unit/AlphaEngineConfidentialVault.t.sol`
+- `forge test --offline --match-path test/fuzz/AlphaEngineIntentController.fuzz.t.sol`
+- `forge test --offline --match-path test/invariant/AlphaEngineIntentController.invariant.t.sol`
 - `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`

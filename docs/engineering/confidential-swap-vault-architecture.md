@@ -102,6 +102,13 @@ Cancellation:
 - does not apply to swap intents because swap submit now auto-requests unshield in the same transaction;
 - must not be reintroduced for swap intents unless the vault lifecycle is redesigned around claim refund or re-shield refund semantics.
 
+Refund:
+
+- is a terminal rescue path for swap intents, not a user-cancel path;
+- only applies once the swap is already live and either the deadline has passed or the system is paused;
+- must verify and claim the stored `unshieldRequestHandle`, then re-shield the recovered underlying back into the original input wrapper for the original submitter;
+- must not route through the swap executor.
+
 Settlement:
 
 - only applies to active submitted swap intents whose vault lock is already `UnshieldRequested`;

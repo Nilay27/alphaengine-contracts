@@ -58,6 +58,13 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         uint256 outputUnderlyingAmount,
         bytes32 shieldedOutputHandle
     );
+    event SwapIntentRefunded(
+        bytes32 indexed intentId,
+        address indexed actor,
+        address indexed inputWrapper,
+        uint64 decryptedInputAmount,
+        bytes32 refundedShieldedHandle
+    );
 
     function test_constructorDisablesImplementationInitializer() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
@@ -754,6 +761,138 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         );
     }
 
+    function test_refundSwapIntentAfterExpiryClaimsAndReshieldsInput() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareSwapExecutionFixture(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+        uint40 deadline = controller.getSwapIntent(intentId).deadline;
+        vm.warp(deadline);
+
+        vm.recordLogs();
+        bytes32 refundedShieldedHandle = _refundSwapIntent(intentId, decryptedInputAmount);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        AlphaEngineIntentController.SwapIntentRecord memory swapRecord =
+            controller.getSwapIntent(intentId);
+        AlphaEngineConfidentialVault.SwapIntentLock memory vaultLock =
+            fixture.vault.getSwapIntentLock(intentId);
+        FHERC20WrapperClaimHelper.Claim memory inputClaim =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).getClaim(unshieldRequestHandle);
+        euint64 inputBalance =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).confidentialBalanceOf(submitter);
+
+        assertEq(uint8(swapRecord.status), uint8(AlphaEngineIntentController.IntentStatus.Refunded));
+        assertEq(
+            uint8(vaultLock.status),
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded)
+        );
+        assertTrue(inputClaim.claimed);
+        assertEq(fixture.vault.liveSwapLockCount(), 0);
+        assertEq(mockStorage(uint256(refundedShieldedHandle)), decryptedInputAmount);
+        assertEq(mockStorage(uint256(euint64.unwrap(inputBalance))), 100e6);
+        assertEq(fixture.inputUnderlying.balanceOf(address(fixture.vault)), 0);
+
+        _assertSwapRefundLog(
+            logs,
+            intentId,
+            address(this),
+            fixture.inputWrapper,
+            decryptedInputAmount,
+            refundedShieldedHandle
+        );
+    }
+
+    function test_refundSwapIntentAllowedWhileControllerPaused() public {
+        (, bytes32 intentId, uint64 decryptedInputAmount, bytes32 unshieldRequestHandle) =
+            _prepareSwapExecutionFixture(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+
+        vm.prank(owner);
+        controller.pause();
+
+        bytes32 refundedShieldedHandle = _refundSwapIntent(intentId, decryptedInputAmount);
+
+        assertTrue(refundedShieldedHandle != bytes32(0));
+        assertEq(
+            uint8(controller.getSwapIntent(intentId).status),
+            uint8(AlphaEngineIntentController.IntentStatus.Refunded)
+        );
+    }
+
+    function test_refundSwapIntentAllowedWhileVaultPaused() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareSwapExecutionFixture(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+
+        vm.prank(owner);
+        fixture.vault.pause();
+
+        bytes32 refundedShieldedHandle = _refundSwapIntent(intentId, decryptedInputAmount);
+
+        assertTrue(refundedShieldedHandle != bytes32(0));
+        assertEq(
+            uint8(controller.getSwapIntent(intentId).status),
+            uint8(AlphaEngineIntentController.IntentStatus.Refunded)
+        );
+    }
+
+    function test_refundSwapIntentRejectsBeforeExpiryWhenLive() public {
+        (, bytes32 intentId, uint64 decryptedInputAmount, bytes32 unshieldRequestHandle) =
+            _prepareSwapExecutionFixture(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        _publishSwapDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+        uint40 deadline = controller.getSwapIntent(intentId).deadline;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.SwapIntentRefundUnavailable.selector,
+                intentId,
+                deadline,
+                uint40(block.timestamp)
+            )
+        );
+        _refundSwapIntent(intentId, decryptedInputAmount);
+    }
+
+    function test_refundSwapIntentRejectsUnknownIntent() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.SwapIntentNotFound.selector, keccak256("unknown-refund")
+            )
+        );
+        _refundSwapIntent(keccak256("unknown-refund"), 1);
+    }
+
+    function test_refundSwapIntentRejectsAlreadyExecutedIntent() public {
+        (
+            SwapExecutionFixture memory fixture,
+            bytes32 intentId,
+            uint64 decryptedInputAmount,
+            bytes32 unshieldRequestHandle
+        ) = _prepareExecutableSwapIntent(100e6, 40e6, 2_000_000_000e6, 2_000_000_000e6);
+        assertTrue(unshieldRequestHandle != bytes32(0));
+
+        _executeSwapIntentWithDefaultRoute(
+            listenerOperator, fixture, intentId, fixture.outputWrapper, decryptedInputAmount, 1
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.SwapIntentNotActive.selector,
+                intentId,
+                AlphaEngineIntentController.IntentStatus.Executed
+            )
+        );
+        _refundSwapIntent(intentId, decryptedInputAmount);
+    }
+
     function test_cancelAllowsSubmitterAndEmitsEvent() public {
         InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
         bytes32 intentId = _submit(
@@ -1156,6 +1295,13 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         );
     }
 
+    function _refundSwapIntent(bytes32 intentId, uint64 decryptedInputAmount)
+        private
+        returns (bytes32 refundedShieldedHandle)
+    {
+        return controller.refundSwapIntent(intentId, decryptedInputAmount, "");
+    }
+
     function _assertSwapExecutionLog(
         Vm.Log[] memory logs,
         bytes32 expectedIntentId,
@@ -1193,6 +1339,36 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         }
 
         assertTrue(found, "SwapIntentExecuted log not found");
+    }
+
+    function _assertSwapRefundLog(
+        Vm.Log[] memory logs,
+        bytes32 expectedIntentId,
+        address expectedActor,
+        address expectedInputWrapper,
+        uint64 expectedDecryptedInputAmount,
+        bytes32 expectedRefundedShieldedHandle
+    ) private pure {
+        bool found;
+        bytes32 topic = keccak256("SwapIntentRefunded(bytes32,address,address,uint64,bytes32)");
+
+        for (uint256 index = 0; index < logs.length; ++index) {
+            Vm.Log memory logEntry = logs[index];
+            if (logEntry.topics.length == 4 && logEntry.topics[0] == topic) {
+                found = true;
+                assertEq(logEntry.topics[1], expectedIntentId);
+                assertEq(address(uint160(uint256(logEntry.topics[2]))), expectedActor);
+                assertEq(address(uint160(uint256(logEntry.topics[3]))), expectedInputWrapper);
+
+                (uint64 decryptedInputAmount, bytes32 refundedShieldedHandle) =
+                    abi.decode(logEntry.data, (uint64, bytes32));
+                assertEq(decryptedInputAmount, expectedDecryptedInputAmount);
+                assertEq(refundedShieldedHandle, expectedRefundedShieldedHandle);
+                break;
+            }
+        }
+
+        assertTrue(found, "SwapIntentRefunded log not found");
     }
 
     function _deployControllerVault() private returns (AlphaEngineConfidentialVault vault) {

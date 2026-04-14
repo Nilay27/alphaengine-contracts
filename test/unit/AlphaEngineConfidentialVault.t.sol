@@ -77,6 +77,13 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         uint256 outputUnderlyingAmount,
         euint64 shieldedOutputAmount
     );
+    event SwapIntentLockRefunded(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed inputWrapper,
+        uint64 decryptedInputAmount,
+        euint64 refundedShieldedAmount
+    );
     event Paused(address account);
     event Unpaused(address account);
 
@@ -885,6 +892,108 @@ contract AlphaEngineConfidentialVaultUnitTest is MockCoFheTest {
         _settleSwapIntent(fixture, 40e6, 1, bytes(""));
     }
 
+    function testIntentControllerCanRefundSwapIntent() public {
+        (
+            VaultIntentControllerHarness controller,
+            address inputWrapper,
+            ,
+            ,
+            bytes32 intentId,
+            bytes32 unshieldRequestHandle
+        ) = _createSettlementReadySwapIntent();
+        uint64 decryptedInputAmount = 40e6;
+        _publishDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+
+        vm.expectEmit(true, true, true, false, address(vault));
+        emit SwapIntentLockRefunded(
+            intentId, user, inputWrapper, decryptedInputAmount, euint64.wrap(bytes32(0))
+        );
+
+        bytes32 refundedShieldedHandle = controller.refund(intentId, decryptedInputAmount, "");
+
+        AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
+            vault.getSwapIntentLock(intentId);
+        FHERC20WrapperClaimHelper.Claim memory inputClaim =
+            AlphaEngineFHERC20ERC20Wrapper(inputWrapper).getClaim(unshieldRequestHandle);
+        euint64 inputBalance =
+            AlphaEngineFHERC20ERC20Wrapper(inputWrapper).confidentialBalanceOf(user);
+
+        assertEq(vault.liveSwapLockCount(), 0);
+        assertEq(
+            uint8(intentLock.status),
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded)
+        );
+        assertTrue(inputClaim.claimed);
+        assertEq(mockStorage(uint256(refundedShieldedHandle)), decryptedInputAmount);
+        assertEq(mockStorage(uint256(euint64.unwrap(inputBalance))), 100e6);
+        assertEq(underlying.balanceOf(address(vault)), 0);
+    }
+
+    function testRefundSwapIntentRejectsUnauthorizedCaller() public {
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.UnauthorizedIntentController.selector, user
+            )
+        );
+        vault.refundSwapIntent(keccak256("intent-a"), 1, "");
+    }
+
+    function testRefundSwapIntentRejectsUnknownIntentId() public {
+        VaultIntentControllerHarness controller = _installControllerHarness();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.SwapIntentLockNotFound.selector,
+                keccak256("missing-intent")
+            )
+        );
+        controller.refund(keccak256("missing-intent"), 1, "");
+    }
+
+    function testRefundSwapIntentRejectsInactiveLock() public {
+        (
+            VaultIntentControllerHarness controller,
+            ,
+            ,
+            ,
+            bytes32 intentId,
+            bytes32 unshieldRequestHandle
+        ) = _createSettlementReadySwapIntent();
+        uint64 decryptedInputAmount = 40e6;
+        _publishDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+
+        controller.refund(intentId, decryptedInputAmount, "");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialVault.SwapIntentLockNotActive.selector,
+                intentId,
+                AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded
+            )
+        );
+        controller.refund(intentId, decryptedInputAmount, "");
+    }
+
+    function testRefundSwapIntentAllowedWhenPaused() public {
+        (
+            VaultIntentControllerHarness controller,
+            ,
+            ,
+            ,
+            bytes32 intentId,
+            bytes32 unshieldRequestHandle
+        ) = _createSettlementReadySwapIntent();
+        uint64 decryptedInputAmount = 40e6;
+        _publishDecryptResult(unshieldRequestHandle, decryptedInputAmount);
+
+        vm.prank(owner);
+        vault.pause();
+
+        bytes32 refundedShieldedHandle = controller.refund(intentId, decryptedInputAmount, "");
+        assertTrue(refundedShieldedHandle != bytes32(0));
+    }
+
     function testPauseAndUnpause() public {
         vm.expectEmit(true, true, true, true, address(vault));
         emit Paused(owner);
@@ -1094,6 +1203,13 @@ contract VaultIntentControllerHarness {
             decryptionProof,
             executionData
         );
+    }
+
+    function refund(bytes32 intentId, uint64 decryptedInputAmount, bytes calldata decryptionProof)
+        external
+        returns (bytes32 refundedShieldedHandle)
+    {
+        return _vault.refundSwapIntent(intentId, decryptedInputAmount, decryptionProof);
     }
 }
 

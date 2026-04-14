@@ -291,6 +291,64 @@ contract AlphaEngineIntentControllerFuzzTest is AlphaEngineIntentControllerTestB
         _assertStrategyHandlesEqual(strategyIntentId, strategyHandlesBefore);
     }
 
+    function testFuzz_refundExpiredSwapIntentMarksRefundedAndRestoresInput(uint64 rawSwapAmount)
+        public
+    {
+        ExecutableSwapFixture memory fixture = _prepareExecutableSwapFixture(rawSwapAmount);
+        taskManager.publishDecryptResult(
+            uint256(fixture.unshieldRequestHandle), fixture.inputAmount, ""
+        );
+        uint40 deadline = controller.getSwapIntent(fixture.intentId).deadline;
+        vm.warp(deadline);
+
+        bytes32 refundedShieldedHandle =
+            controller.refundSwapIntent(fixture.intentId, fixture.inputAmount, "");
+
+        AlphaEngineIntentController.SwapIntentRecord memory swapRecord =
+            controller.getSwapIntent(fixture.intentId);
+        AlphaEngineConfidentialVault.SwapIntentLock memory intentLock =
+            fixture.vault.getSwapIntentLock(fixture.intentId);
+        euint64 submitterBalance =
+            AlphaEngineFHERC20ERC20Wrapper(fixture.wrapper).confidentialBalanceOf(submitter);
+
+        assertEq(mockStorage(uint256(refundedShieldedHandle)), fixture.inputAmount);
+        assertEq(mockStorage(uint256(euint64.unwrap(submitterBalance))), fixture.depositAmount);
+        assertEq(fixture.vault.liveSwapLockCount(), 0);
+        assertEq(uint8(swapRecord.status), uint8(AlphaEngineIntentController.IntentStatus.Refunded));
+        assertEq(
+            uint8(intentLock.status),
+            uint8(AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded)
+        );
+    }
+
+    function testFuzz_refundExpiredSwapIntentPreservesStrategyIntentState(
+        uint128 strategyValue,
+        uint64 rawSwapAmount
+    ) public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
+        bytes32 strategyIntentId = _submit(
+            submitter,
+            marketIdInput,
+            DEFAULT_TIMEFRAME_KEY,
+            _singleInput(strategyValue, submitter),
+            _deadlineAhead(1)
+        );
+        bytes32[] memory strategyHandlesBefore =
+            controller.getIntentComponentHandles(strategyIntentId);
+        StrategyRecordSnapshot memory strategyBefore = _snapshotStrategyRecord(strategyIntentId);
+        ExecutableSwapFixture memory fixture = _prepareExecutableSwapFixture(rawSwapAmount);
+        taskManager.publishDecryptResult(
+            uint256(fixture.unshieldRequestHandle), fixture.inputAmount, ""
+        );
+        uint40 deadline = controller.getSwapIntent(fixture.intentId).deadline;
+        vm.warp(deadline);
+
+        controller.refundSwapIntent(fixture.intentId, fixture.inputAmount, "");
+
+        _assertStrategyRecordEquals(strategyIntentId, strategyBefore);
+        _assertStrategyHandlesEqual(strategyIntentId, strategyHandlesBefore);
+    }
+
     function _prepareSwapFixture(uint64 rawSwapAmount)
         private
         returns (SwapFixture memory fixture)

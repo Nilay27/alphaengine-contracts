@@ -24,7 +24,8 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         Locked,
         Unlocked,
         Consumed,
-        UnshieldRequested
+        UnshieldRequested,
+        Refunded
     }
 
     struct SwapIntentLock {
@@ -117,6 +118,13 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
         uint64 decryptedInputAmount,
         uint256 outputUnderlyingAmount,
         euint64 shieldedOutputAmount
+    );
+    event SwapIntentLockRefunded(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed inputWrapper,
+        uint64 decryptedInputAmount,
+        euint64 refundedShieldedAmount
     );
 
     address public intentController;
@@ -409,6 +417,56 @@ contract AlphaEngineConfidentialVault is Initializable, OwnableUpgradeable, Paus
             decryptedInputAmount,
             outputUnderlyingAmount,
             shieldedOutputAmount
+        );
+    }
+
+    function refundSwapIntent(
+        bytes32 intentId,
+        uint64 decryptedInputAmount,
+        bytes calldata decryptionProof
+    ) external onlyIntentController returns (bytes32 refundedShieldedHandle) {
+        if (decryptedInputAmount == 0) {
+            revert ZeroAmount();
+        }
+
+        SwapIntentLock storage intentLock =
+            _swapIntentLockInStatus(intentId, SwapIntentLockStatus.UnshieldRequested);
+        address inputUnderlying = _registeredUnderlyingForWrapper(intentLock.wrapper);
+        uint256 inputRate = _readWrapperRate(intentLock.wrapper);
+        uint256 claimedUnderlyingAmount = uint256(decryptedInputAmount) * inputRate;
+
+        IERC20 inputToken = IERC20(inputUnderlying);
+        uint256 inputVaultBalanceBefore = inputToken.balanceOf(address(this));
+        _claimUnshielded(
+            intentLock.wrapper,
+            euint64.unwrap(intentLock.unshieldRequestHandle),
+            decryptedInputAmount,
+            decryptionProof
+        );
+
+        uint256 inputVaultBalanceAfterClaim = inputToken.balanceOf(address(this));
+        uint256 actualClaimedUnderlyingAmount =
+            inputVaultBalanceAfterClaim - inputVaultBalanceBefore;
+        if (actualClaimedUnderlyingAmount != claimedUnderlyingAmount) {
+            revert UnexpectedClaimedUnderlyingAmount(
+                inputUnderlying, claimedUnderlyingAmount, actualClaimedUnderlyingAmount
+            );
+        }
+
+        euint64 refundedShieldedAmount = _shieldOutputForSettlement(
+            intentLock.wrapper, intentLock.account, claimedUnderlyingAmount
+        );
+        refundedShieldedHandle = euint64.unwrap(refundedShieldedAmount);
+
+        intentLock.status = SwapIntentLockStatus.Refunded;
+        liveSwapLockCount -= 1;
+
+        emit SwapIntentLockRefunded(
+            intentId,
+            intentLock.account,
+            intentLock.wrapper,
+            decryptedInputAmount,
+            refundedShieldedAmount
         );
     }
 

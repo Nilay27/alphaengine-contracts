@@ -17,7 +17,8 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         Unset,
         Active,
         Cancelled,
-        Executed
+        Executed,
+        Refunded
     }
 
     struct IntentRecord {
@@ -63,6 +64,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     error UnauthorizedCancel(address actor, bytes32 intentId);
     error UnauthorizedListenerOperator(address actor);
     error IntentExpired(bytes32 intentId, uint40 deadline, uint40 currentTimestamp);
+    error SwapIntentRefundUnavailable(bytes32 intentId, uint40 deadline, uint40 currentTimestamp);
     error ZeroSwapExecutor();
     error InvalidSwapExecutor(address executor);
 
@@ -97,6 +99,13 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         uint64 decryptedInputAmount,
         uint256 outputUnderlyingAmount,
         bytes32 shieldedOutputHandle
+    );
+    event SwapIntentRefunded(
+        bytes32 indexed intentId,
+        address indexed actor,
+        address indexed inputWrapper,
+        uint64 decryptedInputAmount,
+        bytes32 refundedShieldedHandle
     );
     event ListenerOperatorUpdated(address indexed previousOperator, address indexed newOperator);
     event ConfidentialVaultUpdated(address indexed previousVault, address indexed newVault);
@@ -349,6 +358,40 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             decryptedInputAmount,
             outputUnderlyingAmount,
             shieldedOutputHandle
+        );
+    }
+
+    function refundSwapIntent(
+        bytes32 intentId,
+        uint64 decryptedInputAmount,
+        bytes calldata decryptionProof
+    ) external returns (bytes32 refundedShieldedHandle) {
+        SwapIntentRecord storage swapRecord = _swapIntentRecords[intentId];
+        if (swapRecord.status == IntentStatus.Unset) {
+            revert SwapIntentNotFound(intentId);
+        }
+        if (swapRecord.status != IntentStatus.Active) {
+            revert SwapIntentNotActive(intentId, swapRecord.status);
+        }
+
+        AlphaEngineConfidentialVault activeVault =
+            AlphaEngineConfidentialVault(swapRecord.confidentialVault);
+        if (!paused() && !activeVault.paused() && swapRecord.deadline > block.timestamp) {
+            revert SwapIntentRefundUnavailable(
+                intentId, swapRecord.deadline, uint40(block.timestamp)
+            );
+        }
+
+        refundedShieldedHandle =
+            activeVault.refundSwapIntent(intentId, decryptedInputAmount, decryptionProof);
+        swapRecord.status = IntentStatus.Refunded;
+
+        emit SwapIntentRefunded(
+            intentId,
+            msg.sender,
+            swapRecord.inputWrapper,
+            decryptedInputAmount,
+            refundedShieldedHandle
         );
     }
 

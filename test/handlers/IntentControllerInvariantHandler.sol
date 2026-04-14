@@ -130,6 +130,10 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
         _executeSwap(LISTENER_B, rawIndex);
     }
 
+    function refundExpiredSwap(uint8 rawIndex) external {
+        _refundExpiredSwap(rawIndex);
+    }
+
     function cancelStrategyAsOwner(uint8 rawIndex) external {
         _cancelStrategy(OWNER, rawIndex);
     }
@@ -287,6 +291,31 @@ contract IntentControllerInvariantHandler is MockCoFheTest {
     function _setVault(address vault) private {
         vm.prank(OWNER);
         try CONTROLLER.setConfidentialVault(vault) {} catch {}
+    }
+
+    function _refundExpiredSwap(uint8 rawIndex) private {
+        (bytes32 intentId, bool found) = _selectActiveSwapIntent(rawIndex);
+        if (!found) {
+            return;
+        }
+
+        SwapSnapshot storage swapEntry = _swapSnapshots[intentId];
+        LockSnapshot storage lockEntry = _lockSnapshots[intentId];
+        uint64 decryptedInputAmount = uint64(mockStorage(uint256(lockEntry.unshieldRequestHandle)));
+        taskManager.publishDecryptResult(
+            uint256(lockEntry.unshieldRequestHandle), decryptedInputAmount, ""
+        );
+        if (block.timestamp < swapEntry.deadline) {
+            vm.warp(uint256(swapEntry.deadline));
+        }
+
+        try CONTROLLER.refundSwapIntent(intentId, decryptedInputAmount, "") returns (
+            bytes32 refundedShieldedHandle
+        ) {
+            assertTrue(refundedShieldedHandle != bytes32(0));
+            swapEntry.expectedStatus = AlphaEngineIntentController.IntentStatus.Refunded;
+            lockEntry.expectedStatus = AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded;
+        } catch {}
     }
 
     function _recordStrategyIntent(bytes32 intentId) private {

@@ -53,7 +53,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
             updatedListenerOperator
         );
 
-        bytes4[] memory selectors = new bytes4[](13);
+        bytes4[] memory selectors = new bytes4[](14);
         selectors[0] = IntentControllerInvariantHandler.submitStrategyAsA.selector;
         selectors[1] = IntentControllerInvariantHandler.submitStrategyAsB.selector;
         selectors[2] = IntentControllerInvariantHandler.submitSwapAsA.selector;
@@ -67,6 +67,7 @@ contract AlphaEngineIntentControllerInvariantTest is AlphaEngineIntentController
         selectors[10] = IntentControllerInvariantHandler.rotateVaultToB.selector;
         selectors[11] = IntentControllerInvariantHandler.executeSwapAsListenerA.selector;
         selectors[12] = IntentControllerInvariantHandler.executeSwapAsListenerB.selector;
+        selectors[13] = IntentControllerInvariantHandler.refundExpiredSwap.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));

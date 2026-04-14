@@ -174,6 +174,41 @@ contract VaultInvariantHandler is MockCoFheTest {
         } catch {}
     }
 
+    function refundLock(uint8 rawIndex) external {
+        (bytes32 intentId, bool found) = _selectSettleableLock(rawIndex);
+        if (!found) {
+            return;
+        }
+
+        LockSnapshot storage lockEntry = _lockSnapshots[intentId];
+        ClaimSnapshot storage claimEntry = _claimSnapshots[lockEntry.unshieldRequestHandle];
+        taskManager.publishDecryptResult(
+            uint256(lockEntry.unshieldRequestHandle), claimEntry.amount, ""
+        );
+
+        try VAULT.refundSwapIntent(intentId, claimEntry.amount, "") returns (
+            bytes32 refundedShieldedHandle
+        ) {
+            assertTrue(refundedShieldedHandle != bytes32(0));
+
+            lockEntry.expectedStatus = AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded;
+            lockEntry.outputWrapper = INPUT_WRAPPER;
+            lockEntry.outputShieldedHandle = refundedShieldedHandle;
+            lockEntry.outputUnderlyingAmount = uint256(claimEntry.amount) * INPUT_RATE;
+            lockEntry.outputConfidentialUnits = claimEntry.amount;
+
+            claimEntry.claimed = true;
+            totalPendingInputUnshieldUnits -= claimEntry.amount;
+            pendingInputUnshieldUnitsByAccount[claimEntry.account] -= claimEntry.amount;
+
+            assertEq(_evalue(euint64.wrap(refundedShieldedHandle)), claimEntry.amount);
+            assertEq(INPUT_UNDERLYING.balanceOf(address(VAULT)), 0);
+            assertEq(OUTPUT_UNDERLYING.balanceOf(address(VAULT)), 0);
+            assertEq(INPUT_UNDERLYING.balanceOf(address(EXECUTOR)), 0);
+            assertEq(OUTPUT_UNDERLYING.balanceOf(address(EXECUTOR)), 0);
+        } catch {}
+    }
+
     function attemptDustSettle(uint8 rawIndex) external {
         (bytes32 intentId, bool found) = _selectSettleableLock(rawIndex);
         if (!found) {

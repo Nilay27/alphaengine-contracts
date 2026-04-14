@@ -121,6 +121,7 @@ Implemented checks:
 - vault lock account, wrapper, locked handle, and status parity with the controller swap record
 - active swap records map to `UnshieldRequested` vault locks
 - executed swap records map to `Consumed` vault locks
+- refunded swap records map to `Refunded` vault locks
 - vault rotation affects future swap submissions only because historical swap records keep their recorded vault
 
 ### Cross-Family Isolation
@@ -300,6 +301,7 @@ Swap status transitions currently implemented:
 
 ```text
 Unset -> Active -> Executed
+Unset -> Active -> Refunded
 ```
 
 Forbidden transitions:
@@ -307,10 +309,12 @@ Forbidden transitions:
 ```text
 Executed -> Active
 Executed -> Unset
+Refunded -> Active
+Refunded -> Unset
 Active -> Unset
 ```
 
-Do not overload `Cancelled` to mean settled or consumed. Strategy intents use `Cancelled`; swap intents use `Executed`.
+Do not overload `Cancelled` to mean settled or refunded. Strategy intents use `Cancelled`; swap intents use `Executed` or `Refunded`.
 
 ## Cross-Family Isolation Invariants
 
@@ -580,6 +584,7 @@ Vault lock state transitions currently allowed:
 ```text
 Unset -> Locked -> UnshieldRequested
 UnshieldRequested -> Consumed
+UnshieldRequested -> Refunded
 ```
 
 Forbidden transitions:
@@ -592,6 +597,9 @@ UnshieldRequested -> Unset
 Consumed -> Locked
 Consumed -> UnshieldRequested
 Consumed -> Unset
+Refunded -> Locked
+Refunded -> UnshieldRequested
+Refunded -> Unset
 ```
 
 ### Lock Field Immutability
@@ -630,7 +638,7 @@ X[id].unshieldRequestHandle == euint64.unwrap(VL[X[id].confidentialVault][id].un
 
 ### Settlement Consume Exactness
 
-For the current implementation, `settleSwapIntent(...)` is the only path that moves an already-unshield-requested lock into `Consumed`.
+For the current implementation, `settleSwapIntent(...)` and `refundSwapIntent(...)` are the only terminal paths for an already-unshield-requested lock.
 
 Expression:
 
@@ -638,6 +646,10 @@ Expression:
 status(VL[V][id]) == UnshieldRequested
 -> after settleSwapIntent(...)
 status(VL[V][id])' == Consumed
+
+status(VL[V][id]) == UnshieldRequested
+-> after refundSwapIntent(...)
+status(VL[V][id])' == Refunded
 ```
 
 Current unit-tested settlement path also enforces:
@@ -681,6 +693,7 @@ Expressions:
 
 ```text
 status(id) == Consumed -> settleSwapIntent(id, ...) reverts
+status(id) == Refunded -> refundSwapIntent(id, ...) reverts
 ```
 
 ### Vault Escrow Balance Conservation
@@ -775,6 +788,12 @@ euint64.unwrap(VL[X[id].confidentialVault][id].unshieldRequestHandle) == X[id].u
 ```
 
 Swap intents are final after submit in the current implementation. There is no cancelled-swap parity state.
+Expired or paused swap intents may instead end in refunded parity:
+
+```text
+uint8(X[id].status) == uint8(IntentStatus.Refunded)
+uint8(VL[X[id].confidentialVault][id].status) == uint8(SwapIntentLockStatus.Refunded)
+```
 
 ## Access and Permission Invariants
 
@@ -938,7 +957,7 @@ These are now implemented for a two-wrapper mock-settlement path with explicit o
 
 ### Settlement Status
 
-Do not use `Cancelled` to mean settled. The current implementation uses `IntentStatus.Executed` for swap intents and `SwapIntentLockStatus.Consumed` for the vault lock.
+Do not use `Cancelled` to mean settled. The current implementation uses `IntentStatus.Executed` or `IntentStatus.Refunded` for swap intents and `SwapIntentLockStatus.Consumed` or `SwapIntentLockStatus.Refunded` for the vault lock.
 
 Current implemented swap state machine:
 
@@ -946,6 +965,7 @@ Current implemented swap state machine:
 Unset -> Active submit
 Active submit -> UnshieldRequested lock
 UnshieldRequested lock -> Executed/Consumed
+UnshieldRequested lock -> Refunded/Refunded
 ```
 
 ### Settlement Accounting

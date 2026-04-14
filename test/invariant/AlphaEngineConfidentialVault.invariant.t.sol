@@ -51,7 +51,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         _fundAndAuthorize(userA);
         _fundAndAuthorize(userB);
 
-        bytes4[] memory selectors = new bytes4[](9);
+        bytes4[] memory selectors = new bytes4[](10);
         selectors[0] = VaultInvariantHandler.depositAsA.selector;
         selectors[1] = VaultInvariantHandler.depositAsB.selector;
         selectors[2] = VaultInvariantHandler.lockAsA.selector;
@@ -61,6 +61,7 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
         selectors[6] = VaultInvariantHandler.claimUnshield.selector;
         selectors[7] = VaultInvariantHandler.settleLock.selector;
         selectors[8] = VaultInvariantHandler.attemptDustSettle.selector;
+        selectors[9] = VaultInvariantHandler.refundLock.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
@@ -113,6 +114,19 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
                 assertTrue(snapshot.outputShieldedHandle != bytes32(0));
                 assertTrue(snapshot.outputUnderlyingAmount > 0);
                 assertTrue(snapshot.outputConfidentialUnits > 0);
+            }
+
+            if (
+                snapshot.expectedStatus
+                    == AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded
+            ) {
+                assertEq(snapshot.outputWrapper, inputWrapper);
+                assertTrue(snapshot.outputShieldedHandle != bytes32(0));
+                assertEq(
+                    snapshot.outputUnderlyingAmount,
+                    snapshot.outputConfidentialUnits * IFHERC20ERC20Wrapper(inputWrapper).rate()
+                );
+                assertEq(snapshot.outputConfidentialUnits, snapshot.lockedValue);
             }
         }
 
@@ -187,6 +201,23 @@ contract AlphaEngineConfidentialVaultInvariantTest is MockCoFheTest {
                 assertEq(snapshot.outputWrapper, outputWrapper);
                 assertEq(
                     snapshot.outputUnderlyingAmount, snapshot.outputConfidentialUnits * outputRate
+                );
+                assertEq(
+                    mockStorage(uint256(snapshot.outputShieldedHandle)),
+                    snapshot.outputConfidentialUnits
+                );
+            }
+            if (
+                snapshot.expectedStatus
+                    == AlphaEngineConfidentialVault.SwapIntentLockStatus.Refunded
+            ) {
+                VaultInvariantHandler.ClaimSnapshot memory claimSnapshot =
+                    handler.claimSnapshot(snapshot.unshieldRequestHandle);
+                assertTrue(claimSnapshot.claimed);
+                assertEq(snapshot.outputWrapper, inputWrapper);
+                assertEq(
+                    snapshot.outputUnderlyingAmount,
+                    snapshot.outputConfidentialUnits * IFHERC20ERC20Wrapper(inputWrapper).rate()
                 );
                 assertEq(
                     mockStorage(uint256(snapshot.outputShieldedHandle)),
