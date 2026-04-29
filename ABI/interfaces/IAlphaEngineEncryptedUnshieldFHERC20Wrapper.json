@@ -1,0 +1,33 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "unshield",
+      "inputs": [
+        {
+          "name": "from",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "bytes32",
+          "internalType": "euint64"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "unshieldAmount",
+          "type": "bytes32",
+          "internalType": "euint64"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    }
+  ]
+}

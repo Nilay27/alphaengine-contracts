@@ -1,0 +1,48 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "executeExactInput",
+      "inputs": [
+        {
+          "name": "inputToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "outputToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "amountIn",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "minAmountOut",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "recipient",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "executionData",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "amountOut",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    }
+  ]
+}
