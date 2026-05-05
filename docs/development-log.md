@@ -1,5 +1,21 @@
 # Development Log
 
+## 2026-05-05 — Arbitrum Sepolia full-stack deployment script
+
+### Added
+- `DeployAlphaEngineArbitrumSepolia` Foundry script for deploying:
+  - `AlphaEngineIntentController` implementation + transparent proxy,
+  - `AlphaEngineConfidentialVault` implementation + transparent proxy,
+  - optional `AlphaEngineV4SwapExecutor`,
+  - optional input/output FHERC20 wrapper creation or registration.
+- Deployment manifest writing to `deployments/arbitrum-sepolia-latest.json` by default.
+
+### Decisions
+- Keep the existing controller-only deployment script unchanged.
+- Use standard deployment for this script instead of `CREATE2`; deterministic addresses can be added later with explicit salt/deployer governance.
+- Owner-only setup is performed by default, so the broadcast account must be `OWNER` unless `PERFORM_OWNER_SETUP=false`.
+- The script uses `vm.startBroadcast()` instead of reading `PRIVATE_KEY` from `.env`, allowing deployment through a Foundry keystore account or a CLI-provided private key.
+
 ## 2026-04-09 — Initial scaffold
 
 ### Added
