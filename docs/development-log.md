@@ -1,5 +1,28 @@
 # Development Log
 
+## 2026-05-11 — Strategy official score submission on-chain
+
+### Added
+- `AlphaEngineIntentController.submitStrategyEvaluationScores` for operator-only posting of encrypted final official-score components.
+  - Stores encrypted `realSister`, `perturbationP25`, and `stressP25` as `uint32` FHE handles.
+  - Prevents re-submission per intent.
+  - Emits `StrategyEvaluationScoresSubmitted`.
+- `AlphaEngineIntentController.getEvaluationScores` read view for off-chain decode and persistence.
+- New internal helper `createInEuint32` in `MockCoFheTest` for deterministic encrypted `uint32` test vectors.
+- `EvaluationScoreRecord` storage mapping and a reduced storage gap (`uint256[42]`).
+
+### Validation
+- Added unit coverage for:
+  - successful encrypted score submission and access grants,
+  - unauthorized caller rejection,
+  - duplicate submission rejection,
+  - non-active intent rejection,
+  - default getter behavior for unknown intents.
+
+### Compatibility impact
+- New event/ABI surface for strategy-off-chain official scoring is now contract-owned and requires synced consumer updates.
+- Storage layout changed in `AlphaEngineIntentController`; upgradeability review required before deployment.
+
 ## 2026-05-05 — Arbitrum Sepolia full-stack deployment script
 
 ### Added

@@ -16,7 +16,7 @@ import {PoolModifyLiquidityTest} from "@uniswap/v4-core/src/test/PoolModifyLiqui
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
-import {InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {InEuint32, InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {FHERC20WrapperClaimHelper} from
     "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaimHelper.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
@@ -65,6 +65,13 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         uint64 decryptedInputAmount,
         bytes32 refundedShieldedHandle
     );
+    event StrategyEvaluationScoresSubmitted(
+        bytes32 indexed intentId,
+        address indexed submitter,
+        bytes32 realSisterScoreHandle,
+        bytes32 perturbationP25ScoreHandle,
+        bytes32 stressP25ScoreHandle
+    );
 
     function test_constructorDisablesImplementationInitializer() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
@@ -99,6 +106,160 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
     function test_reinitializeReverts() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         controller.initialize(owner, listenerOperator);
+    }
+
+    function test_submitStrategyEvaluationScoresStoresEncryptedScoresAndAllowsSubmitter() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
+        bytes32 intentId = _submit(
+            submitter,
+            marketIdInput,
+            DEFAULT_TIMEFRAME_KEY,
+            _singleInput(100, submitter),
+            _deadlineAhead(1)
+        );
+
+        InEuint32 memory realSisterScore = createInEuint32(12_523, listenerOperator);
+        InEuint32 memory perturbationP25Score = createInEuint32(11_523, listenerOperator);
+        InEuint32 memory stressP25Score = createInEuint32(10_589, listenerOperator);
+
+        vm.expectEmit(true, true, false, true);
+        emit StrategyEvaluationScoresSubmitted(
+            intentId,
+            submitter,
+            bytes32(realSisterScore.ctHash),
+            bytes32(perturbationP25Score.ctHash),
+            bytes32(stressP25Score.ctHash)
+        );
+
+        vm.prank(listenerOperator);
+        controller.submitStrategyEvaluationScores(
+            intentId, realSisterScore, perturbationP25Score, stressP25Score
+        );
+
+        AlphaEngineIntentController.EvaluationScoreRecord memory evaluationScoreRecord =
+            controller.getEvaluationScores(intentId);
+        assertEq(evaluationScoreRecord.realSisterScoreHandle, bytes32(realSisterScore.ctHash));
+        assertEq(
+            evaluationScoreRecord.perturbationP25ScoreHandle, bytes32(perturbationP25Score.ctHash)
+        );
+        assertEq(evaluationScoreRecord.stressP25ScoreHandle, bytes32(stressP25Score.ctHash));
+
+        assertTrue(
+            taskManager.isAllowed(
+                uint256(evaluationScoreRecord.realSisterScoreHandle), address(controller)
+            )
+        );
+        assertTrue(
+            taskManager.isAllowed(
+                uint256(evaluationScoreRecord.perturbationP25ScoreHandle), address(controller)
+            )
+        );
+        assertTrue(
+            taskManager.isAllowed(
+                uint256(evaluationScoreRecord.stressP25ScoreHandle), address(controller)
+            )
+        );
+
+        assertTrue(
+            taskManager.isAllowed(uint256(evaluationScoreRecord.realSisterScoreHandle), submitter)
+        );
+        assertTrue(
+            taskManager.isAllowed(
+                uint256(evaluationScoreRecord.perturbationP25ScoreHandle), submitter
+            )
+        );
+        assertTrue(
+            taskManager.isAllowed(uint256(evaluationScoreRecord.stressP25ScoreHandle), submitter)
+        );
+
+        assertEq(mockStorage(uint256(evaluationScoreRecord.realSisterScoreHandle)), 12_523);
+        assertEq(mockStorage(uint256(evaluationScoreRecord.perturbationP25ScoreHandle)), 11_523);
+        assertEq(mockStorage(uint256(evaluationScoreRecord.stressP25ScoreHandle)), 10_589);
+    }
+
+    function test_submitStrategyEvaluationScoresRejectsUnauthorizedCaller() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
+        bytes32 intentId = _submit(
+            submitter,
+            marketIdInput,
+            DEFAULT_TIMEFRAME_KEY,
+            _singleInput(100, submitter),
+            _deadlineAhead(1)
+        );
+
+        vm.prank(outsider);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.UnauthorizedListenerOperator.selector, outsider
+            )
+        );
+        controller.submitStrategyEvaluationScores(
+            intentId,
+            createInEuint32(1000, listenerOperator),
+            createInEuint32(1000, listenerOperator),
+            createInEuint32(1000, listenerOperator)
+        );
+    }
+
+    function test_submitStrategyEvaluationScoresRejectsDuplicateSubmissions() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
+        bytes32 intentId = _submit(
+            submitter,
+            marketIdInput,
+            DEFAULT_TIMEFRAME_KEY,
+            _singleInput(100, submitter),
+            _deadlineAhead(1)
+        );
+
+        vm.prank(listenerOperator);
+        controller.submitStrategyEvaluationScores(
+            intentId,
+            createInEuint32(10_000, listenerOperator),
+            createInEuint32(10_000, listenerOperator),
+            createInEuint32(10_000, listenerOperator)
+        );
+
+        vm.prank(listenerOperator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.EvaluationScoresAlreadySubmitted.selector, intentId
+            )
+        );
+        controller.submitStrategyEvaluationScores(
+            intentId,
+            createInEuint32(10_000, listenerOperator),
+            createInEuint32(10_000, listenerOperator),
+            createInEuint32(10_000, listenerOperator)
+        );
+    }
+
+    function test_submitStrategyEvaluationScoresRejectsNonActiveIntent() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
+        bytes32 intentId = _submit(
+            submitter,
+            marketIdInput,
+            DEFAULT_TIMEFRAME_KEY,
+            _singleInput(100, submitter),
+            _deadlineAhead(1)
+        );
+
+        vm.prank(submitter);
+        controller.cancelStrategyIntent(intentId);
+
+        vm.prank(listenerOperator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineIntentController.StrategyIntentNotActive.selector,
+                intentId,
+                AlphaEngineIntentController.IntentStatus.Cancelled
+            )
+        );
+        controller.submitStrategyEvaluationScores(
+            intentId,
+            createInEuint32(10_000, listenerOperator),
+            createInEuint32(10_000, listenerOperator),
+            createInEuint32(10_000, listenerOperator)
+        );
     }
 
     function test_submitStoresMetadataHandlesPermissionsAndEvent() public {
@@ -998,6 +1159,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         bytes32[] memory componentHandles = controller.getIntentComponentHandles(unknownIntentId);
         AlphaEngineIntentController.SwapIntentRecord memory swapIntentRecord =
             controller.getSwapIntent(unknownIntentId);
+        AlphaEngineIntentController.EvaluationScoreRecord memory evaluationScoreRecord =
+            controller.getEvaluationScores(unknownIntentId);
 
         assertEq(intentRecord.submitter, address(0));
         assertEq(intentRecord.marketIdHandle, bytes32(0));
@@ -1006,6 +1169,10 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(swapIntentRecord.confidentialVault, address(0));
         assertEq(swapIntentRecord.lockedAmountHandle, bytes32(0));
         assertEq(swapIntentRecord.unshieldRequestHandle, bytes32(0));
+        assertEq(uint256(evaluationScoreRecord.realSisterScoreHandle), 0);
+        assertEq(uint256(evaluationScoreRecord.perturbationP25ScoreHandle), 0);
+        assertEq(uint256(evaluationScoreRecord.stressP25ScoreHandle), 0);
+        assertTrue(!evaluationScoreRecord.submitted);
     }
 
     function _submitDefaultSwapIntent()

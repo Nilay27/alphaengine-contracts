@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {InEuint64, InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {InEuint32, InEuint64, InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {Utils} from "@fhenixprotocol/cofhe-contracts/ICofhe.sol";
 import {MockCoFheTaskManager} from "test/mocks/MockCoFheTaskManager.sol";
 
@@ -37,6 +37,24 @@ abstract contract MockCoFheTest is Test {
             ctHash: ctHash,
             securityZone: 0,
             utype: Utils.EUINT128_TFHE,
+            signature: signature
+        });
+    }
+
+    function createInEuint32(uint32 value, address sender)
+        internal
+        returns (InEuint32 memory input)
+    {
+        uint256 ctHash = uint256(keccak256(abi.encode(sender, value, _nextCiphertextSalt)));
+        _nextCiphertextSalt += 1;
+
+        bytes memory signature = abi.encode(sender, value, ctHash);
+        taskManager.registerInput(ctHash, sender, 0, Utils.EUINT32_TFHE, value, signature);
+
+        input = InEuint32({
+            ctHash: ctHash,
+            securityZone: 0,
+            utype: Utils.EUINT32_TFHE,
             signature: signature
         });
     }

@@ -6,7 +6,13 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {PausableUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {
-    FHE, InEuint64, InEuint128, euint64, euint128
+    FHE,
+    InEuint32,
+    InEuint64,
+    InEuint128,
+    euint32,
+    euint64,
+    euint128
 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {AlphaEngineConfidentialVault} from "./vault/AlphaEngineConfidentialVault.sol";
 
@@ -47,6 +53,13 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         bytes32 payloadHash;
     }
 
+    struct EvaluationScoreRecord {
+        bytes32 realSisterScoreHandle;
+        bytes32 perturbationP25ScoreHandle;
+        bytes32 stressP25ScoreHandle;
+        bool submitted;
+    }
+
     error ZeroOwner();
     error ZeroListenerOperator();
     error ZeroConfidentialVault();
@@ -63,6 +76,8 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     error SwapIntentNotActive(bytes32 intentId, IntentStatus status);
     error UnauthorizedCancel(address actor, bytes32 intentId);
     error UnauthorizedListenerOperator(address actor);
+    error EvaluationScoresAlreadySubmitted(bytes32 intentId);
+    error StrategyIntentNotActive(bytes32 intentId, IntentStatus status);
     error IntentExpired(bytes32 intentId, uint40 deadline, uint40 currentTimestamp);
     error SwapIntentRefundUnavailable(bytes32 intentId, uint40 deadline, uint40 currentTimestamp);
     error ZeroSwapExecutor();
@@ -107,6 +122,13 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         uint64 decryptedInputAmount,
         bytes32 refundedShieldedHandle
     );
+    event StrategyEvaluationScoresSubmitted(
+        bytes32 indexed intentId,
+        address indexed submitter,
+        bytes32 realSisterScoreHandle,
+        bytes32 perturbationP25ScoreHandle,
+        bytes32 stressP25ScoreHandle
+    );
     event ListenerOperatorUpdated(address indexed previousOperator, address indexed newOperator);
     event ConfidentialVaultUpdated(address indexed previousVault, address indexed newVault);
     event SwapExecutorUpdated(address indexed previousExecutor, address indexed newExecutor);
@@ -121,7 +143,10 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
     address public swapExecutor;
     mapping(bytes32 intentId => SwapIntentRecord swapIntentRecord) private _swapIntentRecords;
 
-    uint256[43] private __gap;
+    mapping(bytes32 intentId => EvaluationScoreRecord evaluationScoreRecord) private
+        _evaluationScoreRecords;
+
+    uint256[42] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -207,6 +232,56 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             deadline,
             payloadHash,
             submitterNonce
+        );
+    }
+
+    function submitStrategyEvaluationScores(
+        bytes32 intentId,
+        InEuint32 calldata realSisterScore,
+        InEuint32 calldata perturbationP25Score,
+        InEuint32 calldata stressP25Score
+    ) external whenNotPaused {
+        if (msg.sender != listenerOperator) {
+            revert UnauthorizedListenerOperator(msg.sender);
+        }
+
+        IntentRecord storage intentRecord = _intentRecords[intentId];
+        if (intentRecord.status == IntentStatus.Unset) {
+            revert IntentNotFound(intentId);
+        }
+        if (intentRecord.status != IntentStatus.Active) {
+            revert StrategyIntentNotActive(intentId, intentRecord.status);
+        }
+
+        EvaluationScoreRecord storage evaluationScoreRecord = _evaluationScoreRecords[intentId];
+        if (evaluationScoreRecord.submitted) {
+            revert EvaluationScoresAlreadySubmitted(intentId);
+        }
+
+        euint32 internalizedRealSisterScore = FHE.asEuint32(realSisterScore);
+        FHE.allowThis(internalizedRealSisterScore);
+        FHE.allow(internalizedRealSisterScore, intentRecord.submitter);
+
+        euint32 internalizedPerturbationP25Score = FHE.asEuint32(perturbationP25Score);
+        FHE.allowThis(internalizedPerturbationP25Score);
+        FHE.allow(internalizedPerturbationP25Score, intentRecord.submitter);
+
+        euint32 internalizedStressP25Score = FHE.asEuint32(stressP25Score);
+        FHE.allowThis(internalizedStressP25Score);
+        FHE.allow(internalizedStressP25Score, intentRecord.submitter);
+
+        evaluationScoreRecord.realSisterScoreHandle = FHE.unwrap(internalizedRealSisterScore);
+        evaluationScoreRecord.perturbationP25ScoreHandle =
+            FHE.unwrap(internalizedPerturbationP25Score);
+        evaluationScoreRecord.stressP25ScoreHandle = FHE.unwrap(internalizedStressP25Score);
+        evaluationScoreRecord.submitted = true;
+
+        emit StrategyEvaluationScoresSubmitted(
+            intentId,
+            intentRecord.submitter,
+            evaluationScoreRecord.realSisterScoreHandle,
+            evaluationScoreRecord.perturbationP25ScoreHandle,
+            evaluationScoreRecord.stressP25ScoreHandle
         );
     }
 
@@ -448,6 +523,14 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
 
     function getIntentComponentHandles(bytes32 intentId) external view returns (bytes32[] memory) {
         return _intentComponentHandles[intentId];
+    }
+
+    function getEvaluationScores(bytes32 intentId)
+        external
+        view
+        returns (EvaluationScoreRecord memory)
+    {
+        return _evaluationScoreRecords[intentId];
     }
 
     function getSwapIntent(bytes32 intentId) external view returns (SwapIntentRecord memory) {
