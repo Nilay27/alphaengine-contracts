@@ -16,7 +16,7 @@ import {PoolModifyLiquidityTest} from "@uniswap/v4-core/src/test/PoolModifyLiqui
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
-import {InEuint32, InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {FHERC20WrapperClaimHelper} from
     "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaimHelper.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
@@ -118,31 +118,35 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             _deadlineAhead(1)
         );
 
-        InEuint32 memory realSisterScore = createInEuint32(12_523, listenerOperator);
-        InEuint32 memory perturbationP25Score = createInEuint32(11_523, listenerOperator);
-        InEuint32 memory stressP25Score = createInEuint32(10_589, listenerOperator);
+        AlphaEngineIntentController.EvaluationScoreSubmission memory scoreSubmission =
+            _encryptedScoreSubmission(12_523, 11_523, 10_589);
 
         vm.expectEmit(true, true, false, true);
         emit StrategyEvaluationScoresSubmitted(
             intentId,
             submitter,
-            bytes32(realSisterScore.ctHash),
-            bytes32(perturbationP25Score.ctHash),
-            bytes32(stressP25Score.ctHash)
+            bytes32(scoreSubmission.realSisterScore.ctHash),
+            bytes32(scoreSubmission.perturbationP25Score.ctHash),
+            bytes32(scoreSubmission.stressP25Score.ctHash)
         );
 
         vm.prank(listenerOperator);
-        controller.submitStrategyEvaluationScores(
-            intentId, realSisterScore, perturbationP25Score, stressP25Score
-        );
+        controller.submitStrategyEvaluationScores(intentId, scoreSubmission);
 
         AlphaEngineIntentController.EvaluationScoreRecord memory evaluationScoreRecord =
             controller.getEvaluationScores(intentId);
-        assertEq(evaluationScoreRecord.realSisterScoreHandle, bytes32(realSisterScore.ctHash));
         assertEq(
-            evaluationScoreRecord.perturbationP25ScoreHandle, bytes32(perturbationP25Score.ctHash)
+            evaluationScoreRecord.realSisterScoreHandle,
+            bytes32(scoreSubmission.realSisterScore.ctHash)
         );
-        assertEq(evaluationScoreRecord.stressP25ScoreHandle, bytes32(stressP25Score.ctHash));
+        assertEq(
+            evaluationScoreRecord.perturbationP25ScoreHandle,
+            bytes32(scoreSubmission.perturbationP25Score.ctHash)
+        );
+        assertEq(
+            evaluationScoreRecord.stressP25ScoreHandle,
+            bytes32(scoreSubmission.stressP25Score.ctHash)
+        );
 
         assertTrue(
             taskManager.isAllowed(
@@ -194,10 +198,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         controller.submitStrategyEvaluationScores(
-            intentId,
-            createInEuint32(1000, listenerOperator),
-            createInEuint32(1000, listenerOperator),
-            createInEuint32(1000, listenerOperator)
+            intentId, _encryptedScoreSubmission(1000, 1000, 1000)
         );
     }
 
@@ -213,10 +214,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
 
         vm.prank(listenerOperator);
         controller.submitStrategyEvaluationScores(
-            intentId,
-            createInEuint32(10_000, listenerOperator),
-            createInEuint32(10_000, listenerOperator),
-            createInEuint32(10_000, listenerOperator)
+            intentId, _encryptedScoreSubmission(10_000, 10_000, 10_000)
         );
 
         vm.prank(listenerOperator);
@@ -226,10 +224,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         controller.submitStrategyEvaluationScores(
-            intentId,
-            createInEuint32(10_000, listenerOperator),
-            createInEuint32(10_000, listenerOperator),
-            createInEuint32(10_000, listenerOperator)
+            intentId, _encryptedScoreSubmission(10_000, 10_000, 10_000)
         );
     }
 
@@ -255,11 +250,19 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         controller.submitStrategyEvaluationScores(
-            intentId,
-            createInEuint32(10_000, listenerOperator),
-            createInEuint32(10_000, listenerOperator),
-            createInEuint32(10_000, listenerOperator)
+            intentId, _encryptedScoreSubmission(10_000, 10_000, 10_000)
         );
+    }
+
+    function _encryptedScoreSubmission(uint32 realSister, uint32 perturbationP25, uint32 stress)
+        internal
+        returns (AlphaEngineIntentController.EvaluationScoreSubmission memory submission)
+    {
+        submission = AlphaEngineIntentController.EvaluationScoreSubmission({
+            realSisterScore: createInEuint32(realSister, listenerOperator),
+            perturbationP25Score: createInEuint32(perturbationP25, listenerOperator),
+            stressP25Score: createInEuint32(stress, listenerOperator)
+        });
     }
 
     function test_submitStoresMetadataHandlesPermissionsAndEvent() public {

@@ -60,6 +60,12 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
         bool submitted;
     }
 
+    struct EvaluationScoreSubmission {
+        InEuint32 realSisterScore;
+        InEuint32 perturbationP25Score;
+        InEuint32 stressP25Score;
+    }
+
     error ZeroOwner();
     error ZeroListenerOperator();
     error ZeroConfidentialVault();
@@ -237,9 +243,7 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
 
     function submitStrategyEvaluationScores(
         bytes32 intentId,
-        InEuint32 calldata realSisterScore,
-        InEuint32 calldata perturbationP25Score,
-        InEuint32 calldata stressP25Score
+        EvaluationScoreSubmission calldata scoreSubmission
     ) external whenNotPaused {
         if (msg.sender != listenerOperator) {
             revert UnauthorizedListenerOperator(msg.sender);
@@ -258,22 +262,17 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             revert EvaluationScoresAlreadySubmitted(intentId);
         }
 
-        euint32 internalizedRealSisterScore = FHE.asEuint32(realSisterScore);
-        FHE.allowThis(internalizedRealSisterScore);
-        FHE.allow(internalizedRealSisterScore, intentRecord.submitter);
+        InEuint32[3] memory scores = [
+            scoreSubmission.realSisterScore,
+            scoreSubmission.perturbationP25Score,
+            scoreSubmission.stressP25Score
+        ];
+        bytes32[3] memory scoreHandles =
+            _internalizeAndStoreScoreHandles(intentRecord.submitter, scores);
 
-        euint32 internalizedPerturbationP25Score = FHE.asEuint32(perturbationP25Score);
-        FHE.allowThis(internalizedPerturbationP25Score);
-        FHE.allow(internalizedPerturbationP25Score, intentRecord.submitter);
-
-        euint32 internalizedStressP25Score = FHE.asEuint32(stressP25Score);
-        FHE.allowThis(internalizedStressP25Score);
-        FHE.allow(internalizedStressP25Score, intentRecord.submitter);
-
-        evaluationScoreRecord.realSisterScoreHandle = FHE.unwrap(internalizedRealSisterScore);
-        evaluationScoreRecord.perturbationP25ScoreHandle =
-            FHE.unwrap(internalizedPerturbationP25Score);
-        evaluationScoreRecord.stressP25ScoreHandle = FHE.unwrap(internalizedStressP25Score);
+        evaluationScoreRecord.realSisterScoreHandle = scoreHandles[0];
+        evaluationScoreRecord.perturbationP25ScoreHandle = scoreHandles[1];
+        evaluationScoreRecord.stressP25ScoreHandle = scoreHandles[2];
         evaluationScoreRecord.submitted = true;
 
         emit StrategyEvaluationScoresSubmitted(
@@ -283,6 +282,18 @@ contract AlphaEngineIntentController is Initializable, OwnableUpgradeable, Pausa
             evaluationScoreRecord.perturbationP25ScoreHandle,
             evaluationScoreRecord.stressP25ScoreHandle
         );
+    }
+
+    function _internalizeAndStoreScoreHandles(address submitter, InEuint32[3] memory scores)
+        private
+        returns (bytes32[3] memory handles)
+    {
+        for (uint256 index = 0; index < 3; ++index) {
+            euint32 internalizedScore = FHE.asEuint32(scores[index]);
+            FHE.allowThis(internalizedScore);
+            FHE.allow(internalizedScore, submitter);
+            handles[index] = FHE.unwrap(internalizedScore);
+        }
     }
 
     function submitSwapIntent(
