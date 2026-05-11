@@ -16,7 +16,7 @@ import {PoolModifyLiquidityTest} from "@uniswap/v4-core/src/test/PoolModifyLiqui
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {AlphaEngineIntentController} from "src/AlphaEngineIntentController.sol";
-import {InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {InEuint32, InEuint64, InEuint128, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {FHERC20WrapperClaimHelper} from
     "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaimHelper.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
@@ -179,6 +179,36 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(mockStorage(uint256(evaluationScoreRecord.realSisterScoreHandle)), 12_523);
         assertEq(mockStorage(uint256(evaluationScoreRecord.perturbationP25ScoreHandle)), 11_523);
         assertEq(mockStorage(uint256(evaluationScoreRecord.stressP25ScoreHandle)), 10_589);
+
+        assertFalse(taskManager.isAllowed(uint256(evaluationScoreRecord.realSisterScoreHandle), otherSubmitter));
+        assertFalse(taskManager.isAllowed(uint256(evaluationScoreRecord.perturbationP25ScoreHandle), otherSubmitter));
+        assertFalse(taskManager.isAllowed(uint256(evaluationScoreRecord.stressP25ScoreHandle), otherSubmitter));
+    }
+
+    function test_submitStrategyEvaluationScoresRejectsInvalidEncryptedScoreHandles() public {
+        InEuint128 memory marketIdInput = createInEuint128(DEFAULT_MARKET_ID, submitter);
+        bytes32 intentId = _submit(
+            submitter,
+            marketIdInput,
+            DEFAULT_TIMEFRAME_KEY,
+            _singleInput(100, submitter),
+            _deadlineAhead(1)
+        );
+
+        AlphaEngineIntentController.EvaluationScoreSubmission memory scoreSubmission =
+            _encryptedScoreSubmission(1000, 1000, 1000);
+
+        scoreSubmission.realSisterScore = InEuint32({
+            // invalid because this encrypted input metadata no longer matches the registered source
+            ctHash: scoreSubmission.realSisterScore.ctHash,
+            securityZone: scoreSubmission.realSisterScore.securityZone + 1,
+            utype: scoreSubmission.realSisterScore.utype,
+            signature: scoreSubmission.realSisterScore.signature
+        });
+
+        vm.prank(listenerOperator);
+        vm.expectRevert();
+        controller.submitStrategyEvaluationScores(intentId, scoreSubmission);
     }
 
     function test_submitStrategyEvaluationScoresRejectsUnauthorizedCaller() public {
@@ -191,6 +221,9 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             _deadlineAhead(1)
         );
 
+        AlphaEngineIntentController.EvaluationScoreSubmission memory scoreSubmission =
+            _encryptedScoreSubmission(1000, 1000, 1000);
+
         vm.prank(outsider);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -198,7 +231,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         controller.submitStrategyEvaluationScores(
-            intentId, _encryptedScoreSubmission(1000, 1000, 1000)
+            intentId,
+            scoreSubmission
         );
     }
 
@@ -212,9 +246,13 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             _deadlineAhead(1)
         );
 
+        AlphaEngineIntentController.EvaluationScoreSubmission memory scoreSubmission =
+            _encryptedScoreSubmission(10_000, 10_000, 10_000);
+
         vm.prank(listenerOperator);
         controller.submitStrategyEvaluationScores(
-            intentId, _encryptedScoreSubmission(10_000, 10_000, 10_000)
+            intentId,
+            scoreSubmission
         );
 
         vm.prank(listenerOperator);
@@ -224,7 +262,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         controller.submitStrategyEvaluationScores(
-            intentId, _encryptedScoreSubmission(10_000, 10_000, 10_000)
+            intentId,
+            scoreSubmission
         );
     }
 
@@ -238,6 +277,9 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             _deadlineAhead(1)
         );
 
+        AlphaEngineIntentController.EvaluationScoreSubmission memory scoreSubmission =
+            _encryptedScoreSubmission(10_000, 10_000, 10_000);
+
         vm.prank(submitter);
         controller.cancelStrategyIntent(intentId);
 
@@ -250,7 +292,8 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             )
         );
         controller.submitStrategyEvaluationScores(
-            intentId, _encryptedScoreSubmission(10_000, 10_000, 10_000)
+            intentId,
+            scoreSubmission
         );
     }
 
