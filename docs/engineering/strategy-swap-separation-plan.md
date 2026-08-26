@@ -84,6 +84,34 @@ It will eventually own:
 
 It is not part of this refactor. It must not reuse swap escrow locks, swap nonces, user swap lifecycle state, or transient settlement accounting. It may later reuse narrowly defined executor interfaces after a separate architecture and security review.
 
+#### Second-pass Veda-style execution reference
+
+The pooled-fund implementation pass should use the local YieldFi Veda POC at
+`/Users/nilay/yieldfi/veda-poc` as a design reference, not as a first-pass
+dependency or production-ready implementation. Relevant reference files are:
+
+- `src/StrategyWithMerkleVerification.sol` for per-strategist manage roots,
+  decoder/sanitizer dispatch, per-call Merkle verification, pause controls, and
+  the verified handoff to `BoringVault.manage(...)`;
+- `src/BoringVault.sol` for the custody and authorized `manage(...)` boundary;
+- `src/DecodersAndSanitizers/**` for extracting security-sensitive address
+  arguments from protocol calldata;
+- `resources/BaseMerkleRootGenerator.sol` for canonical leaf construction,
+  tree generation, and serialized policy artifacts;
+- `test/StrategyWithMerkleVerification.t.sol` for permitted-call and
+  disallowed-address proof cases.
+
+The observed repository HEAD when this reference was recorded was
+`f8faeb7f595afa1307bd7728dc1dcb7c36dbc7ea`. Its working tree also contained
+uncommitted changes, so the second pass must select and pin an exact reviewed
+source revision before copying, importing, or adapting any code.
+
+AlphaEngine's implementation must additionally bind each Merkle-authorized call
+batch to one approved, unexpired, and unconsumed capital-strategy execution
+commitment. The Merkle policy constrains the permitted on-chain action surface;
+it does not replace AlphaEngine's per-intent evaluation, sizing, risk, expiry,
+or replay controls.
+
 ## Compatibility and deployment decision
 
 The current deployment is testnet-only. The separated architecture should use new proxies and new deployment addresses.

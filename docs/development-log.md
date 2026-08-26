@@ -1,5 +1,21 @@
 # Development Log
 
+## 2026-08-26 — Contract instruction router
+
+### Changed
+- Replaced the monolithic repository `AGENTS.md` with a concise task router.
+- Moved detailed Solidity, upgradeability, architecture, Fhenix/custody,
+  compatibility, testing/audit, and FundVault/Merkle rules into focused files
+  under `docs/agent-policies/`.
+- Made routes cumulative and retained critical custody, storage, FHE permission,
+  ABI/event, Foundry, and audit-freeze invariants in the always-loaded router.
+
+### Decision
+- Contract planning and implementation must load only the complete policy set
+  matching the task, while high-impact invariants remain visible in the router.
+- The instruction refactor changes no Solidity behavior, ABI, storage, or audit
+  scope.
+
 ## 2026-08-26 — Strategy/swap separation and Fhenix audit plan
 
 ### Approved direction
@@ -16,6 +32,15 @@
 ### References
 - `docs/engineering/strategy-swap-separation-plan.md`
 - `docs/audits/fhenix-private-audit-readiness.md`
+
+### Second-pass fund-vault reference
+- Recorded `/Users/nilay/yieldfi/veda-poc` as a design reference for the future
+  `AlphaEngineFundVault` Merkle-verified execution layer.
+- Kept the Veda-style vault implementation outside the current Fhenix audit and
+  strategy/swap separation pass.
+- Required the later implementation to pin an exact reviewed source revision
+  and bind Merkle-authorized call batches to AlphaEngine's approved capital
+  execution commitments.
 
 ## 2026-05-11 — Strategy official score submission on-chain
 
