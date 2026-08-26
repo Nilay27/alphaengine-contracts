@@ -92,6 +92,6 @@ git submodule update --init --recursive
 forge fmt --check
 forge build --offline
 forge test --offline
-forge coverage --offline --ir-minimum --report summary
+forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
 python3 script/reference/alphaengine_listener_surface.py --check
 ```

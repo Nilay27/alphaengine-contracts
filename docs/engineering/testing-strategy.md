@@ -118,6 +118,11 @@ and the Foundry setup action are pinned by full commit SHA.
 - Checked-in ABIs and upgradeable storage layouts must reproduce byte-for-byte
   after canonical JSON normalization via
   `script/ci/check-generated-artifacts.sh`.
+- Coverage uses `--skip DeployAlphaEngineV2` because the large Foundry script
+  and its dedicated deployment test are outside production coverage scope and
+  trigger a solc Yul stack-depth defect under `--ir-minimum`. The script remains
+  compiled normally and is tested separately; production `src/**` remains fully
+  instrumented.
 
 ## Fhenix policy
 

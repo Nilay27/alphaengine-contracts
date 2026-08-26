@@ -912,3 +912,28 @@
 - `forge test --offline --match-path test/deployment/DeployAlphaEngineV2.t.sol`
 - `python3 script/reference/alphaengine_listener_surface.py --check`
 - Full Stage 10 integration gates remain the next bounded checkpoint.
+
+## 2026-08-27 — Stage 10 first-pass integration validation
+
+### Added
+
+- Added focused V4 executor boundary tests for constructor dependencies,
+  ownership, authorized-caller rotation, unauthorized execution, and common
+  invalid execution inputs.
+- Added a persistent Stage 10 validation record at
+  `docs/releases/stage-10-first-pass-integration-validation.md`.
+- Made the CI coverage command exclude only the separately tested deployment
+  script/test from `--ir-minimum` instrumentation; production `src/**` remains
+  instrumented.
+
+### Validation
+
+- Full suite: 173 passed, 0 failed.
+- Release fuzz: six properties × 10,000 runs.
+- Release invariants: five suites / 29 properties at 256 runs × depth 128.
+- Coverage: 90.59% lines, 91.35% statements, 68.98% branches, 99.39% functions.
+- ABI, storage-layout, selector/topic, runtime-size, formatting, repository
+  hygiene, legacy-manifest integrity, and local deployment-rehearsal gates all
+  passed.
+- No public-network deployment and no consolidated security-skill audit were
+  performed at this checkpoint.

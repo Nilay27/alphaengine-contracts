@@ -67,7 +67,7 @@ git submodule update --init --recursive
 forge fmt --check
 forge build --offline
 forge test --offline
-forge coverage --offline --ir-minimum --report summary
+forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
 git diff --check
 ```
 

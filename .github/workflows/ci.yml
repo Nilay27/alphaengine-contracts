@@ -50,7 +50,7 @@ jobs:
         run: forge test --offline
 
       - name: Run coverage
-        run: forge coverage --offline --ir-minimum --report summary
+        run: forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
 
       - name: Check ABI and storage-layout snapshots
         shell: bash

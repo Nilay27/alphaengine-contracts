@@ -49,7 +49,7 @@ jobs:
         run: forge test --offline
 
       - name: Run release coverage
-        run: forge coverage --offline --ir-minimum --report summary
+        run: forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
 
       - name: Reproduce ABI and storage-layout artifacts
         run: bash script/ci/check-generated-artifacts.sh
