@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphaengine.xyz/schemas/deployment-manifest-v2.json",
+  "title": "AlphaEngine v2 deployment manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "chainId",
+    "deploymentBlock",
+    "baselineGitSha",
+    "deploymentGitSha",
+    "legacyManifestPath",
+    "legacyManifestSha256",
+    "adminActionsHash",
+    "strategyStatus",
+    "swapStatus",
+    "fundVaultStatus"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "chainId": { "type": "integer", "minimum": 1 },
+    "deploymentBlock": { "type": "integer", "minimum": 0 },
+    "baselineGitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "deploymentGitSha": { "type": "string", "minLength": 1 },
+    "legacyManifestPath": { "const": "deployments/arbitrum-sepolia-latest.json" },
+    "legacyManifestSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "adminActionsHash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+    "strategyStatus": { "type": "string" },
+    "swapStatus": { "type": "string" },
+    "fundVaultStatus": { "type": "string" },
+    "testOnlyRoleCollapse": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

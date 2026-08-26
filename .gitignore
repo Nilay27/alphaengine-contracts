@@ -7,3 +7,4 @@ coverage/
 *.gas-snapshot
 .env
 x-ray/
+__pycache__/

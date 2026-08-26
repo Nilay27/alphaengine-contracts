@@ -57,15 +57,18 @@ forge build --offline
 
 python3 script/reference/alphaengine_hash_vectors.py \
     --check test/vectors/alphaengine-hash-v1.json
+python3 script/reference/alphaengine_listener_surface.py --check
 
-check_abi \
-    out/AlphaEngineIntentController.sol/AlphaEngineIntentController.json \
-    ABI/AlphaEngineIntentController.json \
-    intent-controller
-check_abi \
-    out/AlphaEngineConfidentialVault.sol/AlphaEngineConfidentialVault.json \
-    ABI/vault/AlphaEngineConfidentialVault.json \
-    confidential-vault
+# The legacy manifest, ABI, and storage layouts are immutable historical evidence. Their
+# former implementations are intentionally absent from the active source tree and therefore
+# must not be regenerated using current dependencies or compiler settings.
+expected_legacy_manifest_sha="e35253ff1c1aaa16e67cf6543942332031ac1691392bb578a07ca6fa2c5aa7e2"
+actual_legacy_manifest_sha="$(shasum -a 256 deployments/arbitrum-sepolia-latest.json | awk '{print $1}')"
+test "$actual_legacy_manifest_sha" = "$expected_legacy_manifest_sha"
+test -f ABI/legacy/AlphaEngineIntentController.checked-in-49d96e8.json
+test -f storage-layouts/legacy/AlphaEngineIntentController.49d96e8.json
+test -f storage-layouts/legacy/AlphaEngineConfidentialVault.49d96e8.json
+
 check_abi \
     out/AlphaEngineFHERC20ERC20Wrapper.sol/AlphaEngineFHERC20ERC20Wrapper.json \
     ABI/fherc20/AlphaEngineFHERC20ERC20Wrapper.json \
@@ -103,14 +106,6 @@ check_abi \
     ABI/v2/AlphaEngineCapitalStrategyManager.json \
     capital-strategy-manager
 
-check_layout \
-    out/AlphaEngineIntentController.sol/AlphaEngineIntentController.json \
-    storage-layouts/legacy/AlphaEngineIntentController.49d96e8.json \
-    intent-controller-layout
-check_layout \
-    out/AlphaEngineConfidentialVault.sol/AlphaEngineConfidentialVault.json \
-    storage-layouts/legacy/AlphaEngineConfidentialVault.49d96e8.json \
-    confidential-vault-layout
 check_layout \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
     storage-layouts/v2/AlphaEngineTraderQualificationRegistry.json \
@@ -153,3 +148,9 @@ check_runtime_size \
 check_runtime_size \
     out/AlphaEngineConfidentialSwapController.sol/AlphaEngineConfidentialSwapController.json \
     confidential-swap-controller
+check_runtime_size \
+    out/AlphaEngineFHERC20ERC20Wrapper.sol/AlphaEngineFHERC20ERC20Wrapper.json \
+    fherc20-wrapper
+check_runtime_size \
+    out/AlphaEngineV4SwapExecutor.sol/AlphaEngineV4SwapExecutor.json \
+    v4-swap-executor

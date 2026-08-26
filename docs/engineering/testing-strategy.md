@@ -171,7 +171,9 @@ and the Foundry setup action are pinned by full commit SHA.
 ## External protocol fixture policy
 
 - `@uniswap/v4-core` is allowed for Foundry-only executor fixtures, direct `PoolSwapTest` reference swaps, and the separately-approved executor boundary.
-- Production `AlphaEngineIntentController` and `AlphaEngineConfidentialVault` tests must not require either contract to import Uniswap, Pendle, Morpho, Aave, or any other route-specific protocol ABI.
+- Production strategy-manager, swap-controller, and swap-escrow tests must not
+  require those contracts to import Uniswap, Pendle, Morpho, Aave, or any
+  other route-specific protocol ABI.
 - If Uniswap v4 becomes the first concrete execution route, write the PoolManager behavior tests against a dedicated executor/harness, not by embedding PoolManager logic into the intent controller or vault.
 - `@uniswap/v4-periphery` remains excluded unless a specific fixture setup blocker is documented; do not add it speculatively.
 - The pinned `v4-core@v4.0.0` PoolManager implementation uses `pragma solidity 0.8.26`; this repo now pins `solc = 0.8.26` so future PoolManager fixture work must preserve that compiler profile unless explicitly approved and documented.

@@ -6,15 +6,18 @@ This document is the living invariant ledger for `alphaengine-contracts`.
 
 It must be updated whenever a contract state machine, custody boundary, intent family, or accounting model changes. Unit tests can prove individual examples. Fuzz tests can prove bounded input properties. Invariant tests must prove that core state relationships remain true across random stateful action sequences.
 
-The legacy implementation has two stateful domains:
+The historical implementation had two stateful domains:
 - `AlphaEngineIntentController`: strategy and swap-intent lifecycle.
 - `AlphaEngineConfidentialVault`: FHERC20 wrapper registry, deposit/shield, unshield delegation, and swap-intent escrow locks.
 
-Exact-input swap settlement through a separate executor boundary is now implemented. The
-invariant harnesses include execute-time actions through a two-wrapper mock-settlement model,
-while deterministic unit and PoolManager integration tests prove the higher-decimal output
-rule: `total output == shielded units * wrapper rate + dust returned to the trader`. Batching,
-leverage/UEI families, and settlement result posting are still not implemented.
+Those legacy handlers and tests were retired from the active tree at Stage 9
+after the replacement strategy and swap paths became complete. Their manifest,
+ABI, layouts, historical source, and earlier validation evidence remain in Git.
+Exact-input swap settlement through the fresh controller/escrow/executor path
+is implemented. Its active invariant harnesses include execute-time actions
+through a two-wrapper mock-settlement model, while deterministic unit and
+PoolManager integration tests prove the higher-decimal output rule: `total
+output == shielded units * wrapper rate + dust returned to the trader`.
 
 The replacement architecture now also has three stateful domains:
 

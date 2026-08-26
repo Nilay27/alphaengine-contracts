@@ -877,3 +877,38 @@
 - `forge test --offline --match-path test/fuzz/AlphaEngineIntentController.fuzz.t.sol`
 - `forge test --offline --match-path test/invariant/AlphaEngineIntentController.invariant.t.sol`
 - `forge test --offline --match-path test/invariant/AlphaEngineConfidentialVault.invariant.t.sol`
+
+## 2026-08-27 — Stage 9 fresh deployment and listener migration
+
+### Added
+
+- Added `DeployAlphaEngineV2` for fresh, paused, unfunded local deployment of
+  the five independent proxy domains plus the non-upgradeable asset and V4
+  execution components.
+- Added independent ProxyAdmins, exact chain/config/role validation, explicit
+  post-deployment governance actions, reproducibility metadata, code hashes,
+  historical-manifest binding, and the v2 manifest schema.
+- Added deployment tests for paused defaults, reciprocal dependencies,
+  independent administration, wrong-chain and invalid-code rejection,
+  production role separation, deterministic admin actions, and manifest
+  evidence.
+- Added a dependency-free generated listener surface covering canonical
+  function selectors, typed-error selectors, and event topics, plus the v2
+  listener cutover runbook.
+
+### Decisions
+
+- Deployment validation and rehearsal remain local Foundry operations. No
+  public testnet transaction is part of Stages 9–11.
+- Deployment and post-verification governance configuration are separate: the
+  deployment signer receives no hidden production authority.
+- Retired the superseded mixed controller/vault Solidity, scripts, and test
+  harnesses from the active tree after complete strategy/swap replacement.
+  Preserve their legacy manifest, ABI, layouts, addresses, and Git history as
+  immutable evidence.
+
+### Validation
+
+- `forge test --offline --match-path test/deployment/DeployAlphaEngineV2.t.sol`
+- `python3 script/reference/alphaengine_listener_surface.py --check`
+- Full Stage 10 integration gates remain the next bounded checkpoint.

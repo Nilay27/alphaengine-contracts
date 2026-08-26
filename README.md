@@ -5,17 +5,17 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 The approved restructuring is implemented from the single canonical plan at
 `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`.
 
-Implementation has reached the Stage 8 review checkpoint. The independent
+Implementation has reached the Stage 9 deployment/migration checkpoint. The independent
 Qualification Registry, Competition Strategy Manager, Capital Strategy
 Manager, confidential asset registry/gateway, confidential swap controller,
 swap escrow, and bound V4 execution path are implemented and tested locally.
-The fresh contracts have not been deployed to a public testnet, Stage 9
-deployment/listener migration remains pending, and the second-pass FundVault
-stack is not yet implemented.
+Fresh paused deployment, manifest, governance-action, ABI/topic, and listener
+cutover tooling is implemented. The fresh contracts have not been deployed to
+a public testnet, and the second-pass FundVault stack is not yet implemented.
 
-## Current testnet scope
+## Historical testnet scope
 
-- Current upgradeable testnet contracts: `AlphaEngineIntentController` and `AlphaEngineConfidentialVault`
+- Historical upgradeable testnet contracts: `AlphaEngineIntentController` and `AlphaEngineConfidentialVault`
 - Current TA / strategy-allocation intent family
 - Current confidential swap-intent submit / execute / refund phase
 - One listener/operator address
@@ -30,7 +30,10 @@ stack is not yet implemented.
 
 ## Approved restructuring
 
-The current combined controller and swap-custody naming are being separated before the Fhenix private audit:
+The combined controller and swap-custody implementation has been removed from
+the active source tree after full functional replacement. Its deployment
+manifest, ABI, storage layouts, addresses, and Git history remain immutable
+historical evidence. The replacement boundaries are:
 
 - strategy intents remain an AlphaEngine strategy subsystem;
 - individual-user confidential swaps move to a dedicated swap controller and transient escrow module;
@@ -75,14 +78,12 @@ is superseded by the current StrategyManager/FundVault implementation plan.
 
 ## Listener-facing contract surface
 
-- `submitStrategyIntent(InEuint128 encryptedMarketId, bytes32 timeframeKey, InEuint128[] encryptedComponents, uint40 deadline)`
-- `StrategyIntentSubmitted` emits the encrypted `marketIdHandle`, not a plaintext market address
-- Off-chain listener/runtime resolves the decrypted plaintext `marketId` through the temporary shared market registry currently authored in `simulation-service`
-- `submitSwapIntent(address inputWrapper, bytes32 routeKey, InEuint64 encryptedInputAmount, uint40 deadline)`
-- `SwapIntentSubmitted` emits both the vault-returned locked amount handle and unshield request handle as canonical
-- `executeSwapIntent(bytes32 intentId, address outputWrapper, uint64 decryptedInputAmount, uint256 minOutputAmount, bytes decryptionProof, bytes executionData)`
-- `refundSwapIntent(bytes32 intentId, uint64 decryptedInputAmount, bytes decryptionProof)` for expired or pause-blocked live swaps
-- `routeKey` remains metadata for off-chain route semantics; the concrete execution path is supplied through a dedicated executor boundary
+- Source ABIs live under `ABI/v2/`; the canonical generated selector, typed
+  error, and event-topic map is `ABI/v2/listener-surface.json`.
+- Listener cutover, dual-read, reorg, deduplication, and getter-reconciliation
+  requirements are documented in `docs/migrations/v2-listener-cutover.md`.
+- Competition qualification never implies capital approval. Capital and swap
+  consumers use their independent event, nonce, pause, and lifecycle domains.
 
 ## Commands
 
@@ -92,4 +93,5 @@ forge fmt --check
 forge build --offline
 forge test --offline
 forge coverage --offline --ir-minimum --report summary
+python3 script/reference/alphaengine_listener_surface.py --check
 ```

@@ -6,26 +6,30 @@
 
 ## Current shape
 
-- `AlphaEngineIntentController` currently combines TA / strategy-allocation and confidential-swap intent lifecycles.
-- `AlphaEngineConfidentialVault` currently owns confidential token wrappers, deposit/unshield flows, and individual swap-intent escrow locks. Despite its name, it is not a pooled LP fund vault.
+- The active source tree contains independent competition, capital, confidential
+  swap, asset registry/gateway, escrow, and protocol-specific executor domains.
+- The superseded `AlphaEngineIntentController` and
+  `AlphaEngineConfidentialVault` implementations and tests have been retired
+  from the active tree. Their immutable manifest, ABI, layouts, addresses, and
+  Git history remain historical/drain-down evidence; they are never an upgrade
+  or storage base for v2.
 - `AlphaEngineV4SwapExecutor` is the current separately bounded Uniswap v4 execution adapter.
 - Stages 7 and 8 implement the replacement `AlphaEngineConfidentialAssetRegistry`,
   `AlphaEngineConfidentialAssetGateway`, and
   `AlphaEngineConfidentialSwapEscrow`, plus the bound
   `AlphaEngineConfidentialSwapController`; they are locally tested but not
   externally deployed.
-- Transparent proxy pattern is canonical.
-- Current intent families:
-  - TA / strategy-allocation
-  - confidential swap-intent submission and settlement
-- One configured listener/operator address.
-- TA lifecycle is submit + cancel.
+- Stage 9 adds fresh paused deployment, independent ProxyAdmin, v2 manifest,
+  delayed-governance action, ABI/topic snapshot, and listener-cutover tooling.
+- Transparent proxies are canonical for the five stateful first-pass domains;
+  registry, gateway, wrapper, and swap executor remain non-upgradeable.
+- Competition, capital, and confidential swap use independent lifecycles,
+  nonces, roles, operators, events, ABIs, and pause domains.
 - Swap lifecycle is submit -> execute or refund.
 - Market selection is privacy-preserving in v1: the contract accepts and emits an encrypted `marketId` handle rather than a plaintext market address.
 
-The contracts above are the legacy combined baseline and are retained only for
-historical evidence and drain-down compatibility. They are not the storage or
-upgrade base for the replacement products.
+No Stage 9 repository command broadcasts to a public chain. Deployment tests
+and rehearsals use Foundry's ephemeral local EVM.
 
 ## Approved target architecture
 
@@ -114,8 +118,7 @@ Implemented replacement contracts through Stage 8:
 
 ## External protocol boundary
 
-Legacy `AlphaEngineIntentController`/`AlphaEngineConfidentialVault` and the new
-swap controller/escrow boundaries must remain protocol-agnostic.
+The new swap controller/escrow boundaries must remain protocol-agnostic.
 
 They must not import or directly depend on Uniswap, Pendle, Morpho, Aave, or other route-specific protocol ABIs. Swap intents are custody and lifecycle records at this layer, not a commitment to a concrete execution protocol.
 
