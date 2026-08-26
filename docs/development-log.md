@@ -1,5 +1,68 @@
 # Development Log
 
+## 2026-08-27 — Stage 8 bound confidential swap controller
+
+### Added
+- `AlphaEngineConfidentialSwapController` as a fresh, initially paused
+  transparent proxy with independent admin, pauser, operator, nonce, lifecycle,
+  ABI, event, and storage domains.
+- Atomic escrow/executor configuration validates the escrow's reciprocal
+  controller pointer and the executor's authorized escrow caller before new
+  submissions can be enabled.
+- Each submission now pins the escrow, executor, input/output wrappers, opaque
+  route key, execution-data hash, salted minimum-output commitment, deadline,
+  canonical returned lock handle, unshield-request handle, and deterministic
+  payload hash.
+- Execution reveals committed calldata, minimum output, and salt. Any mutation
+  fails before custody interaction; output wrapper and executor are read only
+  from stored state. Refund remains permissionless after expiry or while either
+  the controller or recorded escrow is paused.
+- Added the dependency-free swap-payload hash vector, checked-in v2 controller
+  ABI/storage layout, and generated-artifact/runtime-size gates.
+
+### Security and test evidence
+- Controller state is marked terminal before the external escrow call; any
+  escrow/executor failure atomically restores controller and escrow replay
+  state.
+- Added exact typed tests for calldata/minimum/salt substitution, unauthorized
+  execution, expiry, replay, downstream failure, initialized encrypted-zero
+  cleanup, and event/getter parity.
+- Added a seven-action combined controller/escrow invariant handler with no
+  unchecked catches. Five stateful properties prove nonce exactness,
+  payload/identity immutability, lifecycle/live-count parity, zero
+  controller/executor custody, and non-vacuous execution/refund/mutation/replay
+  coverage.
+- Rewrote the twin-PoolManager differential suite to use only the fresh
+  registry/gateway/controller/escrow/V4 path. Both directions retain exact
+  output equality with the direct reference pool; an above-quote minimum
+  reverts atomically.
+- Extended the differential fixture to a non-1:1 USDC/WETH pool with 6/18
+  decimals in both directions. Output above the wrapper's six-decimal
+  confidential precision is split exactly into shielded units and sub-unit
+  underlying dust returned directly to the original trader; the escrow keeps
+  no remainder.
+- Added a shallow-liquidity large-trade case proving that material PoolManager
+  price impact below the committed minimum reverts and restores the controller
+  and escrow lifecycle atomically.
+
+### Validation
+- Focused controller unit/fuzz suite: 15 passed, including 256 fuzz cases.
+- Fresh-path PoolManager integration contains 6 cases. The 3 newly added
+  volatile-pair and material-slippage cases passed together with the focused
+  higher-decimal dust unit test; the full suite was not rerun at owner request.
+- Combined controller/escrow invariant suite: 5 properties passed at 64 runs
+  and depth 32 with zero handler reverts. The deep campaign also passed all 5
+  properties at 256 runs and depth 128, totaling 163,840 randomized calls with
+  zero handler reverts or discards.
+- Coverage: 90.99% lines, 91.68% statements, 71.12% branches, and 99.05%
+  functions repository-wide. The fresh controller reports 90.98% lines,
+  91.93% statements, 75.86% branches, and 100% functions.
+- Full repository: 308 tests passed, 0 failed, 0 skipped.
+- Generated ABI/storage parity and runtime-size gates passed. The fresh
+  controller runtime is 12,754 bytes, below the 23,000-byte ceiling.
+- No external network deployment occurred. Stage 9 deployment and listener
+  migration remain pending.
+
 ## 2026-08-27 — Stage 7 encrypted-zero and preclaim liveness hardening
 
 ### Fixed

@@ -160,6 +160,7 @@ def generate_vectors() -> dict[str, str]:
         "swapIntentIdTypehash": "AlphaEngineSwapIntentIdV1(uint256 chainId,address controller,address trader,uint64 traderNonce)",
         "competitionPayloadTypehash": "AlphaEngineCompetitionPayloadV1(uint256 chainId,address manager,bytes32 submissionId,bytes32 competitionId,address trader,uint64 traderNonce,bytes32 marketIdHandle,bytes32 timeframeKey,uint40 evaluationDeadline,bytes32 componentsHash)",
         "capitalPayloadTypehash": "AlphaEngineCapitalPayloadV1(uint256 chainId,address manager,bytes32 intentId,address trader,uint64 traderNonce,uint64 qualificationVersion,bytes32 marketIdHandle,bytes32 timeframeKey,uint40 deadline,bytes32 componentsHash)",
+        "swapPayloadTypehash": "AlphaEngineSwapPayloadV1(uint256 chainId,address controller,bytes32 intentId,address trader,uint64 traderNonce,address escrow,address executor,address inputWrapper,address outputWrapper,bytes32 routeKey,bytes32 executionDataHash,bytes32 minimumOutputCommitment,uint40 deadline,bytes32 lockedAmountHandle,bytes32 unshieldRequestHandle)",
         "callTypehash": "AlphaEngineCallV1(uint256 index,address decoder,address target,uint256 value,bytes32 targetDataHash)",
         "callsTypehash": "AlphaEngineCallsV1(uint256 callCount,bytes32 callHashesHash)",
         "assetDeltaLimitTypehash": "AlphaEngineAssetDeltaLimitV1(uint256 index,address asset,uint256 maxSpend,uint256 minReceive)",
@@ -297,6 +298,24 @@ def generate_vectors() -> dict[str, str]:
         word(99_000),
         bytes.fromhex("cc" * 32),
     )
+    swap_payload_hash = fixed_hash(
+        typehashes["swapPayloadTypehash"],
+        word(chain_id),
+        address(controller),
+        swap_intent_id,
+        address(trader),
+        word(17),
+        address("0x4444444444444444444444444444444444444444"),
+        address("0x5555555555555555555555555555555555555555"),
+        address("0x6666666666666666666666666666666666666666"),
+        address("0x7777777777777777777777777777777777777777"),
+        keccak256(b"uniswap-v4-exact-input"),
+        keccak256(b"encoded-v4-route"),
+        minimum_output_commitment,
+        word(1_900_000_000),
+        bytes.fromhex("dd" * 32),
+        bytes.fromhex("ee" * 32),
+    )
 
     vectors = {name: hex32(value) for name, value in typehashes.items()}
     vectors.update(
@@ -311,6 +330,7 @@ def generate_vectors() -> dict[str, str]:
             "componentsHash": hex32(components_hash),
             "competitionPayloadHash": hex32(competition_payload_hash),
             "capitalPayloadHash": hex32(capital_payload_hash),
+            "swapPayloadHash": hex32(swap_payload_hash),
             "call0Hash": hex32(call_hashes[0]),
             "call1Hash": hex32(call_hashes[1]),
             "callsHash": hex32(calls_hash),

@@ -28,6 +28,8 @@ interface IAlphaEngineConfidentialSwapEscrow {
 
     function liveSwapLockCount() external view returns (uint256);
 
+    function paused() external view returns (bool);
+
     function existsSwapIntentLock(bytes32 intentId) external view returns (bool);
 
     function getSwapIntentLock(bytes32 intentId)

@@ -725,12 +725,10 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         );
     }
 
-    function test_failedDustSettlementRollsBackClaimStatusBalancesAndReplayState() public {
+    function test_dustSettlementShieldsRepresentableAmountAndReturnsRemainder() public {
         bytes32 intentId = keccak256("dust");
         _lock(intentId, 40e6);
-        IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory beforeLock =
-            escrow.getSwapIntentLock(intentId);
-        bytes32 requestId = euint64.unwrap(beforeLock.unshieldRequestHandle);
+        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
         taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
         MockMintingSwapExecutor executor = new MockMintingSwapExecutor();
         MockERC20 highPrecisionOutput = new MockERC20("High Precision", "HIGH", 18);
@@ -739,15 +737,15 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
             address(highPrecisionOutput), "Encrypted High Precision", "eHIGH", ""
         );
         uint256 dustOutputAmount = 1e18 - 1;
+        uint256 rate = 1e12;
+        uint256 expectedDust = dustOutputAmount % rate;
+        uint256 expectedShieldedUnderlying = dustOutputAmount - expectedDust;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                AlphaEngineConfidentialSwapEscrow.AmountNotMultipleOfRate.selector,
-                dustOutputAmount,
-                uint256(1e12)
-            )
+        vm.expectEmit(true, true, true, true, address(escrow));
+        emit AlphaEngineConfidentialSwapEscrow.SwapSettlementDustReturned(
+            intentId, user, address(highPrecisionOutput), expectedDust
         );
-        controller.settle(
+        (uint256 actualOutput, bytes32 shieldedHandle) = controller.settle(
             intentId,
             address(executor),
             highPrecisionWrapper,
@@ -757,13 +755,22 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
             abi.encode(dustOutputAmount)
         );
 
-        IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory afterLock =
-            escrow.getSwapIntentLock(intentId);
-        assertEq(uint8(afterLock.status), uint8(beforeLock.status));
-        assertEq(escrow.liveSwapLockCount(), 1);
-        assertFalse(AlphaEngineFHERC20ERC20Wrapper(inputWrapper).getClaim(requestId).claimed);
+        assertEq(actualOutput, dustOutputAmount);
+        assertEq(_evalue(euint64.wrap(shieldedHandle)), expectedShieldedUnderlying / rate);
+        assertEq(
+            _confidentialBalance(highPrecisionWrapper, user), expectedShieldedUnderlying / rate
+        );
+        assertEq(highPrecisionOutput.balanceOf(highPrecisionWrapper), expectedShieldedUnderlying);
+        assertEq(highPrecisionOutput.balanceOf(user), expectedDust);
+        assertEq(
+            uint8(escrow.getSwapIntentLock(intentId).status),
+            uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Consumed)
+        );
+        assertEq(escrow.liveSwapLockCount(), 0);
+        assertTrue(AlphaEngineFHERC20ERC20Wrapper(inputWrapper).getClaim(requestId).claimed);
         assertEq(inputUnderlying.balanceOf(address(escrow)), 0);
         assertEq(highPrecisionOutput.balanceOf(address(escrow)), 0);
+        assertEq(highPrecisionOutput.balanceOf(address(executor)), 0);
     }
 
     function testFuzz_lockRefundRoundTripPreservesAmount(uint64 rawAmount) public {

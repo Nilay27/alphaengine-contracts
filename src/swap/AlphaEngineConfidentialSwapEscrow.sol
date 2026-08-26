@@ -55,7 +55,6 @@ contract AlphaEngineConfidentialSwapEscrow is
     error SwapIntentLockNotActive(bytes32 intentId, SwapIntentLockStatus status);
     error ActiveSwapLocksPresent(uint256 liveSwapLockCount);
     error ConfigurationUnchanged(bytes32 field, address currentValue);
-    error AmountNotMultipleOfRate(uint256 amount, uint256 rate);
     error AmountExceedsFHERC20Precision(uint256 amount, uint256 rate);
     error UnexpectedUnderlyingBalance(
         address account, address underlying, uint256 expectedBalance, uint256 actualBalance
@@ -110,6 +109,12 @@ contract AlphaEngineConfidentialSwapEscrow is
         uint64 decryptedInputAmount,
         uint256 outputUnderlyingAmount,
         euint64 shieldedOutputAmount
+    );
+    event SwapSettlementDustReturned(
+        bytes32 indexed intentId,
+        address indexed account,
+        address indexed outputUnderlying,
+        uint256 dustAmount
     );
     event SwapIntentLockRefunded(
         bytes32 indexed intentId,
@@ -167,6 +172,15 @@ contract AlphaEngineConfidentialSwapEscrow is
 
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
+    }
+
+    function paused()
+        public
+        view
+        override(PausableUpgradeable, IAlphaEngineConfidentialSwapEscrow)
+        returns (bool)
+    {
+        return super.paused();
     }
 
     /// @notice Unpausing is intentionally restricted to delayed governance, not the pauser.
@@ -303,8 +317,9 @@ contract AlphaEngineConfidentialSwapEscrow is
             executionData
         );
 
-        euint64 shieldedOutputAmount =
-            _shieldOutputForSettlement(outputWrapper, intentLock.account, outputUnderlyingAmount);
+        euint64 shieldedOutputAmount = _shieldOutputForSettlement(
+            intentId, outputWrapper, intentLock.account, outputUnderlyingAmount
+        );
         shieldedOutputHandle = euint64.unwrap(shieldedOutputAmount);
 
         emit SwapIntentLockConsumed(
@@ -345,7 +360,7 @@ contract AlphaEngineConfidentialSwapEscrow is
         euint64 refundedShieldedAmount;
         if (claimedUnderlyingAmount != 0) {
             refundedShieldedAmount = _shieldOutputForSettlement(
-                intentLock.wrapper, intentLock.account, claimedUnderlyingAmount
+                intentId, intentLock.wrapper, intentLock.account, claimedUnderlyingAmount
             );
         }
         refundedShieldedHandle = euint64.unwrap(refundedShieldedAmount);
@@ -473,10 +488,12 @@ contract AlphaEngineConfidentialSwapEscrow is
         );
     }
 
-    function _shieldOutputForSettlement(address outputWrapper, address recipient, uint256 amount)
-        private
-        returns (euint64 shieldedAmount)
-    {
+    function _shieldOutputForSettlement(
+        bytes32 intentId,
+        address outputWrapper,
+        address recipient,
+        uint256 amount
+    ) private returns (euint64 shieldedAmount) {
         if (recipient == address(0)) {
             revert ZeroRecipient();
         }
@@ -486,27 +503,37 @@ contract AlphaEngineConfidentialSwapEscrow is
 
         address outputUnderlying = _registeredUnderlyingForWrapper(outputWrapper);
         uint256 rate = _readWrapperRate(outputWrapper);
-        if (amount % rate != 0) {
-            revert AmountNotMultipleOfRate(amount, rate);
-        }
-        if (amount / rate > type(uint64).max) {
+        uint256 dustAmount = amount % rate;
+        uint256 shieldableAmount = amount - dustAmount;
+        if (shieldableAmount / rate > type(uint64).max) {
             revert AmountExceedsFHERC20Precision(amount, rate);
         }
 
         IERC20 outputToken = IERC20(outputUnderlying);
         uint256 escrowBalanceBefore = outputToken.balanceOf(address(this));
         uint256 wrapperBalanceBefore = outputToken.balanceOf(outputWrapper);
+        uint256 recipientBalanceBefore = outputToken.balanceOf(recipient);
         if (escrowBalanceBefore < amount) {
             revert UnexpectedUnderlyingBalance(
                 address(this), outputUnderlying, amount, escrowBalanceBefore
             );
         }
 
-        outputToken.forceApprove(outputWrapper, amount);
-        shieldedAmount = IFHERC20ERC20Wrapper(outputWrapper).shield(recipient, amount);
-        outputToken.forceApprove(outputWrapper, 0);
+        if (shieldableAmount != 0) {
+            outputToken.forceApprove(outputWrapper, shieldableAmount);
+            shieldedAmount = IFHERC20ERC20Wrapper(outputWrapper).shield(recipient, shieldableAmount);
+            outputToken.forceApprove(outputWrapper, 0);
+        }
+        if (dustAmount != 0) {
+            outputToken.safeTransfer(recipient, dustAmount);
+            emit SwapSettlementDustReturned(intentId, recipient, outputUnderlying, dustAmount);
+        }
+
         _assertUnderlyingBalance(outputToken, address(this), escrowBalanceBefore - amount);
-        _assertUnderlyingBalance(outputToken, outputWrapper, wrapperBalanceBefore + amount);
+        _assertUnderlyingBalance(
+            outputToken, outputWrapper, wrapperBalanceBefore + shieldableAmount
+        );
+        _assertUnderlyingBalance(outputToken, recipient, recipientBalanceBefore + dustAmount);
     }
 
     function _swapIntentLockInStatus(bytes32 intentId, SwapIntentLockStatus expectedStatus)

@@ -87,6 +87,10 @@ check_abi \
     ABI/v2/AlphaEngineConfidentialSwapEscrow.json \
     confidential-swap-escrow
 check_abi \
+    out/AlphaEngineConfidentialSwapController.sol/AlphaEngineConfidentialSwapController.json \
+    ABI/v2/AlphaEngineConfidentialSwapController.json \
+    confidential-swap-controller
+check_abi \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
     ABI/v2/AlphaEngineTraderQualificationRegistry.json \
     trader-qualification-registry
@@ -123,6 +127,10 @@ check_layout \
     out/AlphaEngineConfidentialSwapEscrow.sol/AlphaEngineConfidentialSwapEscrow.json \
     storage-layouts/v2/AlphaEngineConfidentialSwapEscrow.json \
     confidential-swap-escrow-layout
+check_layout \
+    out/AlphaEngineConfidentialSwapController.sol/AlphaEngineConfidentialSwapController.json \
+    storage-layouts/v2/AlphaEngineConfidentialSwapController.json \
+    confidential-swap-controller-layout
 
 check_runtime_size \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
@@ -142,3 +150,6 @@ check_runtime_size \
 check_runtime_size \
     out/AlphaEngineConfidentialSwapEscrow.sol/AlphaEngineConfidentialSwapEscrow.json \
     confidential-swap-escrow
+check_runtime_size \
+    out/AlphaEngineConfidentialSwapController.sol/AlphaEngineConfidentialSwapController.json \
+    confidential-swap-controller

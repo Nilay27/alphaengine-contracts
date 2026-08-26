@@ -59,7 +59,8 @@ and the Foundry setup action are pinned by full commit SHA.
   above-balance encrypted-zero cleanup, uninitialized-account dependency
   behavior, permissionless preclaim reconciliation, exact settlement,
   pause-safe refund, independent minimum-output enforcement, fee-on-transfer
-  output rejection, and dust-revert atomicity.
+  output rejection, and exact higher-decimal output decomposition into shielded
+  units plus trader-returned dust.
 - `AlphaEngineConfidentialSwapEscrow.invariant.t.sol` runs seven randomized
   action families through ten selectors and asserts eight properties:
   immutable registry/configuration, lock/live-count parity, exact permitted
@@ -68,6 +69,30 @@ and the Foundry setup action are pinned by full commit SHA.
   claimed-input/failed-settlement lifecycle consistency, and non-vacuous action
   coverage. Expected-success actions propagate reverts; the sole intentional
   failure action checks the exact error selector and full rollback.
+
+### Implemented Stage 8 bound-swap suites
+
+- Controller unit/fuzz tests cover fresh paused initialization, separated
+  admin/pauser/operator authority, atomic reciprocal escrow/executor
+  configuration, registered input/output wrappers, deterministic identifiers,
+  nonce exactness, canonical lock-handle persistence, and event/getter parity.
+- Reveal tests mutate execution calldata, minimum output, and salt independently
+  and require exact typed failures with controller/escrow rollback. Successful
+  settlement proves terminal replay rejection, executor/escrow zero residuals,
+  permissionless expiry/pause refunds, initialized encrypted-zero cleanup, and
+  downstream-failure atomicity.
+- `AlphaEngineConfidentialSwapController.invariant.t.sol` randomizes seven
+  action families with no swallowed failures and proves five combined
+  properties: nonce exactness, payload/identity immutability, controller/escrow
+  lifecycle parity, zero controller/executor custody, and non-vacuous execution,
+  refund, mutation, and replay coverage.
+- The twin-PoolManager integration suite now runs exclusively through the fresh
+  controller, fresh escrow, registry/gateway, and V4 executor. Both swap
+  directions match the independent direct reference output exactly. It also
+  covers a non-1:1 USDC/WETH pool with 6/18 decimals in both directions,
+  encryptable-output/dust conservation, and a shallow-liquidity large trade
+  whose price impact breaches the committed minimum and rolls all controller
+  and escrow state back.
 
 ### Planned USDC FundVault suites
 
@@ -134,11 +159,13 @@ and the Foundry setup action are pinned by full commit SHA.
   wrapper mappings remain stable, escrow underlying is zero except for exact
   live preclaims, each wrapper reserve stays backed by confidential supply plus
   unclaimed pending units, terminal refund/settlement removes the attributable
-  escrow custody, dust-amount settlement attempts revert without partial
-  consumption, and reserve/accounting never goes negative.
+  escrow custody, higher-decimal output equals shielded units times the wrapper
+  rate plus dust returned to the trader, and reserve/accounting never goes
+  negative.
 - Cross-asset escrow invariants keep input consumption and output credit in
   separate ghost ledgers. They do not assume equal token units or derive AMM
-  prices; Stage 8 differential PoolManager tests own execution-price parity.
+  prices; the implemented Stage 8 differential PoolManager tests own
+  execution-price parity.
 - PoolManager swap execution tests now live behind the dedicated executor boundary and must continue to avoid importing Uniswap into the controller or vault.
 
 ## External protocol fixture policy

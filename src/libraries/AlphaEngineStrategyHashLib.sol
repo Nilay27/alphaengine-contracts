@@ -22,6 +22,9 @@ library AlphaEngineStrategyHashLib {
     bytes32 internal constant CAPITAL_PAYLOAD_V1_TYPEHASH = keccak256(
         "AlphaEngineCapitalPayloadV1(uint256 chainId,address manager,bytes32 intentId,address trader,uint64 traderNonce,uint64 qualificationVersion,bytes32 marketIdHandle,bytes32 timeframeKey,uint40 deadline,bytes32 componentsHash)"
     );
+    bytes32 internal constant SWAP_PAYLOAD_V1_TYPEHASH = keccak256(
+        "AlphaEngineSwapPayloadV1(uint256 chainId,address controller,bytes32 intentId,address trader,uint64 traderNonce,address escrow,address executor,address inputWrapper,address outputWrapper,bytes32 routeKey,bytes32 executionDataHash,bytes32 minimumOutputCommitment,uint40 deadline,bytes32 lockedAmountHandle,bytes32 unshieldRequestHandle)"
+    );
 
     struct CompetitionPayloadV1 {
         uint256 chainId;
@@ -47,6 +50,24 @@ library AlphaEngineStrategyHashLib {
         bytes32 timeframeKey;
         uint40 deadline;
         bytes32 componentsHash;
+    }
+
+    struct SwapPayloadV1 {
+        uint256 chainId;
+        address controller;
+        bytes32 intentId;
+        address trader;
+        uint64 traderNonce;
+        address escrow;
+        address executor;
+        address inputWrapper;
+        address outputWrapper;
+        bytes32 routeKey;
+        bytes32 executionDataHash;
+        bytes32 minimumOutputCommitment;
+        uint40 deadline;
+        bytes32 lockedAmountHandle;
+        bytes32 unshieldRequestHandle;
     }
 
     function hashCompetitionId(
@@ -143,5 +164,31 @@ library AlphaEngineStrategyHashLib {
                 payload.componentsHash
             )
         );
+    }
+
+    function hashSwapPayload(SwapPayloadV1 memory payload) internal pure returns (bytes32) {
+        // All fields are static-width. Splitting the ABI words prevents a coverage-only compiler
+        // stack spike while remaining byte-for-byte identical to one flat abi.encode call.
+        bytes memory identityAndExecution = abi.encode(
+            SWAP_PAYLOAD_V1_TYPEHASH,
+            payload.chainId,
+            payload.controller,
+            payload.intentId,
+            payload.trader,
+            payload.traderNonce,
+            payload.escrow,
+            payload.executor
+        );
+        bytes memory routeAndCustody = abi.encode(
+            payload.inputWrapper,
+            payload.outputWrapper,
+            payload.routeKey,
+            payload.executionDataHash,
+            payload.minimumOutputCommitment,
+            payload.deadline,
+            payload.lockedAmountHandle,
+            payload.unshieldRequestHandle
+        );
+        return keccak256(bytes.concat(identityAndExecution, routeAndCustody));
     }
 }

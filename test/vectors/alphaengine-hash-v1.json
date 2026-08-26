@@ -28,5 +28,7 @@
   "swapIntentIdTypehash": "0x673e818f1f8655d405b172b7f89f12908043afe8a766638c62506dd6a800e4d2",
   "swapMinimumOutputCommitment": "0xeaec67c337f526fe4c314592822683e287c45d09e9f4adbf5bb7d650badadf6f",
   "swapMinimumOutputTypehash": "0x38ff839795a5cedd92381a8916bc8b58e686598183d641c9422f32aba1c92b3f",
+  "swapPayloadHash": "0x812009f3c798fcbe74607441150e58713be448dda1d6a1b2741d8293eeeef43e",
+  "swapPayloadTypehash": "0x2f15c56426533bf2d629dc01649f522992758e8bde13c8bedd2f024ad4377319",
   "timeframeKey": "0x1125479f824fc31d0ce674b130e57a9dcfdf2d344ca1ef3fc8bf5bd50f9fcca9"
 }

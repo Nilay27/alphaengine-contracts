@@ -10,7 +10,11 @@ The legacy implementation has two stateful domains:
 - `AlphaEngineIntentController`: strategy and swap-intent lifecycle.
 - `AlphaEngineConfidentialVault`: FHERC20 wrapper registry, deposit/shield, unshield delegation, and swap-intent escrow locks.
 
-Exact-input swap settlement through a separate executor boundary is now implemented, and the invariant harnesses now include execute-time actions through a two-wrapper mock-settlement model with explicit output-rate and dust-revert checks. Batching, leverage/UEI families, and settlement result posting are still not implemented.
+Exact-input swap settlement through a separate executor boundary is now implemented. The
+invariant harnesses include execute-time actions through a two-wrapper mock-settlement model,
+while deterministic unit and PoolManager integration tests prove the higher-decimal output
+rule: `total output == shielded units * wrapper rate + dust returned to the trader`. Batching,
+leverage/UEI families, and settlement result posting are still not implemented.
 
 The replacement architecture now also has three stateful domains:
 
@@ -53,6 +57,26 @@ refunds. At the PR profile it proves:
   reconcilable, and failed settlements roll back claim and lifecycle state
   atomically; and
 - deterministic seeding plus action counters prevent vacuous campaigns.
+
+Stage 8 adds the fresh `AlphaEngineConfidentialSwapController` as a fourth
+replacement state domain. Its combined controller/escrow handler proves:
+
+- each trader nonce equals successful fresh swap submissions exactly;
+- every record retains its domain-separated identifier, payload hash, escrow,
+  executor, wrappers, route key, execution-data hash, salted minimum-output
+  commitment, canonical handles, and deadline;
+- `Active/UnshieldRequested`, `Executed/Consumed`, and `Refunded/Refunded`
+  remain exact controller/escrow state pairs;
+- the escrow live-lock counter equals fresh active controller records;
+- calldata, minimum-output, and replay attacks fail with exact selectors and no
+  coupled-state change; and
+- controller and executor underlying balances remain zero after every
+  successful action.
+- for outputs whose underlying decimals exceed confidential precision, the
+  representable six-decimal amount is shielded, the exact remainder is returned
+  directly to the original trader, and the escrow retains zero output;
+- minimum output is enforced against total measured PoolManager output before
+  the encrypted-output/dust split.
 
 The Competition Manager handler also exercises randomized, repeated score
 reveal batches. It asserts that a score reveal can only be observed after the
@@ -908,7 +932,7 @@ euint64.unwrap(VL[X[id].confidentialVault][id].lockedAmount) == X[id].lockedAmou
 euint64.unwrap(VL[X[id].confidentialVault][id].unshieldRequestHandle) == X[id].unshieldRequestHandle
 ```
 
-Swap intents are final after submit in the current implementation. There is no cancelled-swap parity state.
+Swap intents are final after submit in both the legacy and fresh implementations. There is no cancelled-swap parity state.
 Expired or paused swap intents may instead end in refunded parity:
 
 ```text
@@ -937,7 +961,7 @@ Listener-operator rotation must not retroactively permission old handles to the 
 
 ### Swap Access
 
-For each successful swap submission:
+For each successful legacy swap submission:
 
 ```text
 isAllowed(requestedInputHandle, address(C)) == true
@@ -951,6 +975,11 @@ isAllowed(X[id].lockedAmountHandle, address(V)) == true
 ```
 
 If upstream FHERC20 permission behavior changes, update this section before changing tests.
+
+For each successful fresh swap submission, the controller retains permission
+to the internalized requested handle and the recorded escrow is granted access
+before locking. The escrow-returned handle remains canonical in controller and
+escrow state.
 
 ## Admin and Pause Invariants
 
@@ -1026,7 +1055,7 @@ event.payloadHash == S[id].payloadHash
 event.submitterNonce == S[id].submitterNonce
 ```
 
-### Swap Submit Event
+### Legacy Swap Submit Event
 
 For every `SwapIntentSubmitted` event:
 
@@ -1042,6 +1071,14 @@ event.deadline == X[id].deadline
 event.payloadHash == X[id].payloadHash
 event.submitterNonce == X[id].submitterNonce
 ```
+
+### Fresh Confidential Swap Submit Events
+
+For every `ConfidentialSwapSubmitted` and matching
+`ConfidentialSwapExecutionCommitted` pair, all event fields equal the fresh
+record getter. In particular, the indexed commitment event must equal the
+stored `executionDataHash` and `minimumOutputCommitment`; neither value may be
+accepted from the operator at execution without recomputation.
 
 ### Vault Lock Events
 
@@ -1074,11 +1111,18 @@ euint64.unwrap(event.consumedAmount) == originalLockHandle[id]
 
 ## Future Settlement Invariants
 
-These are now implemented for a two-wrapper mock-settlement path with explicit output-rate handling and dust-settle reverts. Concrete route-specific output pricing still belongs in deterministic reference/integration tests rather than stateful invariant handlers.
+These are now implemented for a two-wrapper mock-settlement path with explicit output-rate
+handling. Higher-decimal dust decomposition is covered by deterministic unit and real
+PoolManager tests because the current stateful output fixture deliberately emits exact wrapper
+multiples. Concrete route-specific output pricing belongs in deterministic
+reference/integration tests rather than stateful invariant handlers.
 
 ### Settlement Status
 
-Do not use `Cancelled` to mean settled. The current implementation uses `IntentStatus.Executed` or `IntentStatus.Refunded` for swap intents and `SwapIntentLockStatus.Consumed` or `SwapIntentLockStatus.Refunded` for the vault lock.
+Do not use `Cancelled` to mean settled. The legacy implementation uses
+`IntentStatus.Executed/Refunded`; the fresh controller uses
+`SwapIntentStatus.Executed/Refunded`; both pair with escrow
+`SwapIntentLockStatus.Consumed/Refunded`.
 
 Current implemented swap state machine:
 

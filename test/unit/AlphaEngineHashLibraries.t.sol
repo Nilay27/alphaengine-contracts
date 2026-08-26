@@ -38,6 +38,7 @@ contract AlphaEngineHashLibrariesTest is Test {
             _competitionPayload(competitionId, submissionId, componentsHash);
         AlphaEngineStrategyHashLib.CapitalPayloadV1 memory capitalPayload =
             _capitalPayload(capitalIntentId, componentsHash);
+        AlphaEngineStrategyHashLib.SwapPayloadV1 memory swapPayload = _swapPayload(swapIntentId);
 
         assertEq(rulesHash, _vector("rulesHash"));
         assertEq(competitionId, _vector("competitionId"));
@@ -52,6 +53,9 @@ contract AlphaEngineHashLibrariesTest is Test {
         assertEq(
             AlphaEngineStrategyHashLib.hashCapitalPayload(capitalPayload),
             _vector("capitalPayloadHash")
+        );
+        assertEq(
+            AlphaEngineStrategyHashLib.hashSwapPayload(swapPayload), _vector("swapPayloadHash")
         );
     }
 
@@ -125,6 +129,12 @@ contract AlphaEngineHashLibrariesTest is Test {
                 "AlphaEngineCapitalPayloadV1(uint256 chainId,address manager,bytes32 intentId,address trader,uint64 traderNonce,uint64 qualificationVersion,bytes32 marketIdHandle,bytes32 timeframeKey,uint40 deadline,bytes32 componentsHash)"
             ),
             _vector("capitalPayloadTypehash")
+        );
+        assertEq(
+            keccak256(
+                "AlphaEngineSwapPayloadV1(uint256 chainId,address controller,bytes32 intentId,address trader,uint64 traderNonce,address escrow,address executor,address inputWrapper,address outputWrapper,bytes32 routeKey,bytes32 executionDataHash,bytes32 minimumOutputCommitment,uint40 deadline,bytes32 lockedAmountHandle,bytes32 unshieldRequestHandle)"
+            ),
+            _vector("swapPayloadTypehash")
         );
         assertEq(
             keccak256(
@@ -233,6 +243,56 @@ contract AlphaEngineHashLibrariesTest is Test {
         payload.deadline -= 1;
         payload.componentsHash = bytes32(uint256(12));
         assertNotEq(AlphaEngineStrategyHashLib.hashCapitalPayload(payload), baseline);
+    }
+
+    function test_swapPayloadBindsEveryField() public pure {
+        AlphaEngineStrategyHashLib.SwapPayloadV1 memory payload = _swapPayload(bytes32(uint256(7)));
+        bytes32 baseline = AlphaEngineStrategyHashLib.hashSwapPayload(payload);
+
+        payload.chainId += 1;
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.controller = address(0x10);
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.intentId = bytes32(uint256(8));
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.trader = address(0x11);
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.traderNonce += 1;
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.escrow = address(0x12);
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.executor = address(0x13);
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.inputWrapper = address(0x14);
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.outputWrapper = address(0x15);
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.routeKey = bytes32(uint256(16));
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.executionDataHash = bytes32(uint256(17));
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.minimumOutputCommitment = bytes32(uint256(18));
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.deadline += 1;
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.lockedAmountHandle = bytes32(uint256(19));
+        _assertSwapChanged(payload, baseline);
+        payload = _swapPayload(bytes32(uint256(7)));
+        payload.unshieldRequestHandle = bytes32(uint256(20));
+        _assertSwapChanged(payload, baseline);
     }
 
     function test_executionCommitmentBindsEveryField() public pure {
@@ -436,6 +496,32 @@ contract AlphaEngineHashLibrariesTest is Test {
         });
     }
 
+    function _swapPayload(bytes32 intentId)
+        internal
+        pure
+        returns (AlphaEngineStrategyHashLib.SwapPayloadV1 memory)
+    {
+        return AlphaEngineStrategyHashLib.SwapPayloadV1({
+            chainId: CHAIN_ID,
+            controller: CONTROLLER,
+            intentId: intentId,
+            trader: TRADER,
+            traderNonce: 17,
+            escrow: 0x4444444444444444444444444444444444444444,
+            executor: 0x5555555555555555555555555555555555555555,
+            inputWrapper: 0x6666666666666666666666666666666666666666,
+            outputWrapper: 0x7777777777777777777777777777777777777777,
+            routeKey: keccak256("uniswap-v4-exact-input"),
+            executionDataHash: keccak256("encoded-v4-route"),
+            minimumOutputCommitment: AlphaEngineExecutionHashLib.hashSwapMinimumOutput(
+                intentId, 99_000, bytes32(uint256(type(uint256).max) / 0xff * 0xcc)
+            ),
+            deadline: 1_900_000_000,
+            lockedAmountHandle: bytes32(uint256(type(uint256).max) / 0xff * 0xdd),
+            unshieldRequestHandle: bytes32(uint256(type(uint256).max) / 0xff * 0xee)
+        });
+    }
+
     function _calls() internal pure returns (AlphaEngineExecutionHashLib.CallV1[] memory calls) {
         calls = new AlphaEngineExecutionHashLib.CallV1[](2);
         calls[0] = AlphaEngineExecutionHashLib.CallV1({
@@ -504,6 +590,13 @@ contract AlphaEngineHashLibrariesTest is Test {
         bytes32 baseline
     ) internal pure {
         assertNotEq(AlphaEngineExecutionHashLib.hashExecutionCommitment(commitment), baseline);
+    }
+
+    function _assertSwapChanged(
+        AlphaEngineStrategyHashLib.SwapPayloadV1 memory payload,
+        bytes32 baseline
+    ) internal pure {
+        assertNotEq(AlphaEngineStrategyHashLib.hashSwapPayload(payload), baseline);
     }
 
     function _vectorStaticCapitalIntentId() internal pure returns (bytes32) {

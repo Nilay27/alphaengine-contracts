@@ -14,12 +14,13 @@ The recommended architecture uses independent contracts for competition, capital
 
 Competition and capital managers share only interfaces and stateless hashing libraries. They do not inherit a storage-bearing `BaseStrategyManager`.
 
-Implementation status as of 2026-08-26: Stages P0 through 7 are implemented.
+Implementation status as of 2026-08-27: Stages P0 through 8 are implemented.
 Stage 7 adds the append-only confidential asset registry, non-custodial
-shield/unshield gateway, and fresh upgradeable swap escrow, together with
-unit/fuzz coverage, seven stateful custody invariants, and checked-in ABI/storage
-artifacts. Work is paused at the required owner-review checkpoint before Stage
-8; no external deployment has occurred.
+shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
+fresh bound swap controller, exact execution-data and salted minimum-output
+reveal checks, combined controller/escrow invariants, and fresh-path
+PoolManager differential parity. Work is paused at the required owner-review
+checkpoint before Stage 9; no external deployment has occurred.
 
 The Stage 5 Competition Manager has also been refined with the owner-approved
 post-finalization reveal flow: a dedicated role requests asynchronous public
@@ -557,7 +558,13 @@ minimumOutputCommitment = keccak256(
 );
 ```
 
-The record pins the current escrow and executor. Execution reveals `executionData`, `minimumOutput`, and `salt`; any mismatch reverts. Client tooling must generate a cryptographically random 32-byte salt.
+The record pins the current escrow and executor. Execution reveals `executionData`,
+`minimumOutput`, and `salt`; any mismatch reverts. Client tooling must generate a
+cryptographically random 32-byte salt. The committed minimum applies to total measured
+underlying output before confidential precision conversion. If the output wrapper rate exceeds
+one, settlement shields the largest exact rate multiple and returns the remainder directly to
+the original trader, so `total output == shielded units * rate + returned dust` and the escrow
+retains no remainder.
 
 ## 7. FHE internalization and permissions
 
@@ -703,6 +710,9 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Wrapper mappings are bijective and immutable.
 - Controller/registry rotation is blocked while relevant locks exist.
 - Settlement/refund is atomic.
+- Minimum output is enforced against total output before the wrapper-rate split.
+- Higher-decimal output equals shielded units times wrapper rate plus exact dust
+  returned directly to the original trader.
 - Escrow and executor retain zero residual underlying.
 - Output/refund recipient is always the original trader.
 
@@ -1308,6 +1318,13 @@ Current status:
   permissionless wrapper preclaims, explicit expected-error handling, and
   independent per-asset invariant accounting. The deep focused campaign passed
   8 properties across 262,144 randomized calls with zero handler reverts.
+- Stage 8 pins the escrow, executor, input/output wrappers, route key,
+  execution-data hash, salted minimum-output commitment, canonical handles,
+  nonce, and deadline at submission. Its combined stateful handler validates
+  mutation rollback, replay rejection, lifecycle parity, refund liveness, and
+  zero controller/executor custody.
+- The deterministic twin-PoolManager suite now exercises only the fresh
+  controller/escrow route and retains exact output parity in both directions.
 - First-pass implementation changes may already exist in the working tree; the
   historical clean-tree statement does not describe current repository state.
 - No FundVault Solidity was implemented as part of this documentation revision.

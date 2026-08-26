@@ -9,10 +9,11 @@
 - `AlphaEngineIntentController` currently combines TA / strategy-allocation and confidential-swap intent lifecycles.
 - `AlphaEngineConfidentialVault` currently owns confidential token wrappers, deposit/unshield flows, and individual swap-intent escrow locks. Despite its name, it is not a pooled LP fund vault.
 - `AlphaEngineV4SwapExecutor` is the current separately bounded Uniswap v4 execution adapter.
-- Stage 7 implements the replacement `AlphaEngineConfidentialAssetRegistry`,
+- Stages 7 and 8 implement the replacement `AlphaEngineConfidentialAssetRegistry`,
   `AlphaEngineConfidentialAssetGateway`, and
-  `AlphaEngineConfidentialSwapEscrow`; they are locally tested but not yet
-  connected to a replacement public swap controller or externally deployed.
+  `AlphaEngineConfidentialSwapEscrow`, plus the bound
+  `AlphaEngineConfidentialSwapController`; they are locally tested but not
+  externally deployed.
 - Transparent proxy pattern is canonical.
 - Current intent families:
   - TA / strategy-allocation
@@ -56,7 +57,7 @@ Implemented shared boundary:
 - The qualification, capital-consumption, vault-manager, and FundVault
   interfaces define call direction without granting authority by themselves.
 
-Implemented replacement contracts through Stage 7:
+Implemented replacement contracts through Stage 8:
 
 - `AlphaEngineTraderQualificationRegistry` is the canonical versioned,
   expiring, revocable trader-qualification source.
@@ -97,6 +98,19 @@ Implemented replacement contracts through Stage 7:
   claim is executed before the controller's settlement/refund transaction, the
   escrow verifies the exact claim and consumes the already-received underlying
   rather than attempting a second claim and stranding the lock.
+- `AlphaEngineConfidentialSwapController` is a fresh, initially paused
+  transparent proxy domain with independent admin, pauser, operator, nonce,
+  status, event, and ABI state. It atomically configures an escrow/executor pair
+  whose reciprocal caller surfaces match.
+- Each fresh swap submission pins its escrow, executor, input/output wrappers,
+  opaque route key, execution-data hash, salted minimum-output commitment,
+  deadline, canonical locked handle, and unshield-request handle. The operator
+  reveals but cannot substitute execution calldata, output wrapper, executor,
+  or minimum output.
+- Controller state is marked terminal before escrow interaction and rolls back
+  atomically if settlement fails. Refund remains permissionless after expiry or
+  while either the controller or recorded escrow is paused. The controller
+  never receives confidential or underlying token custody.
 
 ## External protocol boundary
 
@@ -191,7 +205,7 @@ For the current TA family, the listener-facing event shape is:
 
 `listener-service` must decrypt `marketIdHandle` into plaintext `marketId` and resolve that identifier through the shared AlphaEngine market registry. The contract must not attempt to own or expose a plaintext `marketId -> market address` mapping in v1.
 
-For the current swap lock family, the listener-facing event shape is:
+For the legacy swap lock family, the listener-facing event shape is:
 - `intentId`
 - `submitter`
 - `inputWrapper`
@@ -204,6 +218,19 @@ For the current swap lock family, the listener-facing event shape is:
 - `submitterNonce`
 
 `routeKey` is intentionally opaque in this step. It is the current placeholder for off-chain route semantics and must not be treated as a complete PoolManager execution template.
+
+For the fresh v2 swap family, `ConfidentialSwapSubmitted` exposes the stored
+identity and custody fields, while `ConfidentialSwapExecutionCommitted`
+exposes `executionDataHash` and `minimumOutputCommitment`. The listener can keep
+the same event/getter workflow, but must use the fresh controller address and
+ABI. Execution accepts only a reveal whose calldata hash and salted minimum
+commitment match the stored values.
+
+The minimum is enforced against total measured output before wrapper precision
+conversion. When an output wrapper caps an 18-decimal underlying at six
+confidential decimals, the escrow shields `output - (output % rate)` and sends
+`output % rate` directly to the original trader. `SwapSettlementDustReturned`
+exposes that exact reconciliation, and the escrow retains no output dust.
 
 ## Fhenix handling
 
@@ -232,7 +259,20 @@ canonical.
 
 Until Fhenix publishes official encrypted-amount unshield support, `AlphaEngineFHERC20ERC20Wrapper` carries a temporary `unshield(address from, address to, euint64 amount)` overload. This is an integration bridge for swap settlement only: it burns/requests unshield against the actual vault-held locked eUSDC handle and stores a claim for the returned actual unshield handle. Do not replace this with a direct release of underlying ERC20 based only on the pre-burn locked handle.
 
-Current vault lock semantics are intentionally narrow:
+Fresh controller/escrow semantics are intentionally narrow:
+- the controller atomically configures a reciprocal escrow/executor pair while
+  paused, and every intent stores the pair used at submission;
+- `submitSwapIntent(...)` verifies the user's `InEuint64` while `msg.sender` is
+  still the user, grants the recorded escrow access, and immediately locks and
+  requests unshield through that escrow;
+- the record additionally binds the output wrapper, exact execution-data hash,
+  and salted minimum-output commitment;
+- `executeSwapIntent(...)` is swap-operator-only and reveals, rather than
+  chooses, the committed data and minimum output; and
+- `refundSwapIntent(...)` is permissionless only after expiry or while the
+  controller/recorded escrow is paused.
+
+The following older pointer names describe only the legacy drain-down path:
 - `setConfidentialVault(...)` validates that the configured vault is a contract and that its `intentController()` points back to this controller.
 - `submitSwapIntent(...)` verifies the user's `InEuint64` amount while `msg.sender` is still the user, grants the vault access, and then locks through the vault.
 - `lockForSwapIntent(...)` is callable only by the configured intent controller.
@@ -244,4 +284,4 @@ Current vault lock semantics are intentionally narrow:
 - `executeSwapIntent(...)` is listener-operator-only and routes through the recorded vault plus a separately configured executor boundary.
 - `settleSwapIntent(...)` on the vault claims the actual unshield handle, transfers exact underlying input into the executor, receives output underlying back to vault custody, and shields output confidential balance to the original submitter.
 - `AlphaEngineV4SwapExecutor` is the first concrete executor boundary and is the only contract that imports `v4-core` in the current swap path.
-- Vault rotation affects future swap submissions only because each `SwapIntentRecord` stores the vault used for that intent.
+- Vault rotation affects future legacy swap submissions only because each legacy `SwapIntentRecord` stores the vault used for that intent.
