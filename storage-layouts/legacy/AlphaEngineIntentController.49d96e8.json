@@ -1,0 +1,378 @@
+{
+  "storage": [
+    {
+      "astId": 80730,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "listenerOperator",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_address"
+    },
+    {
+      "astId": 80735,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "_intentRecords",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_bytes32,t_struct(IntentRecord)80490_storage)"
+    },
+    {
+      "astId": 80740,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "_intentComponentHandles",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_bytes32,t_array(t_bytes32)dyn_storage)"
+    },
+    {
+      "astId": 80744,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "submitterNonces",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_uint64)"
+    },
+    {
+      "astId": 80746,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "confidentialVault",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_address"
+    },
+    {
+      "astId": 80748,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "swapExecutor",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_address"
+    },
+    {
+      "astId": 80753,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "_swapIntentRecords",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_mapping(t_bytes32,t_struct(SwapIntentRecord)80514_storage)"
+    },
+    {
+      "astId": 80758,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "_evaluationScoreRecords",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_mapping(t_bytes32,t_struct(EvaluationScoreRecord)80523_storage)"
+    },
+    {
+      "astId": 80762,
+      "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "8",
+      "type": "t_array(t_uint256)42_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_bytes32)dyn_storage": {
+      "encoding": "dynamic_array",
+      "label": "bytes32[]",
+      "numberOfBytes": "32",
+      "base": "t_bytes32"
+    },
+    "t_array(t_uint256)42_storage": {
+      "encoding": "inplace",
+      "label": "uint256[42]",
+      "numberOfBytes": "1344",
+      "base": "t_uint256"
+    },
+    "t_bool": {
+      "encoding": "inplace",
+      "label": "bool",
+      "numberOfBytes": "1"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_enum(IntentStatus)80470": {
+      "encoding": "inplace",
+      "label": "enum AlphaEngineIntentController.IntentStatus",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_uint64)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint64)",
+      "numberOfBytes": "32",
+      "value": "t_uint64"
+    },
+    "t_mapping(t_bytes32,t_array(t_bytes32)dyn_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => bytes32[])",
+      "numberOfBytes": "32",
+      "value": "t_array(t_bytes32)dyn_storage"
+    },
+    "t_mapping(t_bytes32,t_struct(EvaluationScoreRecord)80523_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct AlphaEngineIntentController.EvaluationScoreRecord)",
+      "numberOfBytes": "32",
+      "value": "t_struct(EvaluationScoreRecord)80523_storage"
+    },
+    "t_mapping(t_bytes32,t_struct(IntentRecord)80490_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct AlphaEngineIntentController.IntentRecord)",
+      "numberOfBytes": "32",
+      "value": "t_struct(IntentRecord)80490_storage"
+    },
+    "t_mapping(t_bytes32,t_struct(SwapIntentRecord)80514_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct AlphaEngineIntentController.SwapIntentRecord)",
+      "numberOfBytes": "32",
+      "value": "t_struct(SwapIntentRecord)80514_storage"
+    },
+    "t_struct(EvaluationScoreRecord)80523_storage": {
+      "encoding": "inplace",
+      "label": "struct AlphaEngineIntentController.EvaluationScoreRecord",
+      "numberOfBytes": "128",
+      "members": [
+        {
+          "astId": 80516,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "realSisterScoreHandle",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80518,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "perturbationP25ScoreHandle",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80520,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "stressP25ScoreHandle",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80522,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "submitted",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_bool"
+        }
+      ]
+    },
+    "t_struct(IntentRecord)80490_storage": {
+      "encoding": "inplace",
+      "label": "struct AlphaEngineIntentController.IntentRecord",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 80472,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "submitter",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 80474,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "marketIdHandle",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80476,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "timeframeKey",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80478,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "deadline",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_uint40"
+        },
+        {
+          "astId": 80480,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "createdAt",
+          "offset": 5,
+          "slot": "3",
+          "type": "t_uint40"
+        },
+        {
+          "astId": 80482,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "submitterNonce",
+          "offset": 10,
+          "slot": "3",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 80484,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "componentCount",
+          "offset": 18,
+          "slot": "3",
+          "type": "t_uint8"
+        },
+        {
+          "astId": 80487,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "status",
+          "offset": 19,
+          "slot": "3",
+          "type": "t_enum(IntentStatus)80470"
+        },
+        {
+          "astId": 80489,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "payloadHash",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_bytes32"
+        }
+      ]
+    },
+    "t_struct(SwapIntentRecord)80514_storage": {
+      "encoding": "inplace",
+      "label": "struct AlphaEngineIntentController.SwapIntentRecord",
+      "numberOfBytes": "256",
+      "members": [
+        {
+          "astId": 80492,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "submitter",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 80494,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "confidentialVault",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 80496,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "inputWrapper",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_address"
+        },
+        {
+          "astId": 80498,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "routeKey",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80500,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "lockedAmountHandle",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80502,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "unshieldRequestHandle",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 80504,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "deadline",
+          "offset": 0,
+          "slot": "6",
+          "type": "t_uint40"
+        },
+        {
+          "astId": 80506,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "createdAt",
+          "offset": 5,
+          "slot": "6",
+          "type": "t_uint40"
+        },
+        {
+          "astId": 80508,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "submitterNonce",
+          "offset": 10,
+          "slot": "6",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 80511,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "status",
+          "offset": 18,
+          "slot": "6",
+          "type": "t_enum(IntentStatus)80470"
+        },
+        {
+          "astId": 80513,
+          "contract": "src/AlphaEngineIntentController.sol:AlphaEngineIntentController",
+          "label": "payloadHash",
+          "offset": 0,
+          "slot": "7",
+          "type": "t_bytes32"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint40": {
+      "encoding": "inplace",
+      "label": "uint40",
+      "numberOfBytes": "5"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    },
+    "t_uint8": {
+      "encoding": "inplace",
+      "label": "uint8",
+      "numberOfBytes": "1"
+    }
+  }
+}

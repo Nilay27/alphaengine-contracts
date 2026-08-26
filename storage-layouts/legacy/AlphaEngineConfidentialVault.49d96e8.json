@@ -1,0 +1,146 @@
+{
+  "storage": [
+    {
+      "astId": 83356,
+      "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+      "label": "intentController",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_address"
+    },
+    {
+      "astId": 83358,
+      "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+      "label": "liveSwapLockCount",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 83362,
+      "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+      "label": "_wrappersByUnderlying",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_address,t_address)"
+    },
+    {
+      "astId": 83366,
+      "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+      "label": "_underlyingByWrapper",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_address)"
+    },
+    {
+      "astId": 83371,
+      "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+      "label": "_swapIntentLocks",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_bytes32,t_struct(SwapIntentLock)83132_storage)"
+    },
+    {
+      "astId": 83375,
+      "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_array(t_uint256)45_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)45_storage": {
+      "encoding": "inplace",
+      "label": "uint256[45]",
+      "numberOfBytes": "1440",
+      "base": "t_uint256"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_enum(SwapIntentLockStatus)83118": {
+      "encoding": "inplace",
+      "label": "enum AlphaEngineConfidentialVault.SwapIntentLockStatus",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_address)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_mapping(t_bytes32,t_struct(SwapIntentLock)83132_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct AlphaEngineConfidentialVault.SwapIntentLock)",
+      "numberOfBytes": "32",
+      "value": "t_struct(SwapIntentLock)83132_storage"
+    },
+    "t_struct(SwapIntentLock)83132_storage": {
+      "encoding": "inplace",
+      "label": "struct AlphaEngineConfidentialVault.SwapIntentLock",
+      "numberOfBytes": "160",
+      "members": [
+        {
+          "astId": 83120,
+          "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+          "label": "account",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 83122,
+          "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+          "label": "wrapper",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 83125,
+          "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+          "label": "lockedAmount",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_userDefinedValueType(euint64)25"
+        },
+        {
+          "astId": 83128,
+          "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+          "label": "unshieldRequestHandle",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_userDefinedValueType(euint64)25"
+        },
+        {
+          "astId": 83131,
+          "contract": "src/vault/AlphaEngineConfidentialVault.sol:AlphaEngineConfidentialVault",
+          "label": "status",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_enum(SwapIntentLockStatus)83118"
+        }
+      ]
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_userDefinedValueType(euint64)25": {
+      "encoding": "inplace",
+      "label": "euint64",
+      "numberOfBytes": "32"
+    }
+  }
+}

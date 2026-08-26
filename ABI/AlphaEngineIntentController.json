@@ -95,6 +95,47 @@
     },
     {
       "type": "function",
+      "name": "getEvaluationScores",
+      "inputs": [
+        {
+          "name": "intentId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct AlphaEngineIntentController.EvaluationScoreRecord",
+          "components": [
+            {
+              "name": "realSisterScoreHandle",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "perturbationP25ScoreHandle",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "stressP25ScoreHandle",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "submitted",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "getIntent",
       "inputs": [
         {
@@ -395,6 +436,107 @@
     },
     {
       "type": "function",
+      "name": "submitStrategyEvaluationScores",
+      "inputs": [
+        {
+          "name": "intentId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "scoreSubmission",
+          "type": "tuple",
+          "internalType": "struct AlphaEngineIntentController.EvaluationScoreSubmission",
+          "components": [
+            {
+              "name": "realSisterScore",
+              "type": "tuple",
+              "internalType": "struct InEuint32",
+              "components": [
+                {
+                  "name": "ctHash",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "securityZone",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "utype",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "signature",
+                  "type": "bytes",
+                  "internalType": "bytes"
+                }
+              ]
+            },
+            {
+              "name": "perturbationP25Score",
+              "type": "tuple",
+              "internalType": "struct InEuint32",
+              "components": [
+                {
+                  "name": "ctHash",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "securityZone",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "utype",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "signature",
+                  "type": "bytes",
+                  "internalType": "bytes"
+                }
+              ]
+            },
+            {
+              "name": "stressP25Score",
+              "type": "tuple",
+              "internalType": "struct InEuint32",
+              "components": [
+                {
+                  "name": "ctHash",
+                  "type": "uint256",
+                  "internalType": "uint256"
+                },
+                {
+                  "name": "securityZone",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "utype",
+                  "type": "uint8",
+                  "internalType": "uint8"
+                },
+                {
+                  "name": "signature",
+                  "type": "bytes",
+                  "internalType": "bytes"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "submitStrategyIntent",
       "inputs": [
         {
@@ -658,6 +800,43 @@
           "type": "address",
           "indexed": false,
           "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "StrategyEvaluationScoresSubmitted",
+      "inputs": [
+        {
+          "name": "intentId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "submitter",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "realSisterScoreHandle",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "perturbationP25ScoreHandle",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "stressP25ScoreHandle",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
         }
       ],
       "anonymous": false
@@ -944,6 +1123,17 @@
     },
     {
       "type": "error",
+      "name": "EvaluationScoresAlreadySubmitted",
+      "inputs": [
+        {
+          "name": "intentId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "ExpectedPause",
       "inputs": []
     },
@@ -1068,6 +1258,22 @@
           "name": "account",
           "type": "address",
           "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "StrategyIntentNotActive",
+      "inputs": [
+        {
+          "name": "intentId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "status",
+          "type": "uint8",
+          "internalType": "enum AlphaEngineIntentController.IntentStatus"
         }
       ]
     },
