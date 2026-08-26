@@ -2,6 +2,15 @@
 
 Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 
+The approved restructuring is implemented from the single canonical plan at
+`docs/engineering/strategy-manager-fund-vault-implementation-plan.md`.
+
+Implementation has reached the Stage 6 review checkpoint. The independent
+Qualification Registry, Competition Strategy Manager, and Capital Strategy
+Manager are implemented and tested locally. The fresh contracts have not been
+deployed to a public testnet, and the second-pass FundVault stack is not yet
+implemented.
+
 ## Current testnet scope
 
 - Current upgradeable testnet contracts: `AlphaEngineIntentController` and `AlphaEngineConfidentialVault`
@@ -17,17 +26,21 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 - Swap input amounts are submitted as encrypted FHERC20 `InEuint64` amounts and locked through `AlphaEngineConfidentialVault`
 - Foundry tests use a repo-owned CoFHE task-manager compatibility harness for the exact v1 surface we rely on
 
-## Approved pre-audit separation
+## Approved restructuring
 
 The current combined controller and swap-custody naming are being separated before the Fhenix private audit:
 
 - strategy intents remain an AlphaEngine strategy subsystem;
 - individual-user confidential swaps move to a dedicated swap controller and transient escrow module;
 - the existing V4 executor remains protocol-specific and separately bounded; and
-- `AlphaEngineFundVault` is reserved for future pooled LP fund management and is not part of this refactor.
+- the future pooled fund is a separate second pass: `AlphaEngineFundVault`
+  holds assets and shares, `AlphaEngineUSDCVaultManager` owns USDC-only
+  deposits/withdrawals and NAV accounting, and
+  `AlphaEngineVaultExecutionManager` owns Merkle-verified deployment policy.
 
-The behavior-preserving plan and one-day execution gate are documented in
-`docs/engineering/strategy-swap-separation-plan.md`.
+The earlier single strategy-controller separation proposal is retained as
+historical context in `docs/engineering/strategy-swap-separation-plan.md` and
+is superseded by the current StrategyManager/FundVault implementation plan.
 
 ## Non-goals in V1
 
@@ -35,7 +48,19 @@ The behavior-preserving plan and one-day execution gate are documented in
 - AVS/EigenLayer middleware registration
 - Result posting
 - Swap batching, leverage-loop, arbitrage, or UEI families
-- Hardhat scaffold or CI
+- Hardhat scaffold
+
+## Toolchain and CI
+
+- Canonical CI Foundry release: `v1.7.1`.
+- GitHub Actions are commit-pinned and run with read-only repository
+  permissions.
+- Pull-request CI runs formatting, build/size, the complete test suite,
+  coverage, repository hygiene, ABI parity, and storage-layout parity.
+- Nightly and release-candidate workflows increase fuzz and invariant runs.
+- The current local baseline was originally captured on the historical nightly
+  recorded in `docs/audits/internal/baseline-49d96e8-evidence.md`; CI is the
+  authoritative stable-toolchain gate.
 
 ## Current Fhenix testing stance
 

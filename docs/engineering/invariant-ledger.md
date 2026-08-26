@@ -6,11 +6,100 @@ This document is the living invariant ledger for `alphaengine-contracts`.
 
 It must be updated whenever a contract state machine, custody boundary, intent family, or accounting model changes. Unit tests can prove individual examples. Fuzz tests can prove bounded input properties. Invariant tests must prove that core state relationships remain true across random stateful action sequences.
 
-The current implementation has two stateful domains:
+The legacy implementation has two stateful domains:
 - `AlphaEngineIntentController`: strategy and swap-intent lifecycle.
 - `AlphaEngineConfidentialVault`: FHERC20 wrapper registry, deposit/shield, unshield delegation, and swap-intent escrow locks.
 
 Exact-input swap settlement through a separate executor boundary is now implemented, and the invariant harnesses now include execute-time actions through a two-wrapper mock-settlement model with explicit output-rate and dust-revert checks. Batching, leverage/UEI families, and settlement result posting are still not implemented.
+
+The replacement architecture now also has three stateful domains:
+
+- `AlphaEngineTraderQualificationRegistry`;
+- `AlphaEngineCompetitionStrategyManager`; and
+- `AlphaEngineCapitalStrategyManager`.
+
+Their handler invariants supplement fixed hash vectors and exhaustive
+field-mutation tests. They do not share state-bearing inheritance or nonce,
+pause, lifecycle, ABI, or event domains.
+
+The Competition Manager handler also exercises randomized, repeated score
+reveal batches. It asserts that a score reveal can only be observed after the
+competition is finalized, that all three component handles for a submission
+receive the same number of decrypt requests, and that the manager is the CoFHE
+requestor. Plaintext results remain asynchronous and are not duplicated in
+manager storage.
+
+The approved second-pass fund design has three stateful domains that must not be
+collapsed: `AlphaEngineFundVault` for custody and shares,
+`AlphaEngineUSDCVaultManager` for USDC deposit/withdrawal and NAV accounting,
+and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
+
+## Planned USDC FundVault invariants
+
+- Only the USDC manager can invoke FundVault entry/exit settlement; only the
+  execution manager can invoke `manage`.
+- Total share supply equals user balances plus shares escrowed by pending
+  withdrawals.
+- Pending deposit principal and reserved withdrawal USDC are excluded from
+  deployable strategy balances.
+- External-flow-neutral P&L cannot count an activated deposit as yield or an
+  accounted withdrawal as loss.
+- Positive P&L cannot become fully redeemable before 24 hours; confirmed loss
+  immediately consumes unvested gain before recognized NAV.
+- Deposits are priced only at their eligible daily checkpoint and cannot capture
+  positive P&L earned before that checkpoint.
+- Deposit shares round down, withdrawal share requirements round up, and no
+  nonzero accepted deposit mints zero shares.
+- Fixed `1e6` virtual USDC units and `1e18` virtual share units prevent a
+  zero-supply conversion singularity.
+- Neither manager retains assets outside an atomic operation.
+- No unproved, stale, mismatched, expired, or replayed capital bundle reaches a
+  FundVault external call.
+- Strategy execution cannot consume pending deposits or reserved withdrawal
+  USDC, and a failed external execution restores every replay flag atomically.
+
+## V2 replay-critical hash invariants
+
+- Competition, competition-submission, capital-intent, and swap-intent IDs use
+  distinct typehashes and bind chain plus the owning contract address.
+- Competition, capital, and swap nonce domains remain independent in their
+  eventual owning contracts.
+- Encrypted component arrays are order-sensitive through
+  `keccak256(abi.encode(componentHandles))`.
+- Competition and capital payload hashes bind every stable submission field and
+  exclude operator snapshots, creation timestamps, transaction hashes, and log
+  indices.
+- Call bundles are nonempty, capped at 16, order-sensitive, and bind index,
+  decoder, target, zero native value, and the exact calldata hash.
+- Risk assets are nonzero, strictly ascending, unique, capped at 16, and bind
+  max-spend/min-receive values at their exact indices.
+- Execution commitments bind every authority, version, time window, replay
+  nonce, policy root, call/risk hash, submission payload, and evaluation
+  evidence field.
+- Changing any bound field changes the resulting commitment.
+- The dependency-free reference generator and Solidity implementation must
+  reproduce `test/vectors/alphaengine-hash-v1.json` exactly.
+
+## Implemented Capital Manager invariants
+
+`test/invariant/AlphaEngineCapitalStrategyManager.invariant.t.sol` exercises
+submit, cancel, reject, approve, consume, deliberately reverting downstream
+consume, expiry, qualification revocation/requalification, and invalid stale
+qualification progress. At the PR profile, each property runs 64 sequences at
+depth 32 with zero handler reverts.
+
+- The trader nonce equals exactly the number of successful capital submissions.
+- Stored identity, payload hash, component count, and component array remain
+  internally consistent for every tracked intent.
+- Cancelled, rejected, consumed, revoked, and expired states are terminal.
+- Approved commitments never change, and authorization nonces identify at most
+  one intent.
+- Consumed status, commitment replay state, and authorization-nonce replay state
+  remain in parity. A downstream revert restores all three atomically.
+- Revoked/expired qualification versions cannot approve or consume their old
+  intents after requalification at a newer version.
+- The Capital Manager retains no native asset and exposes no token or arbitrary
+  target-call path.
 
 ## Notation
 

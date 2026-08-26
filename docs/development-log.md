@@ -1,5 +1,231 @@
 # Development Log
 
+## 2026-08-26 — Finalized competition score reveal
+
+### Added
+- A dedicated `SCORE_REVEALER_ROLE` and rank-paginated
+  `requestCompetitionScoreReveal` flow on
+  `AlphaEngineCompetitionStrategyManager`.
+- Each finalized submission requests asynchronous CoFHE decryption of its
+  real-sister, perturbation-P25, and stress-P25 score handles together. Calls
+  are capped at 32 submissions and reuse the manager's existing handle
+  permission; no aggregate score or duplicate plaintext storage was added.
+- `getPublicEvaluationScores` rejects access before finalization and otherwise
+  returns the three published plaintext values with independent readiness
+  flags, allowing the frontend/backend to tolerate partial asynchronous
+  completion.
+
+### Security and compatibility
+- Score requests remain impossible before competition finalization and require
+  a separate operational role. Rank pagination uses the finalized on-chain
+  rank mapping rather than caller-provided submission identifiers.
+- Added `CompetitionScoreRevealRequested` for listener discovery. The event
+  signals a request, not completion; consumers must check readiness through the
+  getter or CoFHE result events.
+- Extended the repository CoFHE mock with caller-permission enforcement and
+  decrypt-request tracking for parity with the pinned task-manager interface.
+
+### Validation
+- Focused Competition Manager unit/fuzz suite: 20 passed, including 257 fuzz
+  runs.
+- Competition Manager stateful invariant suite: 6 passed at 64 runs and depth
+  32, including finalized-only reveal and three-component request parity, with
+  zero handler reverts.
+- Full repository suite: 249 passed, 0 failed, 0 skipped.
+- Formatting, ABI/storage artifact parity, runtime-size gates, and
+  `git diff --check` passed. The Competition Manager runtime is 17,276 bytes,
+  below the 23,000-byte repository ceiling; its storage layout is unchanged.
+- Focused whole-contract coverage reports 86.81% lines, 88.21% statements,
+  50.00% branches, and 97.06% functions. The new reveal success, partial-ready,
+  finalized-only, role, pagination, batch-bound, and cancelled-submission paths
+  are exercised; the remaining figures reflect pre-existing Stage 5 coverage
+  gaps and remain release-gate debt.
+
+## 2026-08-26 — Stage 6 capital strategy manager
+
+### Added
+- `AlphaEngineCapitalStrategyManager` as a fresh, independently pausable
+  upgradeable domain for qualified-trader capital intents.
+- Fresh encrypted intent submission with canonical FHE handle internalization,
+  per-trader nonces, qualification-version binding, and independent encrypted
+  evaluation scores.
+- Terminal rejection/cancellation/revocation/expiry states and immutable exact
+  execution approval binding chain, manager, vault, executor, authorization
+  nonce/window, policy root/version, call bundle, risk envelope, submission
+  payload, and evaluation evidence.
+- One-time execution consumption restricted to an allowlisted execution-manager
+  contract, with commitment and authorization-nonce replay markers written
+  before downstream execution. A mock execution manager proves downstream
+  failure atomically restores all consumption state.
+- Versioned ABI and storage-layout artifacts plus generated-artifact and
+  23,000-byte runtime gates.
+
+### Security boundaries
+- Qualification applies to the trader; every capital intent remains a fresh
+  encrypted submission and receives an independent evaluation.
+- Revocation or expiry of the exact qualification version blocks approval and
+  consumption, including after a later requalification.
+- The Capital Manager has no token, native-asset, arbitrary-call, Merkle-root,
+  or vault-custody authority. The production execution manager remains disabled
+  until the second-pass vault scope is implemented and allowlisted.
+
+### Validation
+- Focused unit/fuzz suite: 30 passed, including 256 fuzz runs.
+- Stateful invariant suite: 7 passed at 64 runs and depth 32 (2,048 calls per
+  invariant, zero handler reverts).
+- Nightly-strength Stage 6 stress: 10,000 fuzz runs passed; all seven invariants
+  passed at 256 runs and depth 128 (32,768 calls per invariant, zero handler
+  reverts).
+- Full repository suite: 245 passed, 0 failed, 0 skipped.
+- Targeted coverage: 100% branches and functions; 97.56% lines. The six lines
+  reported uncovered are constructor/initializer and inherited pause-wrapper
+  calls executed by passing tests but not attributed by Foundry's
+  `--ir-minimum` source maps.
+- ABI/storage parity passed. Runtime size is 17,186 bytes, leaving 5,814 bytes
+  below the repository's 23,000-byte ceiling.
+
+## 2026-08-26 — Finalized public USDC FundVault architecture
+
+### Owner decision
+- Replaced the earlier treasury-funded, shareless FundVault assumption with a
+  public, USDC-only, share-based fund design.
+- Locked three separate authority domains:
+  - `AlphaEngineFundVault` holds USDC and positions and owns the share ledger;
+  - `AlphaEngineUSDCVaultManager` handles deposits, withdrawals, daily NAV,
+    checkpoint share pricing, 24-hour positive-P&L vesting, and immediate loss
+    recognition;
+  - `AlphaEngineVaultExecutionManager` handles capital authorization, Merkle
+    proofs, decoders, risk caps, replay, and calls FundVault `manage`.
+- The initial release does not deploy a general multi-asset Teller/Accountant
+  stack or a deposit-conversion oracle. USDC is both the accepted asset and the
+  accounting unit.
+- NAV is the USDC net liquidation value of on-chain positions at a declared
+  finalized block, net of realized and expected exit costs and liabilities.
+- Deposits and withdrawals settle at daily checkpoints; reserved withdrawal
+  USDC cannot be redeployed.
+
+### Documentation
+- Updated the canonical implementation plan, fund-vault policy, and architecture
+  target. No FundVault Solidity was changed in this documentation stage.
+
+## 2026-08-26 — Consolidated audit cadence and canonical plan path
+
+### Owner decision
+- Removed per-stage targeted audits from the implementation sequence.
+- Continue through ordinary bounded stages using tests, fuzzing, invariants,
+  ABI/layout parity, runtime-size, deployment, and documentation gates.
+- After first-pass and second-pass implementation are both complete, run one
+  consolidated full-repository internal audit, remediate its findings, run
+  targeted re-audits only for those fixes, and then run the frozen-candidate
+  full audit.
+- Stopped the in-progress hashing-library targeted audit before any review pass
+  completed or report was produced.
+
+### Documentation consolidation
+- Kept
+  `docs/engineering/strategy-manager-fund-vault-implementation-plan.md` as the
+  single canonical plan.
+- Removed the identical root-level `audit-cleanup-plan.md` duplicate and
+  redirected `AGENTS.md` to the canonical engineering plan.
+
+## 2026-08-26 — V2 interfaces and replay-critical hashing primitives
+
+### Added
+- `AlphaEngineStrategyHashLib` for domain-separated competition, competition
+  submission, capital-intent, and swap-intent identifiers plus ordered encrypted
+  strategy payload hashes.
+- `AlphaEngineExecutionHashLib` for ordered call bundles, strictly sorted asset
+  risk envelopes, exact execution commitments, and salted swap minimum-output
+  commitments.
+- Shared qualification, capital-consumption, vault-execution-manager, and
+  FundVault interfaces without introducing a storage-bearing base manager.
+- A dependency-free Python Keccak-256 and ABI reference generator plus a
+  checked-in V1 vector artifact.
+
+### Security decisions
+- V1 call bundles are nonempty, capped at 16, require nonzero decoder/target
+  addresses, and reject native value.
+- V1 risk envelopes are capped at 16 assets and require nonzero, strictly
+  ascending asset addresses, eliminating duplicate/order ambiguity.
+- Execution commitments bind chain, all manager/vault/executor identities,
+  intent and qualification versions, authorization nonce/window, policy and
+  risk versions, ordered calls, submission payload, and evaluation evidence.
+- Hashes use `abi.encode`; dynamic arrays/calldata are reduced to explicit
+  ordered hashes before commitment.
+
+### Validation
+- Dependency-free reference regeneration: passed.
+- Focused hash suite: 10 passed, 0 failed.
+- Every strategy payload and execution-commitment field has a mutation test.
+
+## 2026-08-26 — Release-hygiene and reproducibility baseline
+
+### Changed
+- Applied the repository formatter as an isolated, non-behavioral cleanup and
+  preserved the resulting script/test-only diff.
+- Pinned CI to stable Foundry `v1.7.1` using the commit-pinned
+  `foundry-rs/foundry-toolchain` action.
+- Added least-privilege PR, nightly stress, and manually triggered release
+  workflows with commit-pinned GitHub Actions.
+- Added clean-submodule, sensitive-path, immutable legacy-manifest, ABI parity,
+  storage-layout parity, formatting, test, coverage, and clean-tree gates.
+- Enabled deterministic storage-layout emission in `foundry.toml`.
+
+### Artifact evidence
+- Archived the stale baseline controller ABI at
+  `ABI/legacy/AlphaEngineIntentController.checked-in-49d96e8.json` before
+  regenerating `ABI/AlphaEngineIntentController.json` from source.
+- Captured genuine baseline layouts at
+  `storage-layouts/legacy/AlphaEngineIntentController.49d96e8.json` and
+  `storage-layouts/legacy/AlphaEngineConfidentialVault.49d96e8.json`.
+- The legacy vault remains an explicit historical size exception; every fresh
+  production contract must meet the plan's 23,000-byte release ceiling.
+
+### Validation
+- `forge fmt --check`: passed.
+- `forge test --offline`: 152 passed, 0 failed, 0 skipped.
+- `script/ci/check-repository-hygiene.sh`: passed.
+- `script/ci/check-generated-artifacts.sh`: passed.
+- `git diff --check`: passed.
+
+## 2026-08-26 — Baseline internal Solidity audit
+
+### Evidence
+- Ran all eight Solidity-auditor review lenses against repository-owned
+  production and deployment Solidity at baseline `49d96e8a80d6903d1d30affc6f836bcc0ac13800`.
+- Persisted the consolidated report at
+  `assets/findings/alphaengine-contracts-pashov-ai-audit-report-20260826-170601.md`.
+- Recorded toolchain, tests, storage, runtime size, ABI/manifests hashes,
+  dependency pins, severity dispositions, and residual risks in
+  `docs/audits/internal/baseline-49d96e8-evidence.md`.
+
+### Gate decision
+- The audit confirmed two High fund-safety findings: permissionless pre-claim
+  lock stranding and fee-on-transfer wrapper undercollateralization.
+- The legacy combined deployment is historical and drain-down-only; it will not
+  be rehabilitated or upgraded into the new product contracts.
+- The High findings become mandatory regression cases for the fresh wrapper,
+  swap escrow, and controller and must be closed in the consolidated
+  end-of-implementation audit before release.
+- The audit also confirmed planned architectural debt around encrypted-zero
+  locks, bound swap execution, output precision, operator rotation, deadlines,
+  and upgrade-manifest validation.
+
+## 2026-08-26 — StrategyManager, confidential-swap, and FundVault implementation plan
+
+### Approved direction
+- Adopted the security-first staged implementation plan for independent
+  competition, capital, confidential-swap, and treasury FundVault domains.
+- Locked fresh proxy/address deployment for the first-pass upgradeable
+  components and preserved the legacy combined deployment and manifest as
+  historical evidence.
+- Required the Solidity-auditor baseline, consolidated end-of-implementation,
+  remediation, and frozen-candidate gates before production-readiness claims.
+
+### Canonical plan
+- `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`
+- This is the single mandatory implementation reference routed by `AGENTS.md`.
+
 ## 2026-08-26 — Contract instruction router
 
 ### Changed

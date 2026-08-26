@@ -4,21 +4,70 @@
 
 Foundry is the only framework in v1.
 
+CI is pinned to Foundry `v1.7.1`. The PR workflow runs the complete suite at
+the default fuzz/invariant profile; nightly and release-candidate workflows use
+at least 10,000 fuzz runs and 256 invariant runs at depth 128. GitHub Actions
+and the Foundry setup action are pinned by full commit SHA.
+
 ## Required suites
+
+- Hash vectors: `AlphaEngineHashLibrariesTest` compares Solidity against the
+  dependency-free Python reference in
+  `script/reference/alphaengine_hash_vectors.py`, mutates every strategy and
+  execution-commitment field, and exercises fail-closed call/risk bounds.
 
 - Unit: initialization, strategy submit/cancel/admin flows, swap submit/admin/execute/refund flows, vault lock and settlement/refund flows, revert paths, event/state parity.
 - Unit tests must assert encrypted market-handle persistence, encrypted amount-handle persistence, and access grants in submit paths.
 - Integration: twin-pool direct-vs-intent reference swaps using `PoolSwapTest` on one pool and `submitSwapIntent -> executeSwapIntent` on an identical second pool.
-- Fuzz: nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized strategy-cancellation rejection, shared strategy/swap nonce progression, cross-family strategy-cancellation isolation, swap execution/refund status transitions, and strategy-state isolation across swap execution/refund.
+- Fuzz (legacy baseline): nonce monotonicity, intent-id uniqueness, component-count bounds, unauthorized strategy-cancellation rejection, shared strategy/swap nonce progression, cross-family strategy-cancellation isolation, swap execution/refund status transitions, and strategy-state isolation across swap execution/refund. The fresh contracts replace the shared-nonce cases with independent competition, capital, and swap nonce-domain tests.
 - Invariant: cancelled strategy intents stay cancelled, shared strategy/swap nonce exactness, non-zero listener operator after valid initialization, configured-vault validity, configured swap-executor validity, controller/vault lock parity across submit and execute, cross-family handle isolation, vault wrapper stability, vault lock lifecycle, consumed-lock claim consistency, cross-wrapper reserve backing, exact output-mint accounting, dust-settle revert atomicity, executor zero-residual accounting, and vault reserve/accounting conservation.
 - Confidential swap/vault tests cover vault custody, wrapper creation, deposit/unshield, auto-lock plus auto-unshield transitions, canonical FHERC20 returned-handle handling, and accounting parity before any broader custody path ships.
 - The detailed invariant ledger is `docs/engineering/invariant-ledger.md`; update it before changing state machines, custody flows, or accounting rules.
+
+### Implemented replacement-manager suites
+
+- Qualification Registry tests cover grant, extension, expiry, revocation,
+  requalification, version monotonicity, role separation, and paused rescue
+  behavior.
+- Competition Manager tests cover schedules, bounded confidential submissions,
+  encrypted evaluation permissions, unique bounded ranks, complete
+  finalization, deterministic eligibility, trader-level qualification
+  publication, role-gated rank pagination, asynchronous score readiness, and
+  post-finalization public retrieval of all three score components.
+- Capital Manager tests cover active-version submission, exact execution-field
+  mutation, immutable approval, rejection/cancellation/revocation/expiry,
+  allowlisted consumption, replay markers, downstream rollback, explicit
+  event/getter parity, and zero custody.
+- `AlphaEngineCapitalStrategyManager.invariant.t.sol` runs ten randomized
+  actions with zero handler reverts and asserts seven stateful properties:
+  submission-nonce exactness, payload/component consistency, terminal-state
+  monotonicity, approval/authorization-nonce immutability, replay-state parity,
+  stale-qualification rejection, and zero native custody.
+
+### Planned USDC FundVault suites
+
+- Formula-lock tests must independently verify net-liquidation NAV,
+  external-flow-neutral P&L, 18-decimal share conversion against `1e6` virtual
+  USDC units and `1e18` virtual share units, rounding direction, 24-hour
+  positive-P&L vesting, and immediate loss offset.
+- Stateful invariants must cover share-supply conservation, pending-deposit and
+  withdrawal-reserve segregation, no pre-checkpoint yield capture, zero manager
+  custody, and disjoint FundVault selector authority.
+- Execution invariants must prove that no unproved call or replay succeeds and
+  that strategy execution cannot spend pending deposits or reserved withdrawal
+  USDC.
+- Integration tests must cover USDC deposit through checkpoint settlement,
+  gain/loss reporting, withdrawal price/reserve/settlement, and an exact capital
+  approval through Merkle verification into a pinned Pendle PT action.
 
 ## Coverage
 
 - `forge coverage` is mandatory.
 - Target is 100% coverage for repo-owned logic-bearing contracts and libraries.
 - Exclusions: interfaces, mocks, scripts, vendored dependencies, proxy boilerplate.
+- Checked-in ABIs and upgradeable storage layouts must reproduce byte-for-byte
+  after canonical JSON normalization via
+  `script/ci/check-generated-artifacts.sh`.
 
 ## Fhenix policy
 
@@ -28,6 +77,7 @@ Foundry is the only framework in v1.
   - `verifyInput`
   - `allow`
   - `isAllowed`
+  - `createDecryptTask` with caller-permission enforcement and request tracking
   - deterministic `trivialEncrypt`, arithmetic, comparison, and `select` operations needed by official FHERC20 wrapper tests
   - decrypt-result publication and reverting verification semantics for wrapper claim tests
   - deterministic mock-value lookup for stored handles

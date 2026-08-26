@@ -18,6 +18,60 @@
 - Swap lifecycle is submit -> execute or refund.
 - Market selection is privacy-preserving in v1: the contract accepts and emits an encrypted `marketId` handle rather than a plaintext market address.
 
+The contracts above are the legacy combined baseline and are retained only for
+historical evidence and drain-down compatibility. They are not the storage or
+upgrade base for the replacement products.
+
+## Approved target architecture
+
+The canonical target is defined by
+`docs/engineering/strategy-manager-fund-vault-implementation-plan.md`:
+
+- `AlphaEngineCompetitionStrategyManager` owns competition scheduling,
+  encrypted submissions, evaluations, rankings, and eligibility publication.
+- `AlphaEngineTraderQualificationRegistry` owns versioned, expiring,
+  trader-level qualification and revocation.
+- `AlphaEngineCapitalStrategyManager` accepts fresh encrypted intents from
+  qualified traders and owns exact, one-time capital authorizations.
+- `AlphaEngineConfidentialSwapController` and
+  `AlphaEngineConfidentialSwapEscrow` are an independently deployable product.
+- `AlphaEngineFundVault`, `AlphaEngineUSDCVaultManager`, and
+  `AlphaEngineVaultExecutionManager` form the separate second-pass fund system:
+  the FundVault holds assets and shares, the USDC manager handles public
+  deposit/withdrawal and NAV accounting, and the execution manager owns
+  Merkle-verified deployment policy.
+- Competition and capital share interfaces and stateless hashing libraries,
+  never a storage-bearing base manager.
+
+Implemented shared boundary:
+
+- `AlphaEngineStrategyHashLib` defines independent identifier domains and
+  encrypted strategy-payload commitments.
+- `AlphaEngineExecutionHashLib` defines ordered calls, sorted risk limits,
+  execution commitments, and bound swap minimum-output commitments.
+- The qualification, capital-consumption, vault-manager, and FundVault
+  interfaces define call direction without granting authority by themselves.
+
+Implemented replacement contracts through Stage 6:
+
+- `AlphaEngineTraderQualificationRegistry` is the canonical versioned,
+  expiring, revocable trader-qualification source.
+- `AlphaEngineCompetitionStrategyManager` owns independent competition
+  scheduling, confidential submissions, evaluation/ranking, finalization, and
+  qualification publication. After finalization, a dedicated score-revealer
+  role can request asynchronous CoFHE decryption of all three evaluation-score
+  handles in bounded rank-order batches. The manager stores no duplicate
+  plaintext score state; its public getter reads verified results from the
+  CoFHE task manager and returns an independent readiness flag for each score.
+- `AlphaEngineCapitalStrategyManager` accepts a fresh confidential intent only
+  at an active qualification version, records one independent encrypted
+  evaluation, and may approve only one exact execution commitment.
+- Only a governance-allowlisted execution-manager contract may consume an
+  approval. Consumption is one-time and atomic with downstream execution; the
+  Capital Manager cannot hold assets or call strategy targets.
+- These are fresh proxy domains. They do not reinterpret or migrate the legacy
+  combined controller's storage.
+
 ## External protocol boundary
 
 `AlphaEngineIntentController` and `AlphaEngineConfidentialVault` must remain protocol-agnostic.
@@ -25,15 +79,21 @@
 They must not import or directly depend on Uniswap, Pendle, Morpho, Aave, or other route-specific protocol ABIs. Swap intents are custody and lifecycle records at this layer, not a commitment to a concrete execution protocol.
 
 Execution-specific contracts are separate boundaries:
-- a generic UEI executor may call arbitrary approved targets through decoded target/selector/calldata payloads;
+- arbitrary calls are prohibited outside the Merkle-verified FundVault manager
+  boundary;
 - the implemented `AlphaEngineV4SwapExecutor` imports canonical `v4-core` interfaces and implements the PoolManager unlock callback;
-- Pendle, Morpho, Aave, or other typed adapters may be added only if there is a concrete safety or UX reason to avoid generic UEI calls.
+- the first FundVault policy is limited to pinned Pendle PT actions through
+  fail-closed decoders/sanitizers; generic routers, borrowing, leverage, flash
+  loans, and bridges remain excluded.
 
 `@uniswap/v4-core` is pinned for Foundry pool behavior tests and the separately bounded V4 executor. It is not an intent-controller or custody-contract dependency. `@uniswap/v4-periphery` remains out of scope unless a specific test-fixture blocker is documented.
 
-## Approved pre-audit separation
+## Superseded pre-audit separation
 
-The approved refactor is documented in `docs/engineering/strategy-swap-separation-plan.md`.
+The earlier refactor is retained in
+`docs/engineering/strategy-swap-separation-plan.md` for history. Its single
+strategy-controller recommendation is superseded by the current implementation
+plan.
 
 Locked target boundaries:
 - strategy submission, cancellation, and evaluation-score state belong to a strategy-intent controller
@@ -44,7 +104,10 @@ Locked target boundaries:
 - swap-module wrapper contracts may physically hold underlying ERC20 reserves because official `FHERC20ERC20Wrapper.shield(...)` transfers underlying into the wrapper contract
 - atomic FHERC20 authorization-based locking is the submit-time custody path
 - neither intent controller may hold FHERC20 balances or underlying ERC20 reserves
-- the future `AlphaEngineFundVault` exclusively owns pooled LP deposits, shares, NAV, withdrawals, allocation limits, and long-lived fund custody
+- the future `AlphaEngineFundVault` exclusively owns long-lived fund custody and the share ledger
+- the future `AlphaEngineUSDCVaultManager` owns USDC-only public deposits, withdrawals, daily NAV/share-price accounting, positive-yield vesting, and immediate loss recognition
+- the future `AlphaEngineVaultExecutionManager` owns Merkle roots, exact execution authorization, risk caps, and protocol-call orchestration
+- the USDC manager and execution manager receive disjoint FundVault selector authority and cannot substitute for one another
 - the LP fund vault is not implemented in this refactor and must not reuse the swap escrow's accounting or lifecycle state
 - batching, AVS registration, hook logic, LP accounting, and new swap behavior remain out of scope for the separation
 
@@ -70,6 +133,24 @@ This repo does not own:
 ## Listener contract
 
 `listener-service` must consume this repo’s emitted event and getter contract, not hookathon ABI. Event compatibility is a release gate.
+
+For the replacement capital family, the backend must index the versioned
+`ABI/v2/AlphaEngineCapitalStrategyManager.json` surface. It can retain the same
+basic decrypt-then-simulate workflow, but it must read the fresh contract
+address and new capital event family rather than treating a competition
+qualification as an execution approval. `CapitalIntentSubmitted` and
+`CapitalIntentComponents` provide the encrypted market/component handles and
+stable payload metadata. The evaluator then records encrypted scores and
+either rejection evidence or the exact execution commitment. Consumption is a
+separate terminal event.
+
+For competition leaderboards, the backend must treat
+`CompetitionScoreRevealRequested` as a decryption-request signal, not as proof
+that plaintext is already available. It should poll
+`getPublicEvaluationScores(submissionId)` or consume the CoFHE result events and
+check each readiness flag. The getter rejects access until the competition is
+finalized. No aggregate-score field is added; the public scoring formula may
+derive the leaderboard total from the three revealed components.
 
 For the current TA family, the listener-facing event shape is:
 - `intentId`
