@@ -1,0 +1,50 @@
+name: Contracts Nightly
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-nightly
+  cancel-in-progress: false
+
+jobs:
+  stress:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      FOUNDRY_FUZZ_RUNS: 10000
+      FOUNDRY_INVARIANT_RUNS: 256
+      FOUNDRY_INVARIANT_DEPTH: 128
+    steps:
+      - name: Checkout pinned source and submodules
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install Foundry v1.7.1
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        with:
+          version: v1.7.1
+
+      - name: Check repository and dependency hygiene
+        run: bash script/ci/check-repository-hygiene.sh
+
+      - name: Build with production compiler settings
+        run: forge build --sizes
+
+      - name: Run stress fuzz and invariants
+        run: forge test --offline
+
+      - name: Reproduce ABI and storage-layout artifacts
+        run: bash script/ci/check-generated-artifacts.sh
+
+      - name: Check final tree consistency
+        run: |
+          git diff --check
+          git diff --exit-code

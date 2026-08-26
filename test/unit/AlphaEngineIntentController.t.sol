@@ -180,9 +180,21 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
         assertEq(mockStorage(uint256(evaluationScoreRecord.perturbationP25ScoreHandle)), 11_523);
         assertEq(mockStorage(uint256(evaluationScoreRecord.stressP25ScoreHandle)), 10_589);
 
-        assertFalse(taskManager.isAllowed(uint256(evaluationScoreRecord.realSisterScoreHandle), otherSubmitter));
-        assertFalse(taskManager.isAllowed(uint256(evaluationScoreRecord.perturbationP25ScoreHandle), otherSubmitter));
-        assertFalse(taskManager.isAllowed(uint256(evaluationScoreRecord.stressP25ScoreHandle), otherSubmitter));
+        assertFalse(
+            taskManager.isAllowed(
+                uint256(evaluationScoreRecord.realSisterScoreHandle), otherSubmitter
+            )
+        );
+        assertFalse(
+            taskManager.isAllowed(
+                uint256(evaluationScoreRecord.perturbationP25ScoreHandle), otherSubmitter
+            )
+        );
+        assertFalse(
+            taskManager.isAllowed(
+                uint256(evaluationScoreRecord.stressP25ScoreHandle), otherSubmitter
+            )
+        );
     }
 
     function test_submitStrategyEvaluationScoresRejectsInvalidEncryptedScoreHandles() public {
@@ -230,10 +242,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
                 AlphaEngineIntentController.UnauthorizedListenerOperator.selector, outsider
             )
         );
-        controller.submitStrategyEvaluationScores(
-            intentId,
-            scoreSubmission
-        );
+        controller.submitStrategyEvaluationScores(intentId, scoreSubmission);
     }
 
     function test_submitStrategyEvaluationScoresRejectsDuplicateSubmissions() public {
@@ -250,10 +259,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
             _encryptedScoreSubmission(10_000, 10_000, 10_000);
 
         vm.prank(listenerOperator);
-        controller.submitStrategyEvaluationScores(
-            intentId,
-            scoreSubmission
-        );
+        controller.submitStrategyEvaluationScores(intentId, scoreSubmission);
 
         vm.prank(listenerOperator);
         vm.expectRevert(
@@ -261,10 +267,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
                 AlphaEngineIntentController.EvaluationScoresAlreadySubmitted.selector, intentId
             )
         );
-        controller.submitStrategyEvaluationScores(
-            intentId,
-            scoreSubmission
-        );
+        controller.submitStrategyEvaluationScores(intentId, scoreSubmission);
     }
 
     function test_submitStrategyEvaluationScoresRejectsNonActiveIntent() public {
@@ -291,10 +294,7 @@ contract AlphaEngineIntentControllerUnitTest is AlphaEngineIntentControllerTestB
                 AlphaEngineIntentController.IntentStatus.Cancelled
             )
         );
-        controller.submitStrategyEvaluationScores(
-            intentId,
-            scoreSubmission
-        );
+        controller.submitStrategyEvaluationScores(intentId, scoreSubmission);
     }
 
     function _encryptedScoreSubmission(uint32 realSister, uint32 perturbationP25, uint32 stress)
