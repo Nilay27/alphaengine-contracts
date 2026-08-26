@@ -1,5 +1,12 @@
 # Strategy and Confidential-Swap Separation Plan
 
+> **Superseded architecture:** The single
+> `AlphaEngineStrategyIntentController` recommendation in this historical plan
+> is superseded by
+> `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`,
+> which defines separate competition and capital StrategyManagers, bound
+> confidential swaps, and the second-pass treasury FundVault boundary.
+
 - Decision date: 2026-08-26
 - Status: approved architecture plan; implementation not started
 - Timebox: one focused engineering day for behavior-preserving separation

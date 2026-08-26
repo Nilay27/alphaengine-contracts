@@ -9,9 +9,14 @@ This file routes contract work to focused policies; it supplements
 1. Read the root router and every root policy matching the task.
 2. Before substantive design, Solidity edits, deployment changes, or audit
    claims, read every matching local policy below completely. Routes accumulate.
-3. Contract code, ABI, events, storage, permissions, and installed dependency
+3. Before implementing or auditing the approved StrategyManager, confidential
+   swap, or FundVault restructuring, read
+   `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`
+   completely and treat its locked product decisions, stage gates, and explicit
+   exclusions as cumulative requirements.
+4. Contract code, ABI, events, storage, permissions, and installed dependency
    behavior outrank chat recollection.
-4. Apply the strictest compatible instruction. Stop and cite conflicts in ABI,
+5. Apply the strictest compatible instruction. Stop and cite conflicts in ABI,
    storage, permission, lifecycle, formula, or custody semantics.
 
 ## Always-on contract invariants
@@ -46,6 +51,10 @@ This file routes contract work to focused policies; it supplements
 
 ## Canonical scope anchors
 
+- `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`:
+  approved, implementation-ready StrategyManager, confidential-swap, and
+  FundVault restructuring plan. It is mandatory for every implementation,
+  deployment, audit, and release task within that scope.
 - `docs/engineering/architecture.md`: current implemented architecture.
 - `docs/engineering/strategy-swap-separation-plan.md`: approved separation and
   future pooled-fund boundary.

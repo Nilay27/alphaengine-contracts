@@ -13,8 +13,19 @@ Merkle-root policy, decoder/sanitizer, or capital-strategy architecture.
 3. Qualified traders submit fresh encrypted capital intents. Each intent is
    evaluated independently before any vault action.
 4. The strategy/capital manager owns encrypted submission, evaluation,
-   approval, expiry, and replay state. The FundVault owns pooled custody and
-   execution constraints.
+   approval, expiry, and replay state.
+5. `AlphaEngineFundVault` owns pooled custody, deployed positions, and the ERC20
+   share ledger. It exposes disjoint role-gated entry/exit and `manage`
+   selectors; it does not calculate NAV or accept public requests.
+6. `AlphaEngineUSDCVaultManager` owns the initial USDC-only public deposit,
+   withdrawal, checkpoint pricing, daily NAV report, positive-P&L vesting, and
+   immediate-loss lifecycle. It is not a custodian and cannot manage positions.
+7. `AlphaEngineVaultExecutionManager` owns Merkle policy, exact capital
+   authorization consumption, risk limits, replay, and fund deployment. It
+   cannot mint/burn shares, settle users, or report NAV.
+8. The initial release uses USDC as both deposit asset and accounting unit. It
+   does not require a multi-asset Teller/Accountant stack or deposit-conversion
+   oracle.
 
 ## Merkle execution controls
 
@@ -29,6 +40,11 @@ Merkle-root policy, decoder/sanitizer, or capital-strategy architecture.
 4. Traders do not receive an unrestricted arbitrary-call vault role. Apply
    least privilege and separate operator, evaluator, root-admin, pause, and
    upgrade authorities.
+5. Strategy execution cannot consume pending-deposit principal or USDC reserved
+   for priced withdrawals.
+6. The NAV reporter is separate from execution authority. Positive P&L vests
+   over 24 hours; confirmed loss is recognized immediately and offsets
+   unvested gain first.
 
 ## Second-pass reference
 

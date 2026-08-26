@@ -45,9 +45,12 @@ reference the finding they address.
 4. A post-freeze commit is not reviewed without an explicit delta review.
 5. The strategy/swap separation uses fresh deployment architecture; do not
    delete/reorder legacy storage through an in-place upgrade.
-6. Run the named `solidity-auditor` skill at the stage gates defined by the
-   approved implementation plan. Internal skill output complements rather than
-   replaces independent external review.
+6. Run the named `solidity-auditor` skill only at the consolidated
+   end-of-implementation gates defined by the approved implementation plan.
+   Do not run targeted audits between ordinary implementation stages. Targeted
+   re-audits are reserved for fixes arising from the consolidated end audit.
+   Internal skill output complements rather than replaces independent external
+   review.
 
 ## Documentation
 
