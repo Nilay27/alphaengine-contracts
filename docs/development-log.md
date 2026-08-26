@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-08-26 — Strategy/swap separation and Fhenix audit plan
+
+### Approved direction
+- Separate TA / strategy-allocation intents from individual-user confidential swaps before freezing the Fhenix private-audit commit.
+- Treat the current `AlphaEngineConfidentialVault` as swap escrow/custody infrastructure, not as an LP fund-management vault.
+- Reserve `AlphaEngineFundVault` for a separate future design covering pooled deposits, shares, NAV, withdrawals, allocation limits, fees, and long-lived custody.
+- Preserve the existing strategy and swap behavior during the split; deploy new proxies rather than deleting or reordering legacy combined-controller storage through an in-place upgrade.
+
+### Execution boundary
+- Timebox the behavior-preserving separation to one focused engineering day using the existing unit, fuzz, invariant, integration, and CoFHE compatibility harnesses.
+- If the split requires new product behavior, LP accounting, migration logic, or weakened tests, stop and rescope rather than extending the refactor silently.
+- Freeze and identify one immutable audit commit only after the full validation and audit-handoff gates pass.
+
+### References
+- `docs/engineering/strategy-swap-separation-plan.md`
+- `docs/audits/fhenix-private-audit-readiness.md`
+
 ## 2026-05-11 — Strategy official score submission on-chain
 
 ### Added

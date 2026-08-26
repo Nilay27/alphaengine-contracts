@@ -27,8 +27,8 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - It does not own listener bootstrap logic, off-chain simulation logic, ranking logic, or SDK packing semantics.
 
 5. Security-review readiness.
-- V1 is intentionally light, but the repo must be structured so fuzzing, invariants, coverage gates, and future security-review workflows can be added without redesign.
-- TODO: install and adopt `https://github.com/pashov/skills` when contract scope expands beyond the current single-family controller.
+- Fuzzing, invariants, coverage gates, and external-review workflows are mandatory for the current multi-contract controller, confidential-swap, custody, and executor surface.
+- The Fhenix private-audit workflow is governed by `docs/audits/fhenix-private-audit-readiness.md`.
 
 6. Custody-safe modularity.
 - Intent lifecycle contracts must not silently become custody contracts.
@@ -60,9 +60,9 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - Changes to permission behavior require synchronized tests and docs updates.
 
 6. No hidden lifecycle expansion.
-- The currently implemented production controller supports only TA / strategy-allocation submit + cancel.
-- Confidential swap and vault work is a separate next phase and must follow `docs/engineering/confidential-swap-vault-architecture.md`.
-- Do not sneak in execution, result posting, batching, or operator settlement paths under convenience rationale.
+- The current testnet implementation combines TA / strategy-allocation and confidential-swap intent lifecycles in `AlphaEngineIntentController`.
+- The approved target separates strategy intents from individual-user confidential swaps according to `docs/engineering/strategy-swap-separation-plan.md`.
+- The separation must preserve existing behavior. Do not add result posting, batching, leverage, arbitrary execution, LP accounting, or new settlement behavior under refactor rationale.
 
 7. Vault and token custody discipline.
 - `AlphaEngineIntentController` must never hold FHERC20 balances or underlying ERC20 reserves.
@@ -103,13 +103,14 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 ## 4. Architecture constraints
 
 1. Production scope.
-- Production code is limited to `AlphaEngineIntentController` and the approved `AlphaEngineConfidentialVault` / FHERC20 wrapper phase.
+- Current testnet code includes the combined `AlphaEngineIntentController`, `AlphaEngineConfidentialVault`, FHERC20 wrapper, and separately bounded V4 swap executor.
+- The approved pre-audit target is a strategy-intent controller plus a confidential-swap controller/escrow module. A pooled LP fund vault is a separate future subsystem.
 - Additional deposit, withdraw, lock, unlock, consume, settlement, batching, or executor paths require explicit docs and tests in the same change set.
 - Transparent proxy pattern with `ProxyAdmin` is the only approved upgrade path for upgradeable production contracts in v1 and the confidential vault phase.
 
 2. Intent-family boundary.
-- Current implemented family is TA / strategy-allocation only.
-- Future swap-intent work must remain family-specific and additive.
+- Current implemented families are TA / strategy-allocation and confidential swap.
+- The approved refactor gives each family its own controller, nonce domain, pause state, storage, ABI, and event surface.
 - Listener-facing event and getter surfaces must not assume hookathon ABI or future UEI/execution families.
 
 3. Confidential swap boundary.
@@ -123,7 +124,7 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 4. Fhenix boundary.
 - Use current CoFHE/FHE Solidity patterns only.
 - Do not rely on deprecated `cofhejs` assumptions.
-- Use official Fhenix FHERC20/confidential token contracts for confidential token behavior once this phase is implemented.
+- Use official Fhenix FHERC20/confidential token contracts for implemented confidential token behavior.
 - If exact FHERC20 Solidity interface names differ from docs, the installed pinned package is authoritative and docs/tests must be updated in the same change set.
 - If Foundry-local Fhenix mocks are incomplete, isolate that as documented integration debt instead of downgrading the repo to Hardhat.
 
@@ -205,6 +206,8 @@ This file supplements the root `/Users/nilay/alphaEngine/AGENTS.md`. When rules 
 - `/Users/nilay/alphaEngine/alphaengine-contracts/docs/engineering/architecture.md`
 - `/Users/nilay/alphaEngine/alphaengine-contracts/docs/engineering/testing-strategy.md`
 - `/Users/nilay/alphaEngine/alphaengine-contracts/docs/development-log.md`
+- `/Users/nilay/alphaEngine/alphaengine-contracts/docs/engineering/strategy-swap-separation-plan.md`
+- `/Users/nilay/alphaEngine/alphaengine-contracts/docs/audits/fhenix-private-audit-readiness.md`
 
 ---
 
@@ -226,3 +229,14 @@ are implementation-authoritative over chat memory or inferred convenience behavi
 
 4. Silent approximations are prohibited.
 - Do not weaken initializer validation, lifecycle rules, permission grants, or storage semantics without explicit approval and durable documentation.
+
+---
+
+## 10. External audit mode
+
+1. An external audit reviews one immutable commit SHA. Record that SHA and the exact scope in the audit-readiness document before declaring the repository audit-ready.
+2. Do not force-push, amend, or rewrite the frozen audit history. Audit-response changes must be isolated commits that reference the finding they address.
+3. Before freezing the SHA, run formatting, build, unit, fuzz, invariant, integration, coverage, ABI, and storage-layout checks. Record commands and results.
+4. Disclose known limitations, mock-vs-production differences, temporary compatibility extensions, deployment assumptions, and out-of-scope components. Do not hide debt through opportunistic cleanup.
+5. No deployment may be represented as reviewed if it is built from a commit after the frozen audit SHA without an explicit delta review.
+6. During the approved strategy/swap separation, the audit target is the new-deployment architecture. Do not attempt an in-place upgrade that removes or reorders legacy combined-controller storage.

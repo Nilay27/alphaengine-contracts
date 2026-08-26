@@ -2,9 +2,9 @@
 
 Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 
-## V1 scope
+## Current testnet scope
 
-- One upgradeable production contract: `AlphaEngineIntentController`
+- Current upgradeable testnet contracts: `AlphaEngineIntentController` and `AlphaEngineConfidentialVault`
 - Current TA / strategy-allocation intent family
 - Current confidential swap-intent submit / execute / refund phase
 - One listener/operator address
@@ -16,6 +16,18 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 - Encrypted component handles stored/emitted as `bytes32[]` using the current CoFHE Solidity package
 - Swap input amounts are submitted as encrypted FHERC20 `InEuint64` amounts and locked through `AlphaEngineConfidentialVault`
 - Foundry tests use a repo-owned CoFHE task-manager compatibility harness for the exact v1 surface we rely on
+
+## Approved pre-audit separation
+
+The current combined controller and swap-custody naming are being separated before the Fhenix private audit:
+
+- strategy intents remain an AlphaEngine strategy subsystem;
+- individual-user confidential swaps move to a dedicated swap controller and transient escrow module;
+- the existing V4 executor remains protocol-specific and separately bounded; and
+- `AlphaEngineFundVault` is reserved for future pooled LP fund management and is not part of this refactor.
+
+The behavior-preserving plan and one-day execution gate are documented in
+`docs/engineering/strategy-swap-separation-plan.md`.
 
 ## Non-goals in V1
 
@@ -45,8 +57,9 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 ## Commands
 
 ```bash
-forge fmt
-forge build
-forge test
-forge coverage
+git submodule update --init --recursive
+forge fmt --check
+forge build --offline
+forge test --offline
+forge coverage --offline --ir-minimum --report summary
 ```

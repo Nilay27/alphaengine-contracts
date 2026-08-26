@@ -6,8 +6,9 @@
 
 ## Current shape
 
-- `AlphaEngineIntentController` is the current TA / strategy-allocation intent entrypoint.
-- `AlphaEngineConfidentialVault` is the approved next-phase custody boundary for confidential token wrappers, deposit/unshield flows, and vault-level swap-intent escrow locks.
+- `AlphaEngineIntentController` currently combines TA / strategy-allocation and confidential-swap intent lifecycles.
+- `AlphaEngineConfidentialVault` currently owns confidential token wrappers, deposit/unshield flows, and individual swap-intent escrow locks. Despite its name, it is not a pooled LP fund vault.
+- `AlphaEngineV4SwapExecutor` is the current separately bounded Uniswap v4 execution adapter.
 - Transparent proxy pattern is canonical.
 - Current intent families:
   - TA / strategy-allocation
@@ -23,26 +24,29 @@
 
 They must not import or directly depend on Uniswap, Pendle, Morpho, Aave, or other route-specific protocol ABIs. Swap intents are custody and lifecycle records at this layer, not a commitment to a concrete execution protocol.
 
-Execution-specific contracts are separate future boundaries:
+Execution-specific contracts are separate boundaries:
 - a generic UEI executor may call arbitrary approved targets through decoded target/selector/calldata payloads;
-- a Uniswap v4 executor may import canonical `v4-core` interfaces and implement the PoolManager unlock callback;
+- the implemented `AlphaEngineV4SwapExecutor` imports canonical `v4-core` interfaces and implements the PoolManager unlock callback;
 - Pendle, Morpho, Aave, or other typed adapters may be added only if there is a concrete safety or UX reason to avoid generic UEI calls.
 
-`@uniswap/v4-core` is currently allowed as a Foundry fixture dependency for future pool behavior tests. It is not an `AlphaEngineIntentController` or vault dependency. `@uniswap/v4-periphery` remains out of scope unless a specific test-fixture blocker is documented.
+`@uniswap/v4-core` is pinned for Foundry pool behavior tests and the separately bounded V4 executor. It is not an intent-controller or custody-contract dependency. `@uniswap/v4-periphery` remains out of scope unless a specific test-fixture blocker is documented.
 
-## Next phase: confidential swap vault
+## Approved pre-audit separation
 
-The approved next architecture phase is documented in `docs/engineering/confidential-swap-vault-architecture.md`.
+The approved refactor is documented in `docs/engineering/strategy-swap-separation-plan.md`.
 
-Locked boundaries for that phase:
-- swap intent submission remains in `AlphaEngineIntentController`
-- confidential token custody and accounting move to `AlphaEngineConfidentialVault`
+Locked target boundaries:
+- strategy submission, cancellation, and evaluation-score state belong to a strategy-intent controller
+- individual-user swap submission, execution, and refund state belong to a confidential-swap controller
+- confidential swap locking, unshielding, settlement, and refund custody belong to a transient swap escrow
 - official Fhenix FHERC20 / confidential token contracts are the token behavior target
 - wrappers are scoped per underlying ERC20
-- vault-managed wrapper contracts may physically hold underlying ERC20 reserves because official `FHERC20ERC20Wrapper.shield(...)` transfers underlying into the wrapper contract
+- swap-module wrapper contracts may physically hold underlying ERC20 reserves because official `FHERC20ERC20Wrapper.shield(...)` transfers underlying into the wrapper contract
 - atomic FHERC20 authorization-based locking is the submit-time custody path
-- the intent controller must never hold FHERC20 balances or underlying ERC20 reserves
-- batching, AVS registration, and hook logic remain out of scope for the first swap-intent version
+- neither intent controller may hold FHERC20 balances or underlying ERC20 reserves
+- the future `AlphaEngineFundVault` exclusively owns pooled LP deposits, shares, NAV, withdrawals, allocation limits, and long-lived fund custody
+- the LP fund vault is not implemented in this refactor and must not reuse the swap escrow's accounting or lifecycle state
+- batching, AVS registration, hook logic, LP accounting, and new swap behavior remain out of scope for the separation
 
 ## Boundaries
 
@@ -52,7 +56,8 @@ This repo owns:
 - storage layout
 - deployment and upgrade scripts
 - Solidity tests, fuzzing, and invariants
-- confidential vault contract semantics once that next phase is implemented
+- confidential swap escrow semantics
+- future pooled LP vault semantics only after a separate approved design
 
 This repo does not own:
 - listener bootstrap or polling

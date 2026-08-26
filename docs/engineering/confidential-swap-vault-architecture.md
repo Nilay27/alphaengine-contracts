@@ -1,8 +1,14 @@
 # Confidential Swap + Vault Architecture
 
+> Historical implementation architecture. The confidential swap, escrow, and
+> executor behavior described here has since been implemented in the combined
+> testnet architecture. The approved pre-audit controller split and target
+> naming are governed by `strategy-swap-separation-plan.md`. Where the two
+> documents differ about future ownership or names, that newer plan wins.
+
 ## Purpose
 
-This document defines the next AlphaEngine contracts phase after the current TA / strategy-allocation controller: confidential token custody, swap-intent locking, and a later settlement path.
+This document records the architecture used to add confidential token custody, swap-intent locking, and settlement to the original TA / strategy-allocation controller.
 
 This is an architecture contract for implementation. Any production change must keep the repo's upgrade, coverage, fuzzing, invariant, and listener-compatibility rules intact.
 
