@@ -13,6 +13,7 @@ contract MockCoFheTaskManager is ITaskManager {
     error InvalidUtype(uint8 expectedUtype, uint8 actualUtype);
     error InvalidSignature(bytes32 expectedSignatureHash, bytes32 actualSignatureHash);
     error InvalidDecryptResult(uint256 ctHash, uint256 expectedResult, uint256 actualResult);
+    error DecryptRequesterNotAllowed(uint256 ctHash, address requester);
 
     struct RegisteredInput {
         bool exists;
@@ -29,6 +30,8 @@ contract MockCoFheTaskManager is ITaskManager {
     mapping(uint256 ctHash => bool isPubliclyAllowedCiphertext) private _publiclyAllowed;
     mapping(uint256 ctHash => uint256 result) private _decryptResults;
     mapping(uint256 ctHash => bool published) private _publishedResults;
+    mapping(uint256 ctHash => uint256 count) public decryptRequestCount;
+    mapping(uint256 ctHash => address requestor) public lastDecryptRequestor;
     uint256 private _nextGeneratedCiphertext = 1;
 
     function registerInput(
@@ -119,8 +122,16 @@ contract MockCoFheTaskManager is ITaskManager {
         revert UnsupportedOperation();
     }
 
-    function createDecryptTask(uint256, address) external pure {
-        revert UnsupportedOperation();
+    function createDecryptTask(uint256 ctHash, address requestor) external {
+        if (!_registeredInputs[ctHash].exists) {
+            revert UnknownCiphertext(ctHash);
+        }
+        if (!_allowedAccounts[ctHash][msg.sender] && !_publiclyAllowed[ctHash]) {
+            revert DecryptRequesterNotAllowed(ctHash, msg.sender);
+        }
+
+        decryptRequestCount[ctHash] += 1;
+        lastDecryptRequestor[ctHash] = requestor;
     }
 
     function verifyInput(EncryptedInput memory input, address sender)

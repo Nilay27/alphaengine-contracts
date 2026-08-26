@@ -1,0 +1,2429 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "COMPETITION_CANCELLER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "COMPETITION_CREATOR_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEFAULT_ADMIN_DELAY",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEFAULT_ADMIN_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "EVALUATOR_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "FINALIZER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_ACTIVE_SUBMISSIONS",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_COMPONENT_COUNT",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_SCORE_REVEAL_BATCH",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PAUSER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "QUALIFIER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SCORE_REVEALER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "acceptDefaultAdminTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        }
+      ],
+      "name": "activeSubmissionByTrader",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "beginDefaultAdminTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "beginEvaluation",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "cancelCompetition",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "cancelCompetitionSubmission",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "cancelDefaultAdminTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "cancelExpiredCompetition",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "newDelay",
+          "type": "uint48"
+        }
+      ],
+      "name": "changeDefaultAdminDelay",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "competitionNonce",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "rulesHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint40",
+              "name": "submissionDeadline",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint40",
+              "name": "evaluationDeadline",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint40",
+              "name": "qualificationValidUntil",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint16",
+              "name": "qualificationSlots",
+              "type": "uint16"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.CompetitionConfig",
+          "name": "config",
+          "type": "tuple"
+        }
+      ],
+      "name": "createCompetition",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "defaultAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "defaultAdminDelay",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "defaultAdminDelayIncreaseWait",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "existsCompetition",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "existsSubmission",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "fheOperator",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "finalizeCompetition",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getCompetition",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "rulesHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint40",
+              "name": "submissionDeadline",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint40",
+              "name": "evaluationDeadline",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint40",
+              "name": "qualificationValidUntil",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint64",
+              "name": "competitionNonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint16",
+              "name": "qualificationSlots",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint16",
+              "name": "activeSubmissionCount",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint16",
+              "name": "evaluatedCount",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint16",
+              "name": "publishedQualificationCount",
+              "type": "uint16"
+            },
+            {
+              "internalType": "enum AlphaEngineCompetitionStrategyManager.CompetitionStatus",
+              "name": "status",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.CompetitionRecord",
+          "name": "competition",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getEvaluation",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "realSisterScoreHandle",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "perturbationP25ScoreHandle",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "stressP25ScoreHandle",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "evidenceHash",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.EvaluationRecord",
+          "name": "evaluation",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getPublicEvaluationScores",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint32",
+              "name": "realSisterScore",
+              "type": "uint32"
+            },
+            {
+              "internalType": "uint32",
+              "name": "perturbationP25Score",
+              "type": "uint32"
+            },
+            {
+              "internalType": "uint32",
+              "name": "stressP25Score",
+              "type": "uint32"
+            },
+            {
+              "internalType": "bool",
+              "name": "realSisterScoreReady",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "perturbationP25ScoreReady",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "stressP25ScoreReady",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.PublicEvaluationScores",
+          "name": "scores",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getRoleAdmin",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getSubmissionComponents",
+      "outputs": [
+        {
+          "internalType": "bytes32[]",
+          "name": "componentHandles",
+          "type": "bytes32[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getSubmissionIdentity",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "trader",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "operatorAtSubmission",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "competitionId",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "marketIdHandle",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "timeframeKey",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "payloadHash",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.SubmissionIdentity",
+          "name": "identity",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getSubmissionState",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint40",
+              "name": "evaluationDeadline",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint40",
+              "name": "createdAt",
+              "type": "uint40"
+            },
+            {
+              "internalType": "uint64",
+              "name": "traderNonce",
+              "type": "uint64"
+            },
+            {
+              "internalType": "uint16",
+              "name": "rank",
+              "type": "uint16"
+            },
+            {
+              "internalType": "uint8",
+              "name": "componentCount",
+              "type": "uint8"
+            },
+            {
+              "internalType": "enum AlphaEngineCompetitionStrategyManager.SubmissionStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bool",
+              "name": "qualificationPublished",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.SubmissionState",
+          "name": "state",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "grantRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "hasRole",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "initialDefaultAdmin",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "initialPauser",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "initialFheOperator",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "qualificationRegistry",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.InitializationParams",
+          "name": "params",
+          "type": "tuple"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingDefaultAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        },
+        {
+          "internalType": "uint48",
+          "name": "schedule",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingDefaultAdminDelay",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "newDelay",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "schedule",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "publishTraderQualification",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "qualificationVersion",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "qualificationRegistry",
+      "outputs": [
+        {
+          "internalType": "contract IAlphaEngineTraderQualificationRegistry",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "ctHash",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "securityZone",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "utype",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "signature",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct InEuint32",
+              "name": "realSisterScore",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "ctHash",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "securityZone",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "utype",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "signature",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct InEuint32",
+              "name": "perturbationP25Score",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "ctHash",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "securityZone",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "utype",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "signature",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct InEuint32",
+              "name": "stressP25Score",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission",
+          "name": "scores",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "evidenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "recordEvaluation",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "renounceRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "startRank",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "maxSubmissions",
+          "type": "uint16"
+        }
+      ],
+      "name": "requestCompetitionScoreReveal",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "nextRank",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "requestedSubmissionCount",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "revokeRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "rollbackDefaultAdminDelay",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        }
+      ],
+      "name": "submissionByRank",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "ctHash",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint8",
+              "name": "securityZone",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint8",
+              "name": "utype",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "signature",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct InEuint128",
+          "name": "encryptedMarketId",
+          "type": "tuple"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "timeframeKey",
+          "type": "bytes32"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "ctHash",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint8",
+              "name": "securityZone",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint8",
+              "name": "utype",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes",
+              "name": "signature",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct InEuint128[]",
+          "name": "encryptedComponents",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "submitCompetitionStrategy",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "interfaceId",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        }
+      ],
+      "name": "traderNonces",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "nonce",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unpause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOperator",
+          "type": "address"
+        }
+      ],
+      "name": "updateFheOperator",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "actor",
+          "type": "address"
+        }
+      ],
+      "name": "CompetitionCancelled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint64",
+          "name": "competitionNonce",
+          "type": "uint64"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "rulesHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint40",
+          "name": "submissionDeadline",
+          "type": "uint40"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint40",
+          "name": "evaluationDeadline",
+          "type": "uint40"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint40",
+          "name": "qualificationValidUntil",
+          "type": "uint40"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "qualificationSlots",
+          "type": "uint16"
+        }
+      ],
+      "name": "CompetitionCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "realSisterScoreHandle",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "perturbationP25ScoreHandle",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "stressP25ScoreHandle",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "evidenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "CompetitionEvaluationRecorded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "actor",
+          "type": "address"
+        }
+      ],
+      "name": "CompetitionEvaluationStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "activeSubmissionCount",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "qualificationSlots",
+          "type": "uint16"
+        }
+      ],
+      "name": "CompetitionFinalized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "realSisterScoreHandle",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "perturbationP25ScoreHandle",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "stressP25ScoreHandle",
+          "type": "bytes32"
+        }
+      ],
+      "name": "CompetitionScoreRevealRequested",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        }
+      ],
+      "name": "CompetitionStrategyCancelled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32[]",
+          "name": "componentHandles",
+          "type": "bytes32[]"
+        }
+      ],
+      "name": "CompetitionStrategyComponents",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "marketIdHandle",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "timeframeKey",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint40",
+          "name": "evaluationDeadline",
+          "type": "uint40"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "payloadHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "traderNonce",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "operatorAtSubmission",
+          "type": "address"
+        }
+      ],
+      "name": "CompetitionStrategySubmitted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [],
+      "name": "DefaultAdminDelayChangeCanceled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "newDelay",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "effectSchedule",
+          "type": "uint48"
+        }
+      ],
+      "name": "DefaultAdminDelayChangeScheduled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [],
+      "name": "DefaultAdminTransferCanceled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "acceptSchedule",
+          "type": "uint48"
+        }
+      ],
+      "name": "DefaultAdminTransferScheduled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOperator",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOperator",
+          "type": "address"
+        }
+      ],
+      "name": "FheOperatorUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "version",
+          "type": "uint64"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Paused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "previousAdminRole",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "newAdminRole",
+          "type": "bytes32"
+        }
+      ],
+      "name": "RoleAdminChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "RoleGranted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "RoleRevoked",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "qualificationVersion",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint40",
+          "name": "validUntil",
+          "type": "uint40"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "evidenceHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "TraderQualificationPublished",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Unpaused",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlBadConfirmation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "schedule",
+          "type": "uint48"
+        }
+      ],
+      "name": "AccessControlEnforcedDefaultAdminDelay",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlEnforcedDefaultAdminRules",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "defaultAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "AccessControlInvalidDefaultAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "neededRole",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AccessControlUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ActiveSubmissionAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum AlphaEngineCompetitionStrategyManager.CompetitionStatus",
+          "name": "status",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "currentTimestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "CompetitionCancellationNotAvailable",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint40",
+          "name": "evaluationDeadline",
+          "type": "uint40"
+        },
+        {
+          "internalType": "uint256",
+          "name": "currentTimestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "CompetitionEvaluationClosed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "evaluatedCount",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "activeSubmissionCount",
+          "type": "uint16"
+        }
+      ],
+      "name": "CompetitionEvaluationIncomplete",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint40",
+          "name": "submissionDeadline",
+          "type": "uint40"
+        },
+        {
+          "internalType": "uint256",
+          "name": "currentTimestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "CompetitionEvaluationNotStarted",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "CompetitionHasNoActiveSubmissions",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CompetitionNonceExhausted",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum AlphaEngineCompetitionStrategyManager.CompetitionStatus",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "CompetitionNotActive",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum AlphaEngineCompetitionStrategyManager.CompetitionStatus",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "CompetitionNotEvaluating",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum AlphaEngineCompetitionStrategyManager.CompetitionStatus",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "CompetitionNotFinalized",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "CompetitionNotFound",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint40",
+          "name": "submissionDeadline",
+          "type": "uint40"
+        },
+        {
+          "internalType": "uint256",
+          "name": "currentTimestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "CompetitionSubmissionClosed",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint40",
+          "name": "deadline",
+          "type": "uint40"
+        },
+        {
+          "internalType": "uint256",
+          "name": "currentTimestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "DeadlineNotInFuture",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EnforcedPause",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ExpectedPause",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint40",
+          "name": "submissionDeadline",
+          "type": "uint40"
+        },
+        {
+          "internalType": "uint40",
+          "name": "evaluationDeadline",
+          "type": "uint40"
+        },
+        {
+          "internalType": "uint40",
+          "name": "qualificationValidUntil",
+          "type": "uint40"
+        }
+      ],
+      "name": "InvalidCompetitionSchedule",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "componentCount",
+          "type": "uint256"
+        }
+      ],
+      "name": "InvalidComponentCount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "got",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint8",
+          "name": "expected",
+          "type": "uint8"
+        }
+      ],
+      "name": "InvalidEncryptedInput",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidInitialization",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "registry",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidQualificationRegistry",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "qualificationSlots",
+          "type": "uint16"
+        }
+      ],
+      "name": "InvalidQualificationSlots",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "activeSubmissionCount",
+          "type": "uint16"
+        }
+      ],
+      "name": "InvalidRank",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "requestedSize",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "maximumSize",
+          "type": "uint16"
+        }
+      ],
+      "name": "InvalidScoreRevealBatchSize",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "startRank",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "activeSubmissionCount",
+          "type": "uint16"
+        }
+      ],
+      "name": "InvalidScoreRevealStartRank",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "MaximumActiveSubmissionsReached",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotInitializing",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "QualificationAlreadyPublished",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "RankAlreadyAssigned",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "bits",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "SafeCastOverflowedUintDowncast",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "qualificationSlots",
+          "type": "uint16"
+        }
+      ],
+      "name": "SubmissionNotEligible",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SubmissionNotFound",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum AlphaEngineCompetitionStrategyManager.SubmissionStatus",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "SubmissionNotSubmitted",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        }
+      ],
+      "name": "TraderNonceExhausted",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "actor",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "submissionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "UnauthorizedSubmissionCancellation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "field",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "index",
+          "type": "uint256"
+        }
+      ],
+      "name": "ZeroEncryptedHandle",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroEvidenceHash",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroFheOperator",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "field",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ZeroInitializationAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroRulesHash",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroTimeframeKey",
+      "type": "error"
+    }
+  ]
+}
