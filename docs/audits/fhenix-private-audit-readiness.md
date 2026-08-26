@@ -1,23 +1,32 @@
 # Fhenix Private Audit Readiness
 
-- Status: preparation in progress; repository is not yet frozen for audit
+- Status: first-pass implementation checkpoint recorded; repository is not yet frozen for audit
 - Audit partner: Fhenix internal security and efficiency review
 - Designated reviewer: `@liorbond`
+- First-pass implementation checkpoint: `365b3e668217b1f1ca4caede9e6b8fb60526d430`
 - Audit commit: `TBD`
-- Target freeze: after the strategy/confidential-swap separation and validation gate
+- Target freeze: after the FundVault pass, consolidated internal security cadence, remediation, and production Fhenix validation
 
 ## Proposed scope
 
 The proposed review scope is the contracts used by AlphaEngine's Fhenix/CoFHE integration after the approved separation:
 
-- `AlphaEngineStrategyIntentController`
+- `AlphaEngineTraderQualificationRegistry`
+- `AlphaEngineCompetitionStrategyManager`
+- `AlphaEngineCapitalStrategyManager`
 - `AlphaEngineConfidentialSwapController`
 - `AlphaEngineConfidentialSwapEscrow`
+- `AlphaEngineConfidentialAssetRegistry`
+- `AlphaEngineConfidentialAssetGateway`
 - `AlphaEngineFHERC20ERC20Wrapper`
 - `AlphaEngineV4SwapExecutor`
-- contract-owned interfaces, deployment scripts, upgrade scripts, and tests required to establish their behavior
+- `AlphaEngineStrategyHashLib` and `AlphaEngineExecutionHashLib`
+- contract-owned interfaces, v2 deployment/manifest tooling, ABIs, layouts,
+  listener surface, and tests required to establish their behavior
 
-The exact paths and commit SHA must be updated after implementation. Do not represent this document as a frozen scope until then.
+The exact first-pass paths and implementation SHA are recorded in
+`docs/releases/first-pass-implementation-checkpoint.md`. Do not represent this
+document as a frozen audit scope until the final candidate SHA is recorded.
 
 ## Explicitly out of scope
 
@@ -48,16 +57,17 @@ The exact paths and commit SHA must be updated after implementation. Do not repr
 ## Audit package checklist
 
 - [ ] Add the designated reviewer to the private repository.
-- [ ] Complete the strategy/confidential-swap separation.
+- [x] Complete the strategy/confidential-swap separation.
+- [x] Record the first-pass implementation checkpoint and Stage 10 evidence.
 - [ ] Record the audit commit SHA and branch/tag.
-- [ ] List exact in-scope source and script paths.
+- [x] List exact first-pass source and script paths.
 - [ ] Preserve dependency commit SHAs.
-- [ ] Capture ABI hashes/artifacts.
-- [ ] Capture storage layouts for each upgradeable contract.
-- [ ] Record test, fuzz, invariant, integration, and coverage results.
+- [x] Capture first-pass ABI hashes/artifacts and listener surface.
+- [x] Capture storage layouts for each first-pass upgradeable contract.
+- [x] Record first-pass test, fuzz, invariant, integration, and coverage results.
 - [ ] Record known findings, limitations, and accepted external assumptions.
 - [ ] Record testnet deployment addresses separately from any future mainnet manifest.
-- [ ] Confirm deploy/upgrade chain checks.
+- [x] Confirm fresh deployment chain/config checks and independent ProxyAdmins.
 - [ ] Confirm no secrets, `.env` values, private keys, or broadcast artifacts are committed.
 
 ## Reproducible verification

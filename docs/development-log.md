@@ -937,3 +937,22 @@
   passed.
 - No public-network deployment and no consolidated security-skill audit were
   performed at this checkpoint.
+
+## 2026-08-27 — Stage 11 first-pass implementation checkpoint
+
+### Decisions
+
+- Recorded `365b3e668217b1f1ca4caede9e6b8fb60526d430` as the
+  exact first-pass StrategyManager/confidential-swap implementation SHA.
+- Treat the SHA as a traceability and future-delta base only. It is not an
+  external-audit freeze, tag, public deployment, or production-readiness claim.
+- The eventual frozen audit candidate follows the USDC FundVault/Merkle pass,
+  consolidated X-Ray and Solidity Auditor review, remediation, Fizz/final
+  audit, production Fhenix validation, and release rehearsal.
+
+### Added
+
+- Added `docs/releases/first-pass-implementation-checkpoint.md` with exact
+  source/tooling scope, legacy evidence, known limitations, and mutation rules.
+- Updated the Fhenix audit-readiness package with the implemented contract
+  names, first-pass evidence status, and remaining freeze conditions.

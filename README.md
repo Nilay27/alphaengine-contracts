@@ -5,13 +5,14 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 The approved restructuring is implemented from the single canonical plan at
 `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`.
 
-Implementation has reached the Stage 9 deployment/migration checkpoint. The independent
+Implementation has reached the Stage 11 first-pass checkpoint. The independent
 Qualification Registry, Competition Strategy Manager, Capital Strategy
 Manager, confidential asset registry/gateway, confidential swap controller,
 swap escrow, and bound V4 execution path are implemented and tested locally.
 Fresh paused deployment, manifest, governance-action, ABI/topic, and listener
-cutover tooling is implemented. The fresh contracts have not been deployed to
-a public testnet, and the second-pass FundVault stack is not yet implemented.
+cutover tooling is implemented, and the complete first-pass validation evidence
+is recorded under `docs/releases/`. The fresh contracts have not been deployed
+to a public testnet, and the second-pass FundVault stack is not yet implemented.
 
 ## Historical testnet scope
 

@@ -14,13 +14,13 @@ The recommended architecture uses independent contracts for competition, capital
 
 Competition and capital managers share only interfaces and stateless hashing libraries. They do not inherit a storage-bearing `BaseStrategyManager`.
 
-Implementation status as of 2026-08-27: Stages P0 through 10 are implemented.
+Implementation status as of 2026-08-27: Stages P0 through 11 are implemented.
 Stage 7 adds the append-only confidential asset registry, non-custodial
 shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
 fresh bound swap controller, exact execution-data and salted minimum-output
 reveal checks, combined controller/escrow invariants, and fresh-path
 PoolManager differential parity. Work is paused at the required owner-review
-checkpoint before Stage 11 implementation-SHA recording; no external deployment has
+checkpoint before Stage 12 Fund accounting specification; no external deployment has
 occurred. Stage 9 added fresh paused deployment, independent ProxyAdmin,
 versioned manifest, explicit delayed-admin action, selector/topic snapshot,
 and listener-cutover tooling. Superseded active legacy Solidity/tests/scripts
@@ -33,6 +33,12 @@ deployment rehearsal, generated ABI/layout/listener parity, runtime sizes,
 repository hygiene, and production coverage above 90% for lines and
 statements. Evidence is saved in
 `docs/releases/stage-10-first-pass-integration-validation.md`.
+
+Stage 11 records `365b3e668217b1f1ca4caede9e6b8fb60526d430` as
+the first-pass implementation checkpoint in
+`docs/releases/first-pass-implementation-checkpoint.md`. It is a traceability
+marker, not a public deployment, external-audit freeze, or production-readiness
+claim.
 
 The Stage 5 Competition Manager has also been refined with the owner-approved
 post-finalization reveal flow: a dedicated role requests asynchronous public
