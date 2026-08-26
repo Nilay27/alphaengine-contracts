@@ -1,0 +1,99 @@
+{
+  "storage": [
+    {
+      "astId": 77073,
+      "contract": "src/strategy/AlphaEngineTraderQualificationRegistry.sol:AlphaEngineTraderQualificationRegistry",
+      "label": "_qualifications",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_mapping(t_address,t_struct(Qualification)73851_storage)"
+    },
+    {
+      "astId": 77078,
+      "contract": "src/strategy/AlphaEngineTraderQualificationRegistry.sol:AlphaEngineTraderQualificationRegistry",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_array(t_uint256)49_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)49_storage": {
+      "base": "t_uint256",
+      "encoding": "inplace",
+      "label": "uint256[49]",
+      "numberOfBytes": "1568"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_mapping(t_address,t_struct(Qualification)73851_storage)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => struct IAlphaEngineTraderQualificationRegistry.Qualification)",
+      "numberOfBytes": "32",
+      "value": "t_struct(Qualification)73851_storage"
+    },
+    "t_struct(Qualification)73851_storage": {
+      "encoding": "inplace",
+      "label": "struct IAlphaEngineTraderQualificationRegistry.Qualification",
+      "members": [
+        {
+          "astId": 73844,
+          "contract": "src/strategy/AlphaEngineTraderQualificationRegistry.sol:AlphaEngineTraderQualificationRegistry",
+          "label": "version",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_uint64"
+        },
+        {
+          "astId": 73846,
+          "contract": "src/strategy/AlphaEngineTraderQualificationRegistry.sol:AlphaEngineTraderQualificationRegistry",
+          "label": "validUntil",
+          "offset": 8,
+          "slot": "0",
+          "type": "t_uint40"
+        },
+        {
+          "astId": 73848,
+          "contract": "src/strategy/AlphaEngineTraderQualificationRegistry.sol:AlphaEngineTraderQualificationRegistry",
+          "label": "sourceCompetitionId",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_bytes32"
+        },
+        {
+          "astId": 73850,
+          "contract": "src/strategy/AlphaEngineTraderQualificationRegistry.sol:AlphaEngineTraderQualificationRegistry",
+          "label": "evidenceHash",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_bytes32"
+        }
+      ],
+      "numberOfBytes": "96"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint40": {
+      "encoding": "inplace",
+      "label": "uint40",
+      "numberOfBytes": "5"
+    },
+    "t_uint64": {
+      "encoding": "inplace",
+      "label": "uint64",
+      "numberOfBytes": "8"
+    }
+  }
+}
