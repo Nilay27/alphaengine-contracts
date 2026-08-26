@@ -44,6 +44,31 @@ and the Foundry setup action are pinned by full commit SHA.
   monotonicity, approval/authorization-nonce immutability, replay-state parity,
   stale-qualification rejection, and zero native custody.
 
+### Implemented Stage 7 confidential-asset suites
+
+- Registry tests cover owner initialization, wrapper creation, precision
+  capping, append-only underlying/wrapper bijection, external-wrapper surface
+  validation, duplicate rejection, and zero/non-contract inputs.
+- Gateway tests cover exact shielding, zero residual custody/allowance,
+  registered-wrapper enforcement, ordinary asynchronous unshield claims,
+  decimal-rate bounds, and fee-on-transfer rejection at both transfer
+  boundaries.
+- Escrow unit/fuzz tests cover fresh paused initialization, separated admin and
+  pauser authority, controller/registry rotation only while paused with no live
+  locks, canonical FHERC20 returned handles, immediate encrypted unshield,
+  above-balance encrypted-zero cleanup, uninitialized-account dependency
+  behavior, permissionless preclaim reconciliation, exact settlement,
+  pause-safe refund, independent minimum-output enforcement, fee-on-transfer
+  output rejection, and dust-revert atomicity.
+- `AlphaEngineConfidentialSwapEscrow.invariant.t.sol` runs seven randomized
+  action families through ten selectors and asserts eight properties:
+  immutable registry/configuration, lock/live-count parity, exact permitted
+  residual custody for preclaims, independent input/output conservation,
+  wrapper reserve backing, confidential-supply holder parity,
+  claimed-input/failed-settlement lifecycle consistency, and non-vacuous action
+  coverage. Expected-success actions propagate reverts; the sole intentional
+  failure action checks the exact error selector and full rollback.
+
 ### Planned USDC FundVault suites
 
 - Formula-lock tests must independently verify net-liquidation NAV,
@@ -94,9 +119,26 @@ and the Foundry setup action are pinned by full commit SHA.
 - Controller swap-intent tests must verify the user's `InEuint64`, grant the vault handle access, and then lock through `lockForSwapIntent(...)` with the verified `euint64`.
 - `routeKey` tests remain limited to event/state parity; the concrete route execution is passed in executor-specific calldata rather than decoded from `routeKey`.
 - Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, expired deadline, refund-unavailable before expiry, and zero or invalid returned lock/unshield result where detectable.
+- Insufficient confidential balance must be tested as an initialized encrypted
+  zero result, not modeled as an ERC20-style revert. Its verified zero refund
+  must terminate the live record. A truly uninitialized account retains the
+  dependency's typed zero-balance failure.
+- Stateful handlers must exercise a permissionless wrapper claim before both
+  terminal paths. Escrow residual underlying is permitted only when it equals
+  the exact underlying attributable to live preclaimed locks.
 - Fuzz tests must cover submit/execute ordering, wrapper uniqueness, nonce and intent ID uniqueness, token accounting bounds, and invalid ordering.
 - Deterministic integration tests must prove that, for identical initial pool state and no AlphaEngine fee, the intent execution path returns exactly the same `tokenOut` as a direct `PoolSwapTest` exact-input swap.
-- Invariant tests must assert submitted swap intents immediately enter `UnshieldRequested`, executed swap intents transition to `Consumed`, refunded swap intents transition to `Refunded`, cross-family intent isolation holds, wrapper mappings remain stable, vault confidential escrow is zero after auto-unshield, each wrapper reserve stays backed by confidential supply plus pending unshield units, refund and settlement paths leave no residual vault/executor underlying, dust-amount settlement attempts revert without partial consumption, and reserve/accounting never goes negative.
+- Invariant tests must assert submitted swap intents immediately enter
+  `UnshieldRequested`, executed swap intents transition to `Consumed`, refunded
+  swap intents transition to `Refunded`, cross-family intent isolation holds,
+  wrapper mappings remain stable, escrow underlying is zero except for exact
+  live preclaims, each wrapper reserve stays backed by confidential supply plus
+  unclaimed pending units, terminal refund/settlement removes the attributable
+  escrow custody, dust-amount settlement attempts revert without partial
+  consumption, and reserve/accounting never goes negative.
+- Cross-asset escrow invariants keep input consumption and output credit in
+  separate ghost ledgers. They do not assume equal token units or derive AMM
+  prices; Stage 8 differential PoolManager tests own execution-price parity.
 - PoolManager swap execution tests now live behind the dedicated executor boundary and must continue to avoid importing Uniswap into the controller or vault.
 
 ## External protocol fixture policy

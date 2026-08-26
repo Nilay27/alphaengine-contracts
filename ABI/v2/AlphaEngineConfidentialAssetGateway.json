@@ -1,0 +1,379 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "contract IAlphaEngineConfidentialAssetRegistry",
+          "name": "assetRegistry_",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "assetRegistry",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "unshieldRequestId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "decryptedAmount",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes",
+          "name": "decryptionProof",
+          "type": "bytes"
+        }
+      ],
+      "name": "claimUnshielded",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "depositAndShield",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "internalType": "euint64",
+          "name": "shieldedAmount",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "amount",
+          "type": "uint64"
+        }
+      ],
+      "name": "requestUnshield",
+      "outputs": [
+        {
+          "internalType": "euint64",
+          "name": "unshieldRequestHandle",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "depositor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "euint64",
+          "name": "shieldedAmount",
+          "type": "bytes32"
+        }
+      ],
+      "name": "DepositedAndShielded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "unshieldRequestId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "decryptedAmount",
+          "type": "uint64"
+        }
+      ],
+      "name": "UnshieldClaimed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "amount",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "euint64",
+          "name": "unshieldRequestHandle",
+          "type": "bytes32"
+        }
+      ],
+      "name": "UnshieldRequested",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "AddressEmptyCode",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "AddressInsufficientBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rate",
+          "type": "uint256"
+        }
+      ],
+      "name": "AmountExceedsFHERC20Precision",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rate",
+          "type": "uint256"
+        }
+      ],
+      "name": "AmountNotMultipleOfRate",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FailedInnerCall",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "registry",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidAssetRegistry",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidWrapper",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "SafeERC20FailedOperation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        }
+      ],
+      "name": "UnderlyingNotRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "expectedBalance",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "actualBalance",
+          "type": "uint256"
+        }
+      ],
+      "name": "UnexpectedUnderlyingBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        }
+      ],
+      "name": "WrapperNotRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroRecipient",
+      "type": "error"
+    }
+  ]
+}

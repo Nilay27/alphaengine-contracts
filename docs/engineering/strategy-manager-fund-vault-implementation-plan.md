@@ -14,11 +14,12 @@ The recommended architecture uses independent contracts for competition, capital
 
 Competition and capital managers share only interfaces and stateless hashing libraries. They do not inherit a storage-bearing `BaseStrategyManager`.
 
-Implementation status as of 2026-08-26: Stages P0 through 6 are implemented.
-Stage 6 adds the complete Capital Manager, mock atomic-consumption boundary,
-unit/fuzz coverage, seven stateful invariants, and checked-in ABI/storage
+Implementation status as of 2026-08-26: Stages P0 through 7 are implemented.
+Stage 7 adds the append-only confidential asset registry, non-custodial
+shield/unshield gateway, and fresh upgradeable swap escrow, together with
+unit/fuzz coverage, seven stateful custody invariants, and checked-in ABI/storage
 artifacts. Work is paused at the required owner-review checkpoint before Stage
-7; no external deployment has occurred.
+8; no external deployment has occurred.
 
 The Stage 5 Competition Manager has also been refined with the owner-approved
 post-finalization reveal flow: a dedicated role requests asynchronous public
@@ -248,6 +249,13 @@ Unset → Locked → UnshieldRequested → Consumed
 Rules:
 
 - Locking immediately requests encrypted unshield; no user-cancel state is introduced.
+- An insufficient-balance confidential transfer may create an initialized
+  encrypted-zero lock. A verified zero result cannot execute a swap, but the
+  refund path must claim and terminate it without attempting a zero-value
+  re-shield.
+- Because wrapper claims are permissionless and pay a fixed recipient, an
+  already-claimed input is reconciled from escrow custody after verifying the
+  exact claim handle, recipient, decrypted amount, and available underlying.
 - Execution is operator-only and must occur before expiry.
 - Refund is permissionless after expiry or while controller/escrow is paused.
 - Refund and output always return to the recorded original trader.
@@ -638,6 +646,8 @@ The same production signer must not simultaneously control admin, evaluator, roo
 | Dependency compromise | Exact SHAs, clean submodules, license/provenance checks, production integration tests | Fhenix/protocol governance remains external |
 | Upgradeable target changes | Target/proxy implementation monitoring and root revocation | Proxy code can change without AlphaEngine action |
 | Bad swap route | User-bound executor/output/data/minimum | User may deliberately submit an uneconomic route |
+| Encrypted-zero lock | Verified zero cleanup through the refund lifecycle; zero cannot reach the executor | Submission still creates a transient record before decryption completes |
+| Permissionless wrapper preclaim | Fixed escrow recipient, exact claim-state reconciliation, balance sufficiency checks, adversarial-order tests | Preclaimed underlying remains temporarily visible in escrow until terminal processing |
 | Emergency-role compromise | Can pause or move assets only to a precommitted replacement vault while preserving share claims | Emergency migration governance remains trusted |
 
 ## 10. Security invariants
@@ -684,6 +694,11 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Operator cannot substitute any committed execution field.
 - Escrow and controller statuses remain in parity.
 - Actual FHERC20 returned handles are canonical.
+- Initialized encrypted-zero locks retain a verified terminal refund path and
+  never reach swap execution.
+- Permissionless preclaims cannot strand a live lock or cause a second claim;
+  escrow-held preclaimed underlying equals the sum attributable to live
+  preclaimed locks.
 - `liveSwapLockCount` equals all live unshield-requested locks.
 - Wrapper mappings are bijective and immutable.
 - Controller/registry rotation is blocked while relevant locks exist.
@@ -1110,10 +1125,11 @@ Release:
 - no unresolved audit gate;
 - external-audit candidate freeze.
 
-## 17. Consolidated end-of-implementation Solidity-auditor gates
+## 17. Consolidated end-of-implementation security-skill gates
 
-The `$solidity-auditor` skill remains mandatory. Existing baseline evidence is
-preserved; this architecture-only revision does not trigger another audit.
+The `$x-ray`, `$fizz`, and `$solidity-auditor` skills form one ordered internal
+security workflow. Existing baseline evidence is preserved; this
+architecture-only revision does not trigger another audit or fuzz campaign.
 
 Owner-approved cadence:
 
@@ -1121,12 +1137,32 @@ Owner-approved cadence:
    not rerun it as an implementation gate.
 2. No targeted audits during ordinary implementation stages.
 3. After all first-pass and second-pass contracts, integrations, tests, scripts,
-   ABIs, layouts, manifests, and documentation are complete, run one
-   full-repository internal audit with `--file-output`.
-4. Remediate the consolidated findings; run targeted remediation audits only
-   for the changed security-fix scope.
-5. Run a final full-repository audit against the frozen candidate commit.
-6. Independent external audit after the consolidated internal gates.
+   ABIs, layouts, manifests, and documentation are complete, pass the complete
+   Foundry and release-validation matrix.
+4. Run X-Ray first. Persist its architecture, entry-point, threat/trust,
+   dependency, test-inventory, coverage, and git-risk artifacts. Resolve or
+   explicitly disposition readiness gaps before adversarial auditing.
+5. Run Fizz second, in guided mode for the first campaign. Review selected
+   entry points and plain-English properties before accepting the generated
+   `test/fizz/` harness. Run Medusa and Echidna where supported, persist seeds,
+   violations, reproduction tests, `PROPERTIES.md`, and the campaign report.
+   Fizz supplements rather than replaces repository-owned Foundry invariants.
+6. If Fizz remediation changes production code or material test evidence, run
+   the applicable Foundry gates, `fizz-sync`, and refresh X-Ray before audit.
+   Any CoFHE runtime incompatibility must record the exact attempted scope and
+   preserve equivalent Foundry coverage; it is not a silent skip.
+7. Run Solidity Auditor third, with `--file-output`, only after X-Ray and Fizz
+   evidence is current. Include relevant X-Ray artifacts as context and
+   explicitly include critical Fhenix/FHERC20 dependency implementations whose
+   semantics affect the reviewed paths, because default auditor scope excludes
+   vendored `lib/` code.
+8. Remediate the consolidated findings; add deterministic regression tests and
+   run targeted remediation audits only for the changed security-fix scope.
+   Sync/rerun Fizz when a fix changes a fuzzed state machine, and refresh X-Ray
+   when it changes architecture, entry points, roles, or trust boundaries.
+9. Refresh the readiness artifacts as needed and run a final full-repository
+   Solidity audit against the frozen candidate commit.
+10. Independent external audit after the consolidated internal gates.
 
 Persist reports using stage and SHA, including:
 
@@ -1161,7 +1197,7 @@ Progression policy:
 | 4 | Qualification Registry | Version/expiry/revocation invariants and role tests pass | Requalification can revive old capital intent |
 | 5 | Competition Manager | Complete schedule/submission/evaluation/ranking/finalization/qualification flow plus bounded asynchronous public reveal of all three finalized score components | Duplicate ranks, premature qualification/reveal, partial component requests, FHE permission failure |
 | 6 | Capital Manager | Qualification-gated submission, immutable approval, expiry/revocation, mock atomic consume | Mutable approval, replay, custody/arbitrary-call surface |
-| 7 | Confidential asset registry/gateway and swap escrow | Existing accounting/refund invariants preserved; size margin met | Reserve drift, live-lock rotation, runtime >23,000 bytes |
+| 7 | Confidential asset registry/gateway and swap escrow | Existing accounting/refund invariants preserved; encrypted-zero cleanup and permissionless-preclaim liveness proven; no unchecked handler catches; independent per-asset ghost ledgers; size margin met | Reserve drift, stranded zero/preclaimed lock, swallowed handler failure, live-lock rotation, runtime >23,000 bytes |
 | 8 | Bound Swap Controller | Executor/output/data/minimum commitments enforced; old V4 parity retained | Any operator-controlled substitution remains |
 | 9 | Deployment, ABI, listener migration | Fresh proxies, independent roles, wrong-chain tests, v2 manifest, ABI/layout snapshots | Legacy manifest overwritten or role/config mismatch |
 | 10 | First-pass integration checkpoint | All first-pass CI/release gates and local/Anvil deployment rehearsal pass; no internal audit or external deployment yet | Any unresolved gate or Fhenix/mock discrepancy |
@@ -1172,7 +1208,7 @@ Progression policy:
 | 15 | Immutable FundVault core | USDC/position custody, share ledger, first-depositor defense, locked and disjoint manager selectors, pause/recovery controls, and no EOA bypass | Share inflation, selector overlap, arbitrary-call bypass, unsafe recovery, or accounting-manager custody leak |
 | 16 | USDC Vault Manager | Deposit/checkpoint/mint, NAV reporting, 24-hour positive vest, immediate loss offset, withdrawal price/reserve/settlement, flow-neutral formula, zero manager custody, fuzz/invariant vectors | Stale-price yield capture, flow counted as P&L, rounding loss, reserve reuse, delayed loss, or reporter asset authority |
 | 17 | Vault Execution Manager and Pendle integration | Exact capital consume/proof/risk flow, reserved-liquidity isolation, Pendle PT enter/redeem, spend/min-receive/rolling caps, approval reset, and pinned fork tests | Replay, reentrancy, reserve consumption, cap bypass, unbounded loss, target-upgrade uncertainty, or oracle dependency |
-| 18 | Consolidated full audit/remediation/freeze | Full repository audited after all implementation, fixes re-audited, final candidate frozen, runbooks and local/Anvil deployment rehearsal complete | Any unresolved security, accounting, or provenance issue |
+| 18 | Consolidated security readiness/audit/remediation/freeze | Foundry release matrix passes; X-Ray readiness and Fizz campaigns are current; full repository is audited after all implementation; fixes are regression-tested and re-audited; final candidate is frozen; runbooks and local/Anvil deployment rehearsal are complete | Stale/missing X-Ray or applicable Fizz evidence, any unresolved security/accounting/provenance issue, or any unreviewed generated handler/property |
 
 Each completed stage updates the development log, invariant ledger,
 architecture/testing documents, and applicable ABI/layout snapshots before the
@@ -1268,6 +1304,10 @@ Current status:
 
 - This plan now supersedes the earlier treasury-funded/shareless FundVault
   assumption with the finalized public USDC architecture.
+- Stage 7 liveness hardening now covers initialized encrypted-zero cleanup,
+  permissionless wrapper preclaims, explicit expected-error handling, and
+  independent per-asset invariant accounting. The deep focused campaign passed
+  8 properties across 262,144 randomized calls with zero handler reverts.
 - First-pass implementation changes may already exist in the working tree; the
   historical clean-tree statement does not describe current repository state.
 - No FundVault Solidity was implemented as part of this documentation revision.

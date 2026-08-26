@@ -75,6 +75,18 @@ check_abi \
     ABI/executors/AlphaEngineV4SwapExecutor.json \
     v4-swap-executor
 check_abi \
+    out/AlphaEngineConfidentialAssetRegistry.sol/AlphaEngineConfidentialAssetRegistry.json \
+    ABI/v2/AlphaEngineConfidentialAssetRegistry.json \
+    confidential-asset-registry
+check_abi \
+    out/AlphaEngineConfidentialAssetGateway.sol/AlphaEngineConfidentialAssetGateway.json \
+    ABI/v2/AlphaEngineConfidentialAssetGateway.json \
+    confidential-asset-gateway
+check_abi \
+    out/AlphaEngineConfidentialSwapEscrow.sol/AlphaEngineConfidentialSwapEscrow.json \
+    ABI/v2/AlphaEngineConfidentialSwapEscrow.json \
+    confidential-swap-escrow
+check_abi \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
     ABI/v2/AlphaEngineTraderQualificationRegistry.json \
     trader-qualification-registry
@@ -107,6 +119,10 @@ check_layout \
     out/AlphaEngineCapitalStrategyManager.sol/AlphaEngineCapitalStrategyManager.json \
     storage-layouts/v2/AlphaEngineCapitalStrategyManager.json \
     capital-strategy-manager-layout
+check_layout \
+    out/AlphaEngineConfidentialSwapEscrow.sol/AlphaEngineConfidentialSwapEscrow.json \
+    storage-layouts/v2/AlphaEngineConfidentialSwapEscrow.json \
+    confidential-swap-escrow-layout
 
 check_runtime_size \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
@@ -117,3 +133,12 @@ check_runtime_size \
 check_runtime_size \
     out/AlphaEngineCapitalStrategyManager.sol/AlphaEngineCapitalStrategyManager.json \
     capital-strategy-manager
+check_runtime_size \
+    out/AlphaEngineConfidentialAssetRegistry.sol/AlphaEngineConfidentialAssetRegistry.json \
+    confidential-asset-registry
+check_runtime_size \
+    out/AlphaEngineConfidentialAssetGateway.sol/AlphaEngineConfidentialAssetGateway.json \
+    confidential-asset-gateway
+check_runtime_size \
+    out/AlphaEngineConfidentialSwapEscrow.sol/AlphaEngineConfidentialSwapEscrow.json \
+    confidential-swap-escrow

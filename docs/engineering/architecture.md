@@ -9,6 +9,10 @@
 - `AlphaEngineIntentController` currently combines TA / strategy-allocation and confidential-swap intent lifecycles.
 - `AlphaEngineConfidentialVault` currently owns confidential token wrappers, deposit/unshield flows, and individual swap-intent escrow locks. Despite its name, it is not a pooled LP fund vault.
 - `AlphaEngineV4SwapExecutor` is the current separately bounded Uniswap v4 execution adapter.
+- Stage 7 implements the replacement `AlphaEngineConfidentialAssetRegistry`,
+  `AlphaEngineConfidentialAssetGateway`, and
+  `AlphaEngineConfidentialSwapEscrow`; they are locally tested but not yet
+  connected to a replacement public swap controller or externally deployed.
 - Transparent proxy pattern is canonical.
 - Current intent families:
   - TA / strategy-allocation
@@ -52,7 +56,7 @@ Implemented shared boundary:
 - The qualification, capital-consumption, vault-manager, and FundVault
   interfaces define call direction without granting authority by themselves.
 
-Implemented replacement contracts through Stage 6:
+Implemented replacement contracts through Stage 7:
 
 - `AlphaEngineTraderQualificationRegistry` is the canonical versioned,
   expiring, revocable trader-qualification source.
@@ -71,10 +75,33 @@ Implemented replacement contracts through Stage 6:
   Capital Manager cannot hold assets or call strategy targets.
 - These are fresh proxy domains. They do not reinterpret or migrate the legacy
   combined controller's storage.
+- `AlphaEngineConfidentialAssetRegistry` is an append-only, non-upgradeable
+  wrapper/underlying registry. It may create or validate a wrapper, but cannot
+  hold user balances or participate in settlement.
+- `AlphaEngineConfidentialAssetGateway` pins one registry and exposes ordinary
+  deposit/shield and request/claim-unshield convenience calls. Exact balance
+  deltas reject fee-on-transfer behavior, approvals reset to zero, and the
+  gateway retains no underlying token after a successful call.
+- `AlphaEngineConfidentialSwapEscrow` is a fresh, initially paused transparent
+  proxy domain. It owns only temporary FHERC20 locks, immediate encrypted
+  unshield requests, exact settlement/refund accounting, and controller/registry
+  configuration guarded by a zero-live-lock requirement.
+- The new escrow removes the dead legacy `Unlocked` state, stores the actual
+  FHERC20 returned transfer handle as canonical, permits refunds while paused,
+  and independently enforces output balance, minimum output, wrapper-rate
+  divisibility, wrapper reserve deltas, and zeroed wrapper approvals.
+- Privacy-preserving insufficient-balance transfers can return initialized
+  encrypted zero. The escrow therefore permits a verified zero-value refund to
+  terminate the record without executing or re-shielding zero.
+- Wrapper claims are permissionless but pay the claim's fixed recipient. If a
+  claim is executed before the controller's settlement/refund transaction, the
+  escrow verifies the exact claim and consumes the already-received underlying
+  rather than attempting a second claim and stranding the lock.
 
 ## External protocol boundary
 
-`AlphaEngineIntentController` and `AlphaEngineConfidentialVault` must remain protocol-agnostic.
+Legacy `AlphaEngineIntentController`/`AlphaEngineConfidentialVault` and the new
+swap controller/escrow boundaries must remain protocol-agnostic.
 
 They must not import or directly depend on Uniswap, Pendle, Morpho, Aave, or other route-specific protocol ABIs. Swap intents are custody and lifecycle records at this layer, not a commitment to a concrete execution protocol.
 
@@ -193,7 +220,15 @@ For Foundry testing, this repo uses a local compatibility harness around the tas
 
 The old hookathon `HybridFHERC20` pattern is a reference only, not production direction.
 
-The confidential swap phase must use official Fhenix FHERC20 / confidential token contracts and keep an AlphaEngine vault as the custody boundary. The vault owns wrapper registration, deposit orchestration, unshield orchestration, and lock/settlement records; the official wrapper contract may hold the underlying ERC20 reserves after `shield(...)`. FHERC20 encrypted transfers can return an actual transferred encrypted value that differs from the requested encrypted value, including encrypted zero replacement. Vault lock state and swap-intent events must therefore use the actual returned handle as canonical.
+The confidential swap phase uses official Fhenix FHERC20 / confidential token
+contracts. In the replacement path, the registry owns append-only wrapper
+associations, the gateway owns ordinary user shield/unshield orchestration, and
+the escrow owns temporary swap locks and settlement/refund records. Official
+wrapper contracts physically hold the underlying ERC20 reserves after
+`shield(...)`. FHERC20 encrypted transfers can return an actual transferred
+encrypted value that differs from the requested encrypted value, so escrow lock
+state and future swap-controller events use the actual returned handle as
+canonical.
 
 Until Fhenix publishes official encrypted-amount unshield support, `AlphaEngineFHERC20ERC20Wrapper` carries a temporary `unshield(address from, address to, euint64 amount)` overload. This is an integration bridge for swap settlement only: it burns/requests unshield against the actual vault-held locked eUSDC handle and stores a claim for the returned actual unshield handle. Do not replace this with a direct release of underlying ERC20 based only on the pre-burn locked handle.
 

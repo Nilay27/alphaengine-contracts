@@ -1,5 +1,159 @@
 # Development Log
 
+## 2026-08-27 — Stage 7 encrypted-zero and preclaim liveness hardening
+
+### Fixed
+- A privacy-preserving FHERC20 overdraw returns an initialized encrypted zero
+  rather than reverting. The escrow now lets the controller prove and refund
+  that zero result, terminates the live lock, and skips a meaningless
+  zero-value re-shield. Zero still cannot enter swap execution.
+- Wrapper claims are permissionless and send underlying to their stored fixed
+  recipient. Settlement and refund now inspect the exact claim state and safely
+  reconcile already-claimed underlying held by escrow instead of attempting a
+  second claim that would strand the lock.
+
+### Test hardening
+- Added deterministic above-balance, uninitialized-account, preclaimed-settle,
+  and preclaimed-refund unit coverage.
+- Removed every unchecked catch from the Stage 7 invariant handler.
+  Expected-success actions now propagate failures; the deliberate
+  under-minimum action validates the exact dependency error and coupled-state
+  rollback.
+- Added explicit overdraw and permissionless-preclaim invariant actions,
+  meaningful-action counters, a non-1:1 output quote, and independent input and
+  output ghost ledgers. Wrapper pending reserves now exclude claims already
+  paid to escrow, while escrow residual custody must equal live preclaimed
+  underlying exactly.
+
+### Security-gate reminder
+- Fizz remains a single guided consolidated-repository pass after all contract
+  stages and Foundry gates are complete. Its remediations are validated before
+  the final full Solidity Auditor run against the frozen candidate; neither
+  skill runs during this Stage 7 hardening pass.
+
+### Validation
+- Focused Stage 7 unit/fuzz file: 30 tests passed, including the registry,
+  gateway, and 17-test escrow suite.
+- Deep escrow fuzz: 10,001 cases passed.
+- Escrow invariants: all 8 properties passed at 256 runs and depth 128, totaling
+  262,144 randomized calls with zero handler reverts.
+- Full repository: 287 tests passed, 0 failed, 0 skipped.
+- Coverage: 90.95% lines, 91.61% statements, 70.65% branches, and 98.96%
+  functions repository-wide. The new escrow currently reports 82.74% lines,
+  83.65% statements, 34.21% branches, and 100% functions; remaining branch
+  tightening stays in the pre-release coverage pass rather than blocking this
+  liveness correction.
+- Generated ABI/storage parity and runtime-size gates passed. The hardened
+  escrow runtime is 11,727 bytes, below the 23,000-byte ceiling.
+
+## 2026-08-27 — Ordered internal security-skill workflow
+
+### Decision
+- Consolidated internal security gates now use the durable order:
+  `Foundry validation -> X-Ray -> Fizz -> refreshed X-Ray when material changes
+  occur -> Solidity Auditor -> remediation/regression tests -> targeted
+  remediation audit -> frozen candidate -> independent external audit`.
+- X-Ray is the pre-audit reconnaissance and readiness layer. Fizz consumes its
+  protocol/entry-point context to generate an independent Echidna/Medusa
+  stateful fuzz suite. Solidity Auditor runs only after those artifacts and
+  campaigns are current.
+- Fizz is guided on first use so its selected entry points, setup, handlers,
+  expected errors, and plain-English properties receive owner/engineering
+  review. Generated handlers remain subject to the repository prohibition on
+  unchecked catches and happy-path-only bounds.
+- Critical Fhenix/FHERC20 dependency implementations must be explicitly added
+  to auditor scope when their behavior affects AlphaEngine safety; default
+  vendored-library exclusion is not sufficient evidence.
+
+### Scope and timing
+- Heavyweight security skills remain consolidated end-of-implementation gates,
+  not per-stage gates. The current incomplete Stage 7/8 swap boundary does not
+  trigger X-Ray, Fizz, or Solidity Auditor yet.
+- Fizz is not installed by this documentation decision. Installation,
+  toolchain/provenance verification, and the first guided campaign occur only
+  when the approved consolidated gate is reached or the owner explicitly
+  advances that gate.
+
+## 2026-08-26 — Contract liveness and invariant-handler policy hardening
+
+### Learned
+- Stage 7 review identified that the escrow invariant handler bounded every
+  confidential lock request to the known available balance. That excluded the
+  privacy-preserving FHERC20 insufficient-balance behavior, which returns an
+  initialized encrypted zero rather than an ordinary ERC20-style revert.
+- The same handler used unchecked `catch {}` blocks around actions expected to
+  succeed. Those catches can convert unexpected production reverts into
+  handler no-ops and allow invariant campaigns to pass without exercising the
+  intended transition.
+- Cross-asset conservation cannot add confidential units from different
+  assets. Input consumed and output credited require independent ghost ledgers;
+  PoolManager pricing parity belongs in a differential integration suite.
+
+### Decisions
+- Added mandatory boundary, liveness, and invariant-handler rules to
+  `docs/agent-policies/testing-audit-and-release.md`, which is loaded for every
+  Solidity behavior change and Fhenix/custody task through `AGENTS.md`.
+- Require deterministic zero/below/equal/above-balance unit tests before fuzz
+  and invariant evidence is accepted.
+- Prohibit unchecked catches in invariant handlers. Expected-success actions
+  propagate reverts; expected-failure actions assert exact selectors and
+  rollback; newly observed errors require manual review.
+- Require both safety and liveness properties, meaningful action counters, and
+  adversarial ordering of public claims, callbacks, pause, expiry, settlement,
+  and cleanup.
+- Adopt the methodology in [Finding Denial of Service Bugs At Scale With
+  Invariant Tests](https://allthingsfuzzy.substack.com/p/finding-denial-of-service-bugs-at)
+  as a durable testing reference, while retaining repository-specific Foundry,
+  FHE, and cross-asset requirements.
+
+### Stage 7 consequence
+- Existing Stage 7 invariant results are provisional. They are not acceptance
+  evidence until the overconstrained amount generation, unchecked catches,
+  encrypted-zero cleanup, permissionless-preclaim ordering, and per-asset
+  accounting model are corrected and the campaign is rerun.
+
+## 2026-08-26 — Stage 7 confidential asset and swap escrow separation
+
+### Added
+- `AlphaEngineConfidentialAssetRegistry` as a non-upgradeable, append-only
+  underlying/FHERC20 wrapper registry and wrapper factory.
+- `AlphaEngineConfidentialAssetGateway` as the pinned-registry convenience
+  surface for ordinary deposit/shield and request/claim-unshield flows, with no
+  retained underlying or business configuration.
+- `AlphaEngineConfidentialSwapEscrow` as a fresh, initially paused transparent
+  proxy domain for temporary locks, encrypted unshield requests, exact
+  settlement, and pause-safe refunds.
+- V2 interfaces, checked-in ABIs, an escrow storage-layout snapshot, generated
+  artifact gates, unit/fuzz coverage, and a seven-property stateful invariant
+  suite.
+
+### Security boundaries
+- Registry mappings are bijective and append-only. Registry, gateway, and
+  escrow cannot substitute for one another's responsibilities.
+- Controller and registry rotation require the escrow to be paused and have
+  zero live locks. The pauser cannot unpause or reconfigure dependencies.
+- The escrow stores the actual FHERC20 transfer-return handle, immediately
+  requests encrypted unshield, and removes the dead legacy `Unlocked` state.
+- Settlement marks replay state before external execution, independently
+  enforces minimum output and exact balance deltas, resets approvals, and
+  verifies the wrapper received the full underlying amount before accepting a
+  confidential mint. This closes fee-on-transfer undercollateralization on the
+  new gateway and settlement/refund paths.
+- Refund remains callable through the exact controller while paused so an
+  emergency pause cannot strand already-live user funds.
+
+### Validation
+- Focused Stage 7 unit/fuzz suite: 26 passed, including 257 fuzz runs.
+- Stateful escrow suite: 7 properties passed at 64 runs and depth 32 (2,048
+  calls per property). This result is provisional because later review found
+  overconstrained inputs and unchecked handler catches that excluded or
+  swallowed adversarial paths.
+- Runtime sizes before final documentation sync: registry 16,409 bytes,
+  gateway 2,991 bytes, and escrow 10,952 bytes; all remain below the 23,000-byte
+  ceiling and exceed the required 1,500-byte margin.
+- ABI/storage artifact parity passed. Full repository and coverage validation
+  remain the final actions at this Stage 7 review checkpoint.
+
 ## 2026-08-26 — Finalized competition score reveal
 
 ### Added

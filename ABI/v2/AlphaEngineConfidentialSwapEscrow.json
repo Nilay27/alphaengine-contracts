@@ -1,0 +1,1437 @@
+{
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "DEFAULT_ADMIN_DELAY",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEFAULT_ADMIN_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PAUSER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "acceptDefaultAdminTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "assetRegistry",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "beginDefaultAdminTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "cancelDefaultAdminTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "newDelay",
+          "type": "uint48"
+        }
+      ],
+      "name": "changeDefaultAdminDelay",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "defaultAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "defaultAdminDelay",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "defaultAdminDelayIncreaseWait",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "existsSwapIntentLock",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getRoleAdmin",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getSwapIntentLock",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "account",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "wrapper",
+              "type": "address"
+            },
+            {
+              "internalType": "euint64",
+              "name": "lockedAmount",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "euint64",
+              "name": "unshieldRequestHandle",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "enum IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus",
+              "name": "status",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct IAlphaEngineConfidentialSwapEscrow.SwapIntentLock",
+          "name": "intentLock",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "grantRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "hasRole",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "initialDefaultAdmin",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "initialPauser",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "initialSwapController",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "initialAssetRegistry",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "liveSwapLockCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "internalType": "euint64",
+          "name": "requestedAmount",
+          "type": "bytes32"
+        }
+      ],
+      "name": "lockForSwapIntent",
+      "outputs": [
+        {
+          "internalType": "euint64",
+          "name": "lockedAmount",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingDefaultAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        },
+        {
+          "internalType": "uint48",
+          "name": "schedule",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingDefaultAdminDelay",
+      "outputs": [
+        {
+          "internalType": "uint48",
+          "name": "newDelay",
+          "type": "uint48"
+        },
+        {
+          "internalType": "uint48",
+          "name": "schedule",
+          "type": "uint48"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "decryptedInputAmount",
+          "type": "uint64"
+        },
+        {
+          "internalType": "bytes",
+          "name": "decryptionProof",
+          "type": "bytes"
+        }
+      ],
+      "name": "refundSwapIntent",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "refundedShieldedHandle",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "renounceRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "revokeRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "rollbackDefaultAdminDelay",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newAssetRegistry",
+          "type": "address"
+        }
+      ],
+      "name": "setAssetRegistry",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newSwapController",
+          "type": "address"
+        }
+      ],
+      "name": "setSwapController",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "executor",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "outputWrapper",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "decryptedInputAmount",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minOutputAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "decryptionProof",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "executionData",
+          "type": "bytes"
+        }
+      ],
+      "name": "settleSwapIntent",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "outputUnderlyingAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "shieldedOutputHandle",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "interfaceId",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "swapController",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unpause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousAssetRegistry",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newAssetRegistry",
+          "type": "address"
+        }
+      ],
+      "name": "AssetRegistryUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [],
+      "name": "DefaultAdminDelayChangeCanceled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "newDelay",
+          "type": "uint48"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "effectSchedule",
+          "type": "uint48"
+        }
+      ],
+      "name": "DefaultAdminDelayChangeScheduled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [],
+      "name": "DefaultAdminTransferCanceled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint48",
+          "name": "acceptSchedule",
+          "type": "uint48"
+        }
+      ],
+      "name": "DefaultAdminTransferScheduled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "version",
+          "type": "uint64"
+        }
+      ],
+      "name": "Initialized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Paused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "previousAdminRole",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "newAdminRole",
+          "type": "bytes32"
+        }
+      ],
+      "name": "RoleAdminChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "RoleGranted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "role",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "RoleRevoked",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousSwapController",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newSwapController",
+          "type": "address"
+        }
+      ],
+      "name": "SwapControllerUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "euint64",
+          "name": "consumedAmount",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapIntentLockConsumed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "inputWrapper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "decryptedInputAmount",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "euint64",
+          "name": "refundedShieldedAmount",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapIntentLockRefunded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "euint64",
+          "name": "lockedAmount",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapIntentLocked",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "outputWrapper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "decryptedInputAmount",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "outputUnderlyingAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "euint64",
+          "name": "shieldedOutputAmount",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapIntentSettled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "inputWrapper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "euint64",
+          "name": "unshieldRequestHandle",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapIntentUnshieldRequested",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Unpaused",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlBadConfirmation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint48",
+          "name": "schedule",
+          "type": "uint48"
+        }
+      ],
+      "name": "AccessControlEnforcedDefaultAdminDelay",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AccessControlEnforcedDefaultAdminRules",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "defaultAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "AccessControlInvalidDefaultAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "neededRole",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AccessControlUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "liveSwapLockCount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ActiveSwapLocksPresent",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "AddressEmptyCode",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "AddressInsufficientBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rate",
+          "type": "uint256"
+        }
+      ],
+      "name": "AmountExceedsFHERC20Precision",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rate",
+          "type": "uint256"
+        }
+      ],
+      "name": "AmountNotMultipleOfRate",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "field",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "currentValue",
+          "type": "address"
+        }
+      ],
+      "name": "ConfigurationUnchanged",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EnforcedPause",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ExpectedPause",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FailedInnerCall",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "requiredAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "availableAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "InsufficientPreclaimedUnderlying",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "registry",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidAssetRegistry",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidInitialization",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "controller",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidSwapController",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "executor",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidSwapExecutor",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "requestId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "expectedRecipient",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "actualRecipient",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "expectedDecryptedAmount",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "actualDecryptedAmount",
+          "type": "uint64"
+        }
+      ],
+      "name": "InvalidUnshieldClaim",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidWrapper",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotInitializing",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "minimumAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "actualAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "OutputAmountBelowMinimum",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReentrancyGuardReentrantCall",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "bits",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "SafeCastOverflowedUintDowncast",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "SafeERC20FailedOperation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapIntentLockAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "SwapIntentLockNotActive",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapIntentLockNotFound",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        }
+      ],
+      "name": "UnauthorizedSwapController",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "expectedAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "actualAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "UnexpectedClaimedUnderlyingAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "expectedAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "actualAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "UnexpectedSettlementOutputAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "underlying",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "expectedBalance",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "actualBalance",
+          "type": "uint256"
+        }
+      ],
+      "name": "UnexpectedUnderlyingBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UninitializedEncryptedAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        }
+      ],
+      "name": "WrapperNotRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroInitialDefaultAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroInitialPauser",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroIntentId",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroRecipient",
+      "type": "error"
+    }
+  ]
+}

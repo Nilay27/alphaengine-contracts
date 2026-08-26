@@ -5,11 +5,12 @@ Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
 The approved restructuring is implemented from the single canonical plan at
 `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`.
 
-Implementation has reached the Stage 6 review checkpoint. The independent
-Qualification Registry, Competition Strategy Manager, and Capital Strategy
-Manager are implemented and tested locally. The fresh contracts have not been
-deployed to a public testnet, and the second-pass FundVault stack is not yet
-implemented.
+Implementation has reached the Stage 7 review checkpoint. The independent
+Qualification Registry, Competition Strategy Manager, Capital Strategy
+Manager, confidential asset registry/gateway, and confidential swap escrow are
+implemented and tested locally. The fresh contracts have not been deployed to
+a public testnet, the bound swap controller remains Stage 8, and the second-pass
+FundVault stack is not yet implemented.
 
 ## Current testnet scope
 
@@ -32,6 +33,9 @@ The current combined controller and swap-custody naming are being separated befo
 
 - strategy intents remain an AlphaEngine strategy subsystem;
 - individual-user confidential swaps move to a dedicated swap controller and transient escrow module;
+- wrapper administration now lives in an append-only confidential asset
+  registry, while ordinary shield/unshield convenience calls use a separate
+  non-custodial gateway;
 - the existing V4 executor remains protocol-specific and separately bounded; and
 - the future pooled fund is a separate second pass: `AlphaEngineFundVault`
   holds assets and shares, `AlphaEngineUSDCVaultManager` owns USDC-only

@@ -1,0 +1,131 @@
+{
+  "storage": [
+    {
+      "astId": 71077,
+      "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+      "label": "swapController",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_address"
+    },
+    {
+      "astId": 71080,
+      "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+      "label": "assetRegistry",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_address"
+    },
+    {
+      "astId": 71083,
+      "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+      "label": "liveSwapLockCount",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_uint256"
+    },
+    {
+      "astId": 71088,
+      "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+      "label": "_swapIntentLocks",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_bytes32,t_struct(SwapIntentLock)70733_storage)"
+    },
+    {
+      "astId": 71093,
+      "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_array(t_uint256)46_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)46_storage": {
+      "base": "t_uint256",
+      "encoding": "inplace",
+      "label": "uint256[46]",
+      "numberOfBytes": "1472"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_enum(SwapIntentLockStatus)70719": {
+      "encoding": "inplace",
+      "label": "enum IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus",
+      "numberOfBytes": "1"
+    },
+    "t_mapping(t_bytes32,t_struct(SwapIntentLock)70733_storage)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => struct IAlphaEngineConfidentialSwapEscrow.SwapIntentLock)",
+      "numberOfBytes": "32",
+      "value": "t_struct(SwapIntentLock)70733_storage"
+    },
+    "t_struct(SwapIntentLock)70733_storage": {
+      "encoding": "inplace",
+      "label": "struct IAlphaEngineConfidentialSwapEscrow.SwapIntentLock",
+      "members": [
+        {
+          "astId": 70721,
+          "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+          "label": "account",
+          "offset": 0,
+          "slot": "0",
+          "type": "t_address"
+        },
+        {
+          "astId": 70723,
+          "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+          "label": "wrapper",
+          "offset": 0,
+          "slot": "1",
+          "type": "t_address"
+        },
+        {
+          "astId": 70726,
+          "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+          "label": "lockedAmount",
+          "offset": 0,
+          "slot": "2",
+          "type": "t_userDefinedValueType(euint64)25"
+        },
+        {
+          "astId": 70729,
+          "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+          "label": "unshieldRequestHandle",
+          "offset": 0,
+          "slot": "3",
+          "type": "t_userDefinedValueType(euint64)25"
+        },
+        {
+          "astId": 70732,
+          "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+          "label": "status",
+          "offset": 0,
+          "slot": "4",
+          "type": "t_enum(SwapIntentLockStatus)70719"
+        }
+      ],
+      "numberOfBytes": "160"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_userDefinedValueType(euint64)25": {
+      "encoding": "inplace",
+      "label": "euint64",
+      "numberOfBytes": "32"
+    }
+  }
+}

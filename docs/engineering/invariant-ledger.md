@@ -22,6 +22,38 @@ Their handler invariants supplement fixed hash vectors and exhaustive
 field-mutation tests. They do not share state-bearing inheritance or nonce,
 pause, lifecycle, ABI, or event domains.
 
+Stage 7 adds a separate confidential-asset and swap-custody boundary:
+
+- `AlphaEngineConfidentialAssetRegistry` owns only append-only wrapper
+  associations;
+- `AlphaEngineConfidentialAssetGateway` has no mutable business configuration
+  and must retain no underlying token; and
+- `AlphaEngineConfidentialSwapEscrow` owns only temporary live locks,
+  unshield-request handles, settlement, and refunds.
+
+`test/invariant/AlphaEngineConfidentialSwapEscrow.invariant.t.sol` randomizes
+deposits, valid locks, above-balance encrypted-zero locks, permissionless
+preclaims, deliberately under-minimum settlements, successful settlements, and
+refunds. At the PR profile it proves:
+
+- registry mappings plus gateway/escrow dependency pointers remain stable;
+- `liveSwapLockCount` equals the number of tracked `UnshieldRequested` locks;
+- stored locked and unshield handles retain their exact mock values;
+- gateway and executor retain zero underlying, while escrow input underlying
+  equals only the amount attributable to live permissionlessly preclaimed
+  locks; wrapper approvals return to zero;
+- for each user, input confidential balance plus live input units plus consumed
+  input units equals all successfully deposited input units;
+- output confidential balances independently equal measured settlement credits
+  under a deliberately non-1:1 quote;
+- wrapper underlying reserves equal confidential supply plus unclaimed pending
+  units for input wrappers and confidential supply for output wrappers;
+- initialized encrypted-zero locks retain a terminal verified refund path;
+- terminal locks have claimed their input, preclaimed live locks remain
+  reconcilable, and failed settlements roll back claim and lifecycle state
+  atomically; and
+- deterministic seeding plus action counters prevent vacuous campaigns.
+
 The Competition Manager handler also exercises randomized, repeated score
 reveal batches. It asserts that a score reveal can only be observed after the
 competition is finalized, that all three component handles for a submission
