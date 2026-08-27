@@ -105,6 +105,14 @@ check_abi \
     out/AlphaEngineCapitalStrategyManager.sol/AlphaEngineCapitalStrategyManager.json \
     ABI/v2/AlphaEngineCapitalStrategyManager.json \
     capital-strategy-manager
+check_abi \
+    out/AlphaEngineFundVault.sol/AlphaEngineFundVault.json \
+    ABI/v2/AlphaEngineFundVault.json \
+    fund-vault
+check_abi \
+    out/AlphaEngineUSDCVaultManager.sol/AlphaEngineUSDCVaultManager.json \
+    ABI/v2/AlphaEngineUSDCVaultManager.json \
+    usdc-vault-manager
 
 check_layout \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
@@ -154,3 +162,9 @@ check_runtime_size \
 check_runtime_size \
     out/AlphaEngineV4SwapExecutor.sol/AlphaEngineV4SwapExecutor.json \
     v4-swap-executor
+check_runtime_size \
+    out/AlphaEngineFundVault.sol/AlphaEngineFundVault.json \
+    fund-vault
+check_runtime_size \
+    out/AlphaEngineUSDCVaultManager.sol/AlphaEngineUSDCVaultManager.json \
+    usdc-vault-manager

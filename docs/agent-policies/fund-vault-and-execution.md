@@ -18,8 +18,11 @@ Merkle-root policy, decoder/sanitizer, or capital-strategy architecture.
    share ledger. It exposes disjoint role-gated entry/exit and `manage`
    selectors; it does not calculate NAV or accept public requests.
 6. `AlphaEngineUSDCVaultManager` owns the initial USDC-only public deposit,
-   withdrawal, checkpoint pricing, daily NAV report, positive-P&L vesting, and
-   immediate-loss lifecycle. It is not a custodian and cannot manage positions.
+   asynchronous redemption, daily P&L report, share pricing, positive-P&L
+   vesting, immediate-loss, and performance-fee lifecycle. Deposits mint
+   immediately at the current recognized rate; redemptions are priced only
+   when idle USDC is available. It is not a custodian and cannot manage
+   positions.
 7. `AlphaEngineVaultExecutionManager` owns Merkle policy, exact capital
    authorization consumption, risk limits, replay, and fund deployment. It
    cannot mint/burn shares, settle users, or report NAV.
@@ -40,11 +43,16 @@ Merkle-root policy, decoder/sanitizer, or capital-strategy architecture.
 4. Traders do not receive an unrestricted arbitrary-call vault role. Apply
    least privilege and separate operator, evaluator, root-admin, pause, and
    upgrade authorities.
-5. Strategy execution cannot consume pending-deposit principal or USDC reserved
-   for priced withdrawals.
+5. Strategy execution may deploy idle USDC; a redemption remains pending until
+   enough USDC is returned to the FundVault. No unfunded fixed-value withdrawal
+   claim or artificial reserve is created at request time.
 6. The NAV reporter is separate from execution authority. Positive P&L vests
-   over 24 hours; confirmed loss is recognized immediately and offsets
-   unvested gain first.
+   over the configured period (initially 24 hours); confirmed loss is recognized
+   immediately and offsets unvested gain first.
+7. Performance fees apply only to net new profit above unrecovered loss. The
+   on-chain fee rate is bounded and prospective; the contract derives fee
+   shares from the reported profit and current accounting state. The reporter
+   cannot choose how many fee shares to mint.
 
 ## Second-pass reference
 

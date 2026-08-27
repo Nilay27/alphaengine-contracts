@@ -94,20 +94,29 @@ and the Foundry setup action are pinned by full commit SHA.
   whose price impact breaches the committed minimum and rolls all controller
   and escrow state back.
 
-### Planned USDC FundVault suites
+### USDC FundVault accounting suites
 
-- Formula-lock tests must independently verify net-liquidation NAV,
-  external-flow-neutral P&L, 18-decimal share conversion against `1e6` virtual
-  USDC units and `1e18` virtual share units, rounding direction, 24-hour
-  positive-P&L vesting, and immediate loss offset.
-- Stateful invariants must cover share-supply conservation, pending-deposit and
-  withdrawal-reserve segregation, no pre-checkpoint yield capture, zero manager
-  custody, and disjoint FundVault selector authority.
-- Execution invariants must prove that no unproved call or replay succeeds and
-  that strategy execution cannot spend pending deposits or reserved withdrawal
-  USDC.
-- Integration tests must cover USDC deposit through checkpoint settlement,
-  gain/loss reporting, withdrawal price/reserve/settlement, and an exact capital
+- Formula-lock unit/fuzz tests verify initial 6-to-18-decimal conversion,
+  immediate deposit and completion-time redemption rounding, configurable
+  linear profit vesting, immediate loss offset, high-water recovery, and
+  performance-fee share minting.
+- Boundary tests cover zero, exact, above-balance, maximum supported, and
+  uninitialized-user paths; exact USDC balance deltas reject fee-on-transfer
+  deposits.
+- Stateful invariants use independent cumulative deposit, redemption, donation,
+  and deployed-liquidity ghost ledgers. They prove managed-asset and physical
+  USDC conservation, complete share accounting, deposit/redemption
+  non-dilution, locked-profit/recovery bounds, fee non-overcharge, report
+  sequencing, illiquid-completion atomicity, zero manager custody, and
+  non-vacuous transition coverage with `fail_on_revert = true`.
+- Pending redemptions remain floating until completion; they create no reserved
+  USDC claim. A total-loss request with zero minimum retains a terminal burn
+  path.
+- Future execution invariants must prove that no unproved call or replay
+  succeeds and that a pending redemption completes after an authorized unwind
+  restores enough idle USDC.
+- Integration tests must cover immediate USDC deposit/mint, gain/loss vest and
+  fee settlement, redemption request/unwind/completion, and an exact capital
   approval through Merkle verification into a pinned Pendle PT action.
 
 ## Coverage

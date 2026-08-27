@@ -93,29 +93,35 @@ collapsed: `AlphaEngineFundVault` for custody and shares,
 `AlphaEngineUSDCVaultManager` for USDC deposit/withdrawal and NAV accounting,
 and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
 
-## Planned USDC FundVault invariants
+## USDC FundVault accounting invariants
 
 - Only the USDC manager can invoke FundVault entry/exit settlement; only the
   execution manager can invoke `manage`.
 - Total share supply equals user balances plus shares escrowed by pending
   withdrawals.
-- Pending deposit principal and reserved withdrawal USDC are excluded from
-  deployable strategy balances.
-- External-flow-neutral P&L cannot count an activated deposit as yield or an
-  accounted withdrawal as loss.
-- Positive P&L cannot become fully redeemable before 24 hours; confirmed loss
-  immediately consumes unvested gain before recognized NAV.
-- Deposits are priced only at their eligible daily checkpoint and cannot capture
-  positive P&L earned before that checkpoint.
-- Deposit shares round down, withdrawal share requirements round up, and no
-  nonzero accepted deposit mints zero shares.
-- Fixed `1e6` virtual USDC units and `1e18` virtual share units prevent a
-  zero-supply conversion singularity.
+- Manager-accounted assets equal cumulative deposits plus reported profit minus
+  completed redemptions and reported loss.
+- Physical USDC across vault and modeled strategy equals cumulative deposits
+  plus donations minus completed redemption payouts.
+- Positive P&L cannot become fully redeemable before the configured vest ends;
+  confirmed loss immediately consumes unvested gain before recognized NAV.
+- Immediate deposits and completion-time redemptions do not dilute the
+  recognized price of remaining shares beyond deterministic floor-rounding
+  residue.
+- Deposits receive no already-recognized historical profit. They can participate
+  only in the remaining locked gain, the accepted vesting tradeoff.
+- Performance-fee shares redeem for no more than the snapshotted fee assets,
+  fee rates stay within the cap, and recovered losses are not charged twice.
+- Deposits leave the pre-existing aggregate `lossToRecover` unchanged;
+  completed redemptions scale it to the remaining supply with upward rounding,
+  and a full exit clears it.
+- Illiquid redemption completion reverts atomically; a zero-value redemption
+  with zero minimum retains a terminal share-burn path.
 - Neither manager retains assets outside an atomic operation.
 - No unproved, stale, mismatched, expired, or replayed capital bundle reaches a
   FundVault external call.
-- Strategy execution cannot consume pending deposits or reserved withdrawal
-  USDC, and a failed external execution restores every replay flag atomically.
+- A failed external execution restores every replay flag atomically, and a
+  pending redemption completes only after enough USDC returns to the vault.
 
 ## V2 replay-critical hash invariants
 

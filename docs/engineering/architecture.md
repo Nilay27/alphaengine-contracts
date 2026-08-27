@@ -47,8 +47,8 @@ The canonical target is defined by
 - `AlphaEngineFundVault`, `AlphaEngineUSDCVaultManager`, and
   `AlphaEngineVaultExecutionManager` form the separate second-pass fund system:
   the FundVault holds assets and shares, the USDC manager handles public
-  deposit/withdrawal and NAV accounting, and the execution manager owns
-  Merkle-verified deployment policy.
+  deposit/asynchronous-redemption and P&L accounting, and the execution manager
+  owns Merkle-verified deployment policy.
 - Competition and capital share interfaces and stateless hashing libraries,
   never a storage-bearing base manager.
 
@@ -148,11 +148,14 @@ Locked target boundaries:
 - swap-module wrapper contracts may physically hold underlying ERC20 reserves because official `FHERC20ERC20Wrapper.shield(...)` transfers underlying into the wrapper contract
 - atomic FHERC20 authorization-based locking is the submit-time custody path
 - neither intent controller may hold FHERC20 balances or underlying ERC20 reserves
-- the future `AlphaEngineFundVault` exclusively owns long-lived fund custody and the share ledger
-- the future `AlphaEngineUSDCVaultManager` owns USDC-only public deposits, withdrawals, daily NAV/share-price accounting, positive-yield vesting, and immediate loss recognition
+- `AlphaEngineFundVault` exclusively owns long-lived fund custody and the share ledger
+- `AlphaEngineUSDCVaultManager` owns immediate USDC-only public deposits,
+  floating-price asynchronous redemptions, daily P&L/share-price accounting,
+  configurable positive-yield vesting, immediate loss recognition/recovery,
+  and a bounded prospective performance fee
 - the future `AlphaEngineVaultExecutionManager` owns Merkle roots, exact execution authorization, risk caps, and protocol-call orchestration
 - the USDC manager and execution manager receive disjoint FundVault selector authority and cannot substitute for one another
-- the LP fund vault is not implemented in this refactor and must not reuse the swap escrow's accounting or lifecycle state
+- the FundVault accounting path never reuses the swap escrow's accounting or lifecycle state
 - batching, AVS registration, hook logic, LP accounting, and new swap behavior remain out of scope for the separation
 
 ## Boundaries

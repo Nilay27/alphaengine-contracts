@@ -998,3 +998,46 @@
   source/tooling scope, legacy evidence, known limitations, and mutation rules.
 - Updated the Fhenix audit-readiness package with the implemented contract
   names, first-pass evidence status, and remaining freeze conditions.
+
+## 2026-08-27 — Stage 12 USDC FundVault accounting implementation
+
+### Owner decisions
+
+- Superseded the earlier daily deposit/withdrawal checkpoint design. USDC
+  deposits now mint shares immediately at the current recognized rate.
+- Redemptions are asynchronous and floating-price: shares are escrowed on
+  request, and assets are calculated only when enough idle USDC is available
+  for atomic completion. No fixed claim or reserve is created at request time.
+- Positive reported P&L vests over a configurable period initialized to 24
+  hours. Confirmed loss is immediate, cancels unvested gain first, and creates a
+  recovery balance when recognized value falls below the prior high-water mark.
+- Added a configurable, prospective performance fee capped at 20%. It applies
+  only to net-new profit after unrecovered loss; the contract computes and mints
+  fee shares after the relevant profit tranche finishes vesting.
+- No deposit, redemption, or AUM fee is included.
+
+### Added
+
+- Added the non-upgradeable `AlphaEngineFundVault` USDC custody/share core with
+  one-time USDC-manager authority, exact deposit balance-delta enforcement,
+  escrowed redemption shares, atomic completion, fee-share minting, and paused
+  exit liveness.
+- Added `AlphaEngineUSDCVaultManager` with immediate deposits, asynchronous
+  redemption request/cancel/complete, sequential finalized-block P&L reports,
+  linear profit vesting, immediate loss/recovery accounting, prospective fee
+  configuration, and direct-donation isolation.
+- Added a zero-value terminal redemption path after total loss when the caller's
+  minimum is zero; a nonzero minimum preserves price protection.
+- Added focused unit/fuzz coverage and a `fail_on_revert = true` stateful handler
+  with independent deposit, redemption, donation, deployment, managed-asset,
+  profit, and loss ghost ledgers.
+
+### Validation at implementation checkpoint
+
+- Focused unit/fuzz suite: 37 passed, including four 256-run fuzz properties.
+- Stateful invariant suite: 9 passed at 64 runs and depth 32 (18,432 aggregate
+  calls, zero handler reverts).
+- Full repository suite: 219 passed, 0 failed, 0 skipped.
+- Formatting, generated ABI parity, runtime-size, repository-hygiene, and
+  `git diff --check` gates passed. Runtime sizes are 4,613 bytes for the
+  FundVault and 8,555 bytes for the USDC manager.

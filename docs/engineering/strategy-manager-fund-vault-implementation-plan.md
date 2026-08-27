@@ -19,9 +19,10 @@ Stage 7 adds the append-only confidential asset registry, non-custodial
 shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
 fresh bound swap controller, exact execution-data and salted minimum-output
 reveal checks, combined controller/escrow invariants, and fresh-path
-PoolManager differential parity. Work is paused at the required owner-review
-checkpoint before Stage 12 Fund accounting specification; no external deployment has
-occurred. Stage 9 added fresh paused deployment, independent ProxyAdmin,
+PoolManager differential parity. Stage 12 USDC FundVault accounting
+implementation is in the working tree and is under focused validation before
+the required owner-review checkpoint; no external deployment has occurred.
+Stage 9 added fresh paused deployment, independent ProxyAdmin,
 versioned manifest, explicit delayed-admin action, selector/topic snapshot,
 and listener-cutover tooling. Superseded active legacy Solidity/tests/scripts
 were removed while their manifest, ABI, layouts, addresses, and Git history
@@ -56,9 +57,10 @@ Locked decisions:
 - Bind swap execution parameters at submission.
 - Launch the first FundVault as a public, USDC-denominated, share-based vault.
 - Keep custody and the share ledger in `AlphaEngineFundVault`.
-- Use `AlphaEngineUSDCVaultManager` as the only public deposit, withdrawal,
-  daily NAV-reporting, and share-pricing surface. It combines only the USDC
-  portions of Teller and Accountant behavior; it is not a second custodian.
+- Use `AlphaEngineUSDCVaultManager` as the only public deposit, asynchronous
+  redemption, daily P&L-reporting, share-pricing, vesting, and performance-fee
+  surface. It combines only the USDC portions of Teller and Accountant behavior;
+  it is not a second custodian.
 - Use `AlphaEngineVaultExecutionManager` as the separate Merkle-verified fund
   deployment surface. It cannot mint or burn shares, process deposits or
   withdrawals, or update NAV.
@@ -68,8 +70,18 @@ Locked decisions:
 - Calculate daily NAV as USDC-denominated net liquidation value from on-chain
   positions at a declared reference block, after realized costs, expected exit
   costs, protocol costs, and liabilities.
-- Vest positive reported P&L over 24 hours. Apply confirmed losses immediately,
-  first against unvested positive P&L and then against recognized share value.
+- Mint deposit shares immediately at the current recognized USDC rate. A
+  depositor participates in only the remaining unvested gain, whose maximum
+  exposure is bounded by the configured vesting period.
+- Keep redemption asynchronous: escrow shares on request, calculate assets only
+  at completion, and complete only when the FundVault has enough idle USDC.
+  Do not create a fixed-value claim or reserve at request time.
+- Vest positive reported P&L over a configurable period, initially 24 hours.
+  Apply confirmed losses immediately, first against unvested positive P&L and
+  then against recognized share value.
+- Charge a configurable performance fee, capped at 20%, only on net new profit
+  after unrecovered loss. Mint the resulting fee shares after the profit tranche
+  finishes vesting; fee-rate changes apply only to future reports.
 - Launch fund deployment with Pendle PT actions only.
 - Use Safe-controlled roles plus enforced timelocks in production.
 - Use fresh proxies and addresses; preserve the legacy deployment and manifest unchanged.
@@ -129,10 +141,10 @@ The legacy combined proxy and escrow must not be upgraded into any new component
 | Component | Upgrade model | Purpose |
 |---|---|---|
 | `AlphaEngineFundVault` | Non-upgradeable | Custody of USDC and deployed positions, ERC20 share ledger, role-gated entry/exit settlement, and execution-manager-only atomic calls |
-| `AlphaEngineUSDCVaultManager` | Non-upgradeable | Public USDC deposits, checkpoint settlement, withdrawals, daily NAV reports, share pricing, positive-P&L vesting, and immediate loss recognition |
+| `AlphaEngineUSDCVaultManager` | Non-upgradeable | Immediate public USDC deposits, asynchronous redemptions, daily P&L reports, share pricing, configurable positive-P&L vesting, immediate loss recognition, and bounded performance fees |
 | `AlphaEngineVaultExecutionManager` | Non-upgradeable | Capital authorization, Merkle proofs, root governance, replay protection, risk envelopes, and vault orchestration |
 | `IAlphaEngineDecoderAndSanitizer` | Interface | Fail-closed protocol calldata inspection |
-| `AlphaEngineERC20DecoderAndSanitizer` | Non-upgradeable | Exact approvals/reset, FundVault receiver checks, and withdrawal-reserve unwind checks |
+| `AlphaEngineERC20DecoderAndSanitizer` | Non-upgradeable | Exact approvals/reset and FundVault receiver checks |
 | `AlphaEnginePendlePtDecoderAndSanitizer` | Non-upgradeable | Narrow exact-token-for-PT action validation |
 | `GenerateAlphaEngineManageRoot` | Foundry script | Deterministic leaf, tree, proof, and human-readable policy artifact generation |
 
@@ -177,7 +189,7 @@ flowchart LR
 | Swap Escrow | Temporary confidential custody, lock/unshield/settle/refund accounting | Competition/capital state, pooled LP funds, route selection |
 | V4 Executor | Exact-input V4 mechanics | Strategy evaluation, custody bookkeeping, arbitrary callers |
 | FundVault | USDC and position custody, ERC20 share ledger, USDC-manager-only entry/exit settlement, execution-manager-only atomic batches | FHE, qualification, evaluation, NAV calculation, public request handling, Merkle-root governance |
-| USDC Vault Manager | Public USDC deposit requests, checkpoint settlement, withdrawal requests/reserves/settlement, NAV reports, share-price accounting, gain vesting, and loss recognition | Long-lived custody, strategy evaluation, Merkle roots, arbitrary protocol calls, multi-asset conversion |
+| USDC Vault Manager | Immediate public USDC deposits, asynchronous redemption requests/completion, P&L reports, share-price accounting, gain vesting, loss recovery, and performance-fee calculation | Long-lived custody, strategy evaluation, Merkle roots, arbitrary protocol calls, multi-asset conversion |
 | Vault Execution Manager | Root policy, exact capital authorization, decoder/proof checks, risk limits, replay, and vault orchestration | Strategy evaluation, trader qualification, share mint/burn, deposits, withdrawals, NAV updates, long-lived custody |
 | Decoders | Fail-closed calldata inspection | Mutable state, token custody, arbitrary external actions |
 | Root generator | Reproducible policy artifacts | On-chain authority or production secrets |
@@ -286,34 +298,38 @@ Rules:
 Deposit lifecycle:
 
 ```text
-Unset → Requested → Priced → Settled
-                  → Cancelled
+User USDC + current recognized rate → atomic USDC transfer + share mint
 ```
 
-Withdrawal lifecycle:
+Redemption lifecycle:
 
 ```text
-Unset → Requested → LiquidityPending → PricedAndReserved → Settled
-                  → Cancelled
+Unset → Pending → Completed
+                → Cancelled
 ```
 
 Rules:
 
-- Deposits are USDC-only and settle at the next daily NAV checkpoint. This is
-  the initial anti-dilution rule; deposits cannot enter at a stale recognized
-  price and capture positive P&L earned before their checkpoint.
-- Pending deposit USDC is held by the FundVault but segregated from active NAV
-  by USDC-manager accounting until shares are minted at settlement.
-- A depositor may cancel only before pricing. Cancellation returns exactly the
-  pending principal and cannot use assets belonging to existing shareholders.
-- Withdrawal shares are escrowed on request. If idle USDC is insufficient, the
-  request remains `LiquidityPending` while an approved strategy unwind returns
-  USDC to the FundVault. Pricing, share burning, and USDC reservation then occur
-  atomically at a daily NAV checkpoint; no unfunded fixed-value claim is created.
-- Reserved USDC cannot be redeployed. If idle USDC is insufficient, an approved
-  unwind must return assets to the FundVault before settlement.
-- Withdrawal settlement is permissionless once the request is reserved and the
-  FundVault has sufficient USDC.
+- Deposits are USDC-only and mint immediately at the current recognized share
+  rate. USDC moves directly from the payer to the FundVault; the manager never
+  retains it.
+- Deposits during an active profit vest do not receive the already-recognized
+  portion. They participate pro rata in the remaining locked portion. Linear
+  vesting bounds the historical-gain exposure; the initial vesting period is 24
+  hours.
+- Deposit shares round down. A zero-share result or caller-provided minimum-share
+  violation reverts the entire transfer and accounting update.
+- Redemption requests escrow shares but do not fix an asset amount. The shares
+  continue participating in gains and losses until completion.
+- Completion uses the then-current recognized rate, burns the escrowed shares,
+  and transfers USDC atomically. If idle USDC is insufficient, the request stays
+  pending until approved strategy unwinds return enough USDC.
+- The requester may cancel a pending redemption and recover the exact escrowed
+  shares. Completion is permissionless and respects the request's minimum-asset
+  bound.
+- A zero-valued redemption with `minAssets == 0` may burn shares after a total
+  loss so that the request retains a terminal path. A nonzero minimum prevents
+  that completion.
 - The USDC manager cannot retain USDC beyond an atomic call boundary.
 - Deposit/withdrawal operations have a pause domain independent from strategy
   execution; emergency policy must still permit safe user exits.
@@ -327,16 +343,20 @@ Unreported → Reported → PositiveGainVesting → FullyRecognized
 
 Rules:
 
-- Each report binds a strictly increasing finalized reference block,
-  methodology version/hash, net NAV, total share supply, and external-flow
-  counters.
-- Positive P&L vests linearly over 24 hours and is not immediately redeemable.
+- Each report binds a sequential epoch, strictly increasing finalized reference
+  block, signed profit-or-loss amount, and nonzero reproducibility hash.
+- Positive P&L vests linearly over the configured period and is not immediately
+  redeemable.
 - A confirmed loss first cancels unvested positive P&L, then reduces recognized
   share value immediately.
-- A new report settles the previously elapsed vesting before applying the next
-  period's P&L.
-- Stale, non-monotonic, economically impossible, or configured outlier reports
-  revert and may trigger a pause.
+- Only one positive tranche may vest at a time. A later positive report waits
+  until it finishes; a loss can be reported during vesting and takes effect
+  immediately.
+- Losses below the prior high-water level accumulate as `lossToRecover`; later
+  recovery profit is not charged a performance fee twice.
+- A report settles any fully vested prior tranche before applying the next P&L.
+- Non-sequential epochs, non-monotonic/future reference blocks, zero report
+  hashes, zero amounts, and losses above managed assets revert.
 - NAV reporting never transfers assets and never authorizes execution.
 
 ## 6. Public interfaces, identifiers, and hashes
@@ -441,28 +461,29 @@ riskEnvelopeHash = keccak256(
 ### USDC NAV and share-accounting specification
 
 The initial vault has one accounting unit and one accepted deposit asset: USDC.
-The authoritative report definition is:
+The off-chain calculator derives a net change from public on-chain positions:
 
 ```text
-reportedNetNav =
+currentNetNav =
     idleActiveUSDC
   + sum(netLiquidationValueUSDC(position[i]))
   + claimableRewardsUSDC
   - accruedLiabilitiesUSDC
 
 periodPnL =
-    reportedNetNav
-  - previousReportedNetNav
-  - activatedDepositsSincePreviousReport
-  + accountedWithdrawalsSincePreviousReport
+    currentNetNav
+  - previousNetNav
+  - depositsSincePreviousReport
+  + completedRedemptionsSincePreviousReport
 ```
 
 `netLiquidationValueUSDC` means the amount reasonably recoverable in USDC at
 the declared reference block after realized execution costs, current expected
 exit costs, slippage under the versioned methodology, protocol costs, and any
-vault-borne liabilities. Pending deposits and USDC reserved for withdrawals are
-not active strategy NAV. Gas is included only when the FundVault pays or
-reimburses it.
+vault-borne liabilities. Idle USDC is part of NAV, whether newly deposited or
+awaiting deployment. Gas is included only when the FundVault pays or reimburses
+it. The on-chain manager receives the already flow-neutralized positive or
+negative `periodPnL`; it does not recalculate position values.
 
 Accounting rules:
 
@@ -473,28 +494,41 @@ Accounting rules:
   release; a separate signed reproducibility report is not required. A public
   transparency artifact should reproduce positions, valuation inputs, costs,
   and the aggregate result.
-- `referenceBlock` must be finalized, strictly newer than the prior report, and
-  no newer than the configured maximum reporting lag.
-- Share-rate calculations use explicit USDC decimals, deterministic rounding,
-  and fixed formula-lock vectors. Deposits round shares down; withdrawals round
-  required burned shares up. Rounding residue remains with the vault.
-- Shares use 18 decimals. Conversion includes fixed virtual liquidity:
-  `virtualAssets = 1e6` USDC units and `virtualShares = 1e18` share units, so
-  the initial economic rate is exactly one USDC per whole share and a direct
-  donation cannot create a zero-supply price singularity. These constants are
-  immutable and formula-tested.
-- At each checkpoint, process in this order: settle elapsed vesting; accept the
-  new NAV report and derive P&L; establish economic and recognized share rates;
-  price eligible withdrawals at the recognized rate; then price eligible
-  deposits at the post-report economic rate. Adding settled deposit principal
-  increases both recognized and economic NAV by the same amount, so a new
-  depositor pays for already-earned unvested gains without receiving free
-  historical yield.
-- Positive `periodPnL` enters a 24-hour linear vest. It increases economic NAV
-  immediately for reporting but increases redeemable/recognized NAV only as it
-  vests.
+- `referenceBlock` must be finalized and strictly newer than the prior report.
+  The report hash commits the off-chain reproducibility artifact and methodology.
+- Shares use 18 decimals while USDC uses 6. The first deposit mints
+  `assets * 1e12` shares. There are no virtual assets, queued checkpoints, or
+  hidden accounting balances.
+- Define `remainingLockedProfit` as the linearly unvested part of the current
+  positive tranche and `availableAssets = managedAssets - remainingLockedProfit`.
+- For nonzero supply, deposits mint
+  `floor(assets * totalSupply / availableAssets)`. Deposits round down and must
+  not reduce the pre-deposit recognized share price; their cross-product
+  rounding residue is strictly less than one USDC base unit of value.
+- Redemptions complete for
+  `floor(shares * availableAssets / effectiveSupply)`, where `effectiveSupply`
+  includes any fee shares that a fully vested but not yet settled tranche would
+  mint. Redemptions round down and must not reduce the value of remaining shares.
+- Direct USDC donations do not alter `managedAssets`, mint shares, or change the
+  conversion rate. They remain observable physical liquidity until explicitly
+  reconciled by a separately authorized operation.
+- Positive `periodPnL` enters one configurable linear vest, initially 24 hours.
+  It increases managed NAV immediately but becomes redeemable only as it vests.
 - Negative `periodPnL` reduces unvested positive P&L first and then recognized
   NAV immediately. A loss can never be deferred behind the vesting schedule.
+- Losses that reduce previously recognized NAV increase `lossToRecover`.
+  Subsequent profit first restores that amount and is not feeable.
+- A completed redemption scales `lossToRecover` by the remaining share-supply
+  fraction, rounding the remaining deficit up. Deposits do not increase the
+  aggregate pre-existing deficit. This is a fund-level high-water mechanism,
+  not per-investor fee equalization.
+- For the remaining net-new profit, snapshot the current fee rate and compute
+  `feeAssets = floor(feeableProfit * performanceFeeBps / 10_000)`. The fee is
+  capped at 20% and governance updates are prospective.
+- After the tranche fully vests, compute
+  `feeShares = floor(feeAssets * totalSupply / (managedAssets - feeAssets))`.
+  Mint those shares to the configured fee recipient. Their redemption value
+  must never exceed `feeAssets`; rounding benefits existing shareholders.
 - PT redemption is a change in asset composition. Only the difference between
   redemption proceeds and the position's previously reported net value is new
   P&L. Redeployment fees and slippage appear in the next post-transaction NAV.
@@ -502,19 +536,13 @@ Accounting rules:
   deposit asset and accounting unit are USDC. Any future USDT, ETH, or BTC
   deposit adapter is a separately planned module that converts to actual USDC
   before minting and may use independent oracle bounds.
-- Protocol/performance fee charging is out of scope for the initial release.
-  The liability term remains defined for actual protocol obligations and a
-  future separately audited fee module.
+- There is no deposit, redemption, or AUM fee in the initial release.
 
-The exact storage representation for vested/unvested values may be optimized
-during the bounded accounting stage, but it must implement these equations and
-rounding directions without changing their economics.
-
-`activatedDepositsSincePreviousReport` increments only when pending USDC becomes
-active vault capital and shares are minted. `accountedWithdrawalsSincePreviousReport`
-increments when shares are burned and the immutable USDC claim becomes a
-segregated reserve; later transfer of that reserve to the user is not a second
-external flow.
+The on-chain manager stores only the compact state required to enforce these
+equations: managed assets, one locked-profit tranche and its recovery/fee split,
+unrecovered loss, report ordering, fee configuration, vesting timestamps, and
+redemption records. External-flow counters belong in the reproducibility
+artifact; deposits and completed redemptions already emit exact on-chain deltas.
 
 ### Execution commitment
 
@@ -636,7 +664,7 @@ Production defaults:
 | Root guardian | Emergency Safe | Set active root to zero and pause | Install nonzero root |
 | Vault executor | Automation service | Submit exact approved bundle and proofs | Approve intent, set root, bypass manager |
 | NAV reporter | Dedicated reporting service/Safe | Submit bounded NAV reports for finalized blocks | Move assets, execute strategies, set roots, mint shares directly |
-| USDC settlement operator | Permissionless after checkpoint conditions, with bounded keeper for liveness | Price/settle eligible deposit and withdrawal requests | Choose NAV, alter recipients, execute protocol calls |
+| USDC settlement operator | Deposits are user-called; redemption completion is permissionless once liquidity/minimum conditions hold | Complete the exact pending redemption | Choose P&L, alter recipients, execute protocol calls |
 | FundVault accounting manager | `AlphaEngineUSDCVaultManager` | Invoke only entry/exit settlement selectors | Invoke `manage`, set roots, evaluate strategies |
 | FundVault execution manager | `AlphaEngineVaultExecutionManager` | Invoke only the atomic `manage` selector | Mint/burn shares, process deposits/withdrawals, report NAV |
 | Recovery authority | Emergency Safe | Pause and migrate supported assets only to a precommitted replacement custody vault that preserves shareholder claims | Send assets to treasury or choose an arbitrary recipient |
@@ -657,9 +685,9 @@ The same production signer must not simultaneously control admin, evaluator, roo
 | Compromised vault executor | Exact commitment, root proof, risk envelope, one-time consume | Executor can choose transaction timing within validity window |
 | Compromised NAV reporter | Finalized-block binding, strict monotonicity, methodology hash, report bounds, 24-hour positive vest, immediate pause | A bounded false loss can reduce recognized value before governance reacts |
 | Stale or incorrect NAV | Maximum report age, reproducible transparency artifact, independent monitoring, pause/outlier bounds | Off-chain position valuation remains a trusted input |
-| Deposit timing arbitrage | Daily checkpoint pricing, pending-asset segregation, no settlement against stale rate | Users experience settlement latency |
-| Donation/share inflation | Fixed virtual assets/shares, zero-share rejection, checkpoint economic-rate pricing, direct transfers excluded from automatic share issuance | Unrecoverable token donations may create accounting reconciliation work |
-| Withdrawal liquidity shortfall | Escrowed shares, priced claim, reserved USDC, execution caps that exclude reserves, bounded unwind runbook | Strategy unwind can delay settlement or realize loss |
+| Deposit timing arbitrage | Immediate pricing excludes remaining locked profit; positive gains vest linearly before becoming redeemable | A new depositor can receive a bounded pro-rata share of the remaining vest, accepted as the simplicity tradeoff |
+| Donation/share inflation | Conversion uses manager-accounted assets rather than raw token balance; direct transfers mint no shares; zero-share deposits revert | Unreconciled token donations may create operational accounting work |
+| Withdrawal liquidity shortfall | Shares remain escrowed and floating until completion; minimum-assets bound; approved unwind returns USDC before atomic burn/payment | Strategy unwind can delay settlement or realize loss |
 | Listener/indexer failure | ABI/topic snapshots, getter/event parity, reorg-safe dedupe and replay | Off-chain availability remains operational |
 | Cross-contract reentrancy | Verify first, effects before interactions, non-reentrant manager, atomic rollback | External protocols remain untrusted |
 | Replay | Chain/contract domains, qualification version, authorization nonce, root version, deadline, dual consumed mappings | Finality/reorg handling is operational |
@@ -741,17 +769,15 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Only the locked USDC manager invokes entry/exit settlement selectors.
 - Only the locked execution manager invokes the atomic `manage` selector.
 - Neither manager can use the other manager's selectors.
-- Every `manage` batch must leave the FundVault's USDC balance at or above
-  `AlphaEngineUSDCVaultManager.protectedUSDC()`, which equals pending-deposit
-  principal plus priced withdrawal reserves.
-- Share minting and burning occur only against an exact USDC-manager settlement
-  record; raw token transfers never mint shares.
-- Pending deposits and reserved withdrawals are segregated from deployable
-  assets in USDC-manager accounting and balance-delta checks.
+- Share minting occurs only against an exact measured USDC deposit; raw token
+  transfers never mint shares.
+- Share burning and USDC payment occur atomically only at redemption completion.
+  A pending request creates no fixed-value reserve, so idle USDC remains
+  deployable until a completion transaction succeeds.
 - Total share supply equals the sum of balances and escrowed withdrawal shares.
-- Fixed `1e6` virtual USDC units and `1e18` virtual share units plus rounding
-  rules prevent a zero-supply singularity, first-depositor inflation, and
-  zero-share deposits.
+- The first depositor receives `assets * 1e12` shares; later mint/redeem
+  conversions use manager-accounted assets and deterministic floor rounding.
+  Direct donations cannot manipulate the rate and zero-share deposits revert.
 - Any emergency migration preserves every shareholder's pro-rata claim and can
   target only the precommitted replacement vault.
 
@@ -760,17 +786,23 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Only USDC is accepted and all accounting uses its exact token decimals.
 - A reference block and methodology version/hash are monotonic and immutable
   once reported.
-- External-flow-neutralized P&L equals the formula in section 6 for every
-  report; deposits and withdrawals cannot be counted as yield or loss.
-- A positive report cannot become fully redeemable before 24 hours.
+- The off-chain report artifact flow-neutralizes deposits and completed
+  redemptions using their exact events; the on-chain report commits a sequential
+  signed P&L delta and reproducibility hash.
+- A positive report cannot become fully redeemable before its configured vest
+  ends.
 - A loss is recognized immediately, consumes unvested gain first, and cannot
   increase any user's redeemable amount.
-- A deposit cannot receive shares at a checkpoint preceding its request or
-  capture positive P&L earned before its settlement checkpoint.
-- Withdrawal pricing, share burning, and reservation are atomic; the resulting
-  USDC claim is immutable and reserved USDC cannot be spent by execution.
-- Rounding always favors the vault: deposit shares round down and withdrawal
-  share requirements round up.
+- A deposit cannot receive already-recognized historical P&L; it can participate
+  only in the remaining locked gain.
+- A pending redemption has no fixed asset claim. Pricing, share burning, and
+  payment are atomic at completion and fail without mutation if liquidity or
+  the minimum-asset condition is not met.
+- Rounding always favors the vault: both deposit shares and redemption assets
+  round down.
+- A total-loss redemption with zero minimum assets retains a terminal burn path.
+- Performance-fee shares represent no more than the configured fee on net-new
+  profit after unrecovered losses, and fee-rate changes are prospective.
 - NAV reporting cannot transfer assets, mint/burn shares directly, or call a
   strategy target.
 - The manager's residual USDC balance is zero after every successful operation.
@@ -780,14 +812,14 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Only the locked execution manager invokes the vault batch.
 - Owner, trader, NAV reporter, root admin, and executor have no direct arbitrary-call path.
 - Batch is nonempty, capped at 16, and all arrays have equal lengths.
-- All proofs, decoder checks, code hashes, commitment fields, reserved-liquidity
-  checks, and risk checks pass before the first value-bearing call.
+- All proofs, decoder checks, code hashes, commitment fields, and risk checks
+  pass before the first value-bearing call.
 - Root change invalidates commitments bound to the prior version.
 - Emergency guardian can only pause or activate the zero root.
 - Initial release permits zero native value and no `delegatecall`.
 - Exact approvals are reset to zero in the same bundle.
-- Per-asset spend does not exceed the committed or rolling cap, and strategy
-  execution never consumes pending-deposit or withdrawal-reserve USDC.
+- Per-asset spend does not exceed the committed or rolling cap. Redemptions wait
+  for idle USDC rather than blocking deployment with a pre-priced reserve.
 - Per-asset receipt is at least the committed minimum.
 - Failed execution restores local and capital-manager replay state atomically.
 
@@ -809,9 +841,10 @@ Excluded:
 - Real pooled FundVault, USDC manager, and vault execution deployment; these are
   the separately bounded second pass.
 - Merkle root verification in production.
-- Public shares, daily NAV accounting, and withdrawal queues until the second
-  pass. The full multi-asset Veda Teller/Accountant stack and protocol fee
-  charging remain out of scope.
+- Public shares, daily NAV accounting, and asynchronous redemptions until the
+  second pass. The full multi-asset Veda Teller/Accountant stack and deposit,
+  redemption, or AUM fees remain out of scope; the second pass includes only
+  the bounded performance fee defined in section 6.
 - Cross-chain execution.
 - Generic UEI or arbitrary encrypted schema.
 - Leverage, borrowing, flash loans, bridges, batching beyond exact vault call bundles.
@@ -842,13 +875,13 @@ Current official Veda main was inspected at [`39f9d3144fd0416fdcb467ecec916b3145
 
 - Accept USDC only and denominate all shares, NAV, P&L, deposits, and
   withdrawals in USDC.
-- Queue deposits for the next daily checkpoint, segregate pending principal in
-  the FundVault, and mint shares only after the checkpoint price is fixed.
-- Queue withdrawals and escrow shares. If needed, wait for an approved unwind;
-  then price, burn, and reserve USDC atomically at a checkpoint before
-  permissionless settlement.
-- Accept an authorized daily net-NAV report for a finalized block and apply the
-  formulas, rounding, vesting, loss, staleness, and outlier rules in section 6.
+- Mint shares immediately against the exact measured USDC received by the
+  FundVault at the current recognized rate.
+- Escrow shares for asynchronous redemption. If needed, wait for an approved
+  unwind; then price, burn, and pay USDC atomically at completion.
+- Accept an authorized daily signed P&L report for a finalized block and apply
+  the formulas, rounding, vesting, loss-recovery, and performance-fee rules in
+  section 6.
 - Keep calculator and reporter conceptually separate: calculation is an
   off-chain deterministic service over public on-chain state; reporting is the
   narrow on-chain role that commits the result and metadata.
@@ -866,8 +899,8 @@ and it needs no deposit conversion oracle because USDC is both the accepted
 asset and accounting unit.
 
 Treasury capital, if any, enters through the same USDC manager and receives
-shares under the same checkpoint rules. Unaccounted direct donations must not
-grant shares or silently bypass external-flow accounting.
+shares under the same immediate-mint rules. Unaccounted direct donations must
+not grant shares or alter the manager-accounted conversion rate.
 
 Emergency asset migration is available only while paused, only to a
 precommitted replacement FundVault, and only through a procedure that preserves
@@ -941,8 +974,8 @@ Allowed:
 - Exact-token-for-PT execution.
 - PT receipt to the FundVault.
 - PT redemption/unwind back to FundVault-held USDC.
-- Funding of already-priced withdrawal reserves without bypassing the USDC
-  manager's settlement accounting.
+- Returning enough idle USDC for pending redemptions without bypassing the USDC
+  manager's atomic completion accounting.
 
 Required checks:
 
@@ -1050,18 +1083,13 @@ Core event families:
 - `ConfidentialSwapSubmitted`
 - `ConfidentialSwapExecuted`
 - `ConfidentialSwapRefunded`
-- `VaultDepositRequested`
-- `VaultDepositPriced`
-- `VaultDepositSettled`
-- `VaultDepositCancelled`
-- `VaultWithdrawalRequested`
-- `VaultWithdrawalLiquidityRequired`
-- `VaultWithdrawalPricedAndReserved`
-- `VaultWithdrawalSettled`
-- `VaultWithdrawalCancelled`
-- `VaultNavReported`
-- `VaultPositivePnlVestingStarted`
-- `VaultLossRecognized`
+- `DepositSettled` / `Deposit`
+- `RedemptionSharesLocked` / `RedemptionRequested`
+- `RedemptionSharesReleased` / `RedemptionCancelled`
+- `RedemptionSettled` / `RedemptionCompleted`
+- `ProfitReported`
+- `LossReported`
+- `PerformanceFeeMinted`
 - `VaultBatchManaged`
 - `VaultPolicyRootProposed`
 - `VaultPolicyRootActivated`
@@ -1083,9 +1111,9 @@ Create a schema-versioned v2 manifest containing:
 - initializer arguments;
 - role holders and whether role collapse is test-only;
 - timelock delays;
-- USDC token address/code hash, share name/symbol/decimals, minimum initial
-  liquidity defense, daily checkpoint schedule, 24-hour vest duration, report
-  staleness/outlier bounds, and withdrawal-reserve parameters;
+- USDC token address/code hash, share name/symbol/decimals, initial share scale,
+  vest duration, report-ordering rules, maximum performance fee, configured fee
+  rate, fee recipient, and redemption semantics;
 - locked FundVault USDC-manager and execution-manager addresses and selector
   authority hashes;
 - initial NAV methodology version/hash and transparency-artifact location/hash;
@@ -1110,15 +1138,15 @@ The existing `arbitrum-sepolia-latest.json` is preserved unchanged as legacy evi
 
 | Suite | Required first-pass cases | Required FundVault cases |
 |---|---|---|
-| Unit | Initializers, roles, every transition/revert, FHE grants, ranking uniqueness, qualification versions, commitment vectors, swap reveal checks | Deposit/withdraw states, USDC-only rejection, NAV formula vectors, vesting/loss order, rounding, root proposal/activation/zeroing, decoder failures, risk deltas, caps, direct-vault rejection |
-| Fuzz | Nonces, IDs, component bounds, deadlines, rank collisions, revoke/requalify races, mutation of every commitment field | Deposit/withdraw amounts and timing, report/reference blocks, P&L flows, vesting timestamps, rounding, batch lengths, proof mutations, tree cardinalities, root versions, asset-limit order/duplicates |
-| Invariant | Independent nonces/pauses, terminal state monotonicity, qualification-version safety, zero manager custody, swap escrow conservation | Share supply conservation, external-flow-neutral P&L, no pre-checkpoint yield capture, loss-before-gain ordering, reserved-USDC isolation, zero manager custody, no unproved call, no double consumption, root delay, failed execution rollback, rolling caps, vault conservation |
-| Integration | Fresh proxies, cross-contract qualification, mock execution consumer, Fhenix permission flow, controller/escrow/V4 parity | USDC deposit → checkpoint → share mint; NAV gain/loss → vest/offset; withdrawal → reserve → settle; capital approval → proof → consume → Pendle PT execution at pinned fork block |
+| Unit | Initializers, roles, every transition/revert, FHE grants, ranking uniqueness, qualification versions, commitment vectors, swap reveal checks | Immediate deposit/redemption states, zero/exact/above/max balances, USDC exact-transfer rejection, P&L formula vectors, vesting/loss/recovery/fee order, rounding, root proposal/activation/zeroing, decoder failures, risk deltas, caps, direct-vault rejection |
+| Fuzz | Nonces, IDs, component bounds, deadlines, rank collisions, revoke/requalify races, mutation of every commitment field | Deposit/redemption amounts and timing, report/reference blocks, P&L flows, vesting timestamps, fee rates, rounding, batch lengths, proof mutations, tree cardinalities, root versions, asset-limit order/duplicates |
+| Invariant | Independent nonces/pauses, terminal state monotonicity, qualification-version safety, zero manager custody, swap escrow conservation | Share/USDC conservation, exact managed-asset deltas, deposit/redemption non-dilution, locked-profit/recovery bounds, fee non-overcharge, illiquid-completion atomicity, total-loss terminal path, zero manager custody, no unproved call, no double consumption, root delay, failed execution rollback, rolling caps, vault conservation |
+| Integration | Fresh proxies, cross-contract qualification, mock execution consumer, Fhenix permission flow, controller/escrow/V4 parity | Immediate USDC deposit/mint; P&L gain/loss → vest/recover/fee; redemption request → unwind → completion; capital approval → proof → consume → Pendle PT execution at pinned fork block |
 | Mainnet fork | Existing V4 twin-pool reference at pinned block | Pinned USDC and Pendle deployments; PT mark/redemption/redeployment; adverse price, receiver, approval, token pause/blacklist, and target proxy-change cases |
 | Storage | Golden layout for every proxy, initializer disabled, upgrade validation | Non-upgradeable custody/accounting components; snapshot any explicitly approved upgradeable auxiliary |
 | ABI | Selector/error/topic snapshots and source parity | FundVault/USDC-manager/execution-manager/decoder interface snapshots, NAV-report schema, and root artifact schema |
 | Deployment | Wrong chain, missing config, role overlap, proxy slots, manifest fields, paused default | Both manager locks, selector separation, USDC/code-hash checks, zero direct bypass, NAV parameters, root artifact, and code-hash verification |
-| Mutation | Wrong qualification/evidence/operator and every swap commitment field | Wrong NAV block/methodology/flow counter, donation, stale checkpoint, wrong decoder/target/selector/address/order/calldata/value/root/proof/risk field |
+| Mutation | Wrong qualification/evidence/operator and every swap commitment field | Wrong P&L epoch/reference/hash, donation, fee/vesting terms, wrong decoder/target/selector/address/order/calldata/value/root/proof/risk field |
 | Coverage | 100% repository-owned logic target | Same target, excluding interfaces/scripts/vendors |
 
 Retire shared strategy/swap nonce and cross-family handler tests. Preserve escrow reserve, wrapper, dust, refund, and zero-residual tests.
@@ -1276,12 +1304,12 @@ Progression policy:
 | 9 | Deployment, ABI, listener migration | Fresh proxies, independent roles, wrong-chain tests, v2 manifest, ABI/layout snapshots | Legacy manifest overwritten or role/config mismatch |
 | 10 | First-pass integration checkpoint | All first-pass CI/release gates and local/Anvil deployment rehearsal pass; no internal audit or external deployment yet | Any unresolved gate or Fhenix/mock discrepancy |
 | 11 | First-pass implementation checkpoint | First-pass scope and SHA recorded for traceability while second-pass work continues | Any undocumented first-pass mutation |
-| 12 | Fund accounting specification and dependency provenance | Formula-lock vectors for net NAV, external-flow-neutral P&L, rounding, vesting, loss offset, checkpoints, and withdrawals; clean pinned Veda references and legal path | Any unresolved accounting formula, first-depositor defense, USDC behavior, license ambiguity, or unfinished accounting specification |
+| 12 | USDC accounting core and dependency provenance | Immutable FundVault share/custody entry-exit surface plus USDC manager with immediate mint, asynchronous redemption, report ordering, configurable vesting/performance fee, loss recovery, formula-lock unit/fuzz tests, and stateful invariants; clean pinned Veda references and legal path | Share dilution, fee overcharge, stranded zero-value request, accounting drift, USDC exact-transfer failure, license ambiguity, or unfinished accounting specification |
 | 13 | Merkle hashing/root generator | Deterministic artifacts and tree cardinality vectors | Root mismatch, duplicate/odd-tree ambiguity |
 | 14 | Official Pendle verification plus ERC20 and Pendle PT decoders | Verify and pin the official Pendle chain, deployment/proxy and implementation, source revision, ABI/code hashes, selectors, nested parameter layouts, and permitted-action matrix; build AlphaEngine-owned fail-closed decoders against that evidence; exhaustive selector/address/receiver/nested-parameter/code-hash mutation coverage and fork parity | Reliance on an unverified or stale public decoder, unverified Pendle deployment/interface, generic router, arbitrary recipient, ABI drift, unfinished action matrix, or unsupported selector |
-| 15 | Immutable FundVault core | USDC/position custody, share ledger, first-depositor defense, locked and disjoint manager selectors, pause/recovery controls, and no EOA bypass | Share inflation, selector overlap, arbitrary-call bypass, unsafe recovery, or accounting-manager custody leak |
-| 16 | USDC Vault Manager | Deposit/checkpoint/mint, NAV reporting, 24-hour positive vest, immediate loss offset, withdrawal price/reserve/settlement, flow-neutral formula, zero manager custody, fuzz/invariant vectors | Stale-price yield capture, flow counted as P&L, rounding loss, reserve reuse, delayed loss, or reporter asset authority |
-| 17 | Vault Execution Manager and Pendle integration | Exact capital consume/proof/risk flow, reserved-liquidity isolation, Pendle PT enter/redeem, spend/min-receive/rolling caps, approval reset, and pinned fork tests | Replay, reentrancy, reserve consumption, cap bypass, unbounded loss, target-upgrade uncertainty, or oracle dependency |
+| 15 | Complete immutable FundVault execution surface | Add the permanently locked, selector-disjoint execution-manager authority, atomic call primitive, pause/recovery controls, and no EOA bypass without changing Stage 12 share accounting | Selector overlap, arbitrary-call bypass, unsafe recovery, or accounting-manager custody leak |
+| 16 | Vault Execution Manager | Exact capital consume, Merkle proof, root governance, replay, risk envelope, spend/min-receive/rolling caps, approval reset, and rollback invariants | Replay, reentrancy, cap bypass, unbounded call authority, or stale root/code hash |
+| 17 | Pendle integration | Connect the Stage 14 decoders to exact PT enter/redeem flows with pinned fork tests and demonstrate that pending redemptions complete after an approved unwind returns USDC | Receiver/selector drift, unbounded loss, target-upgrade uncertainty, oracle dependency, or redemption liveness failure |
 | 18 | Consolidated security readiness/audit/remediation/freeze | Deferred swap-hardening TODOs are fixed and regression-tested or explicitly accepted with deployment restrictions; Foundry release matrix passes; X-Ray readiness and Fizz campaigns are current; full repository is audited after all implementation; fixes are regression-tested and re-audited; final candidate is frozen; runbooks and local/Anvil deployment rehearsal are complete | Stale/missing X-Ray or applicable Fizz evidence, an undispositioned deferred swap TODO, any unresolved security/accounting/provenance issue, or any unreviewed generated handler/property |
 
 Each completed stage updates the development log, invariant ledger,
@@ -1338,9 +1366,9 @@ These are deployment/product inputs, not implementation-agent design decisions:
 | Absolute per-token and rolling caps | Risk-owner-signed deployment artifact | FundVault remains unfunded |
 | Production USDC address/code hash and token-risk acceptance | One pinned native USDC deployment; reject bridged, rebasing, and fee-on-transfer variants | Public deposits remain disabled |
 | NAV reporter and independent monitoring addresses | Separate reporting and execution authorities | NAV updates remain test-only |
-| Daily checkpoint time and report finality lag | One UTC checkpoint per day using a finalized reference block | Deposits/withdrawals cannot be priced reproducibly |
-| NAV methodology version and report bounds | Versioned net-liquidation methodology with governance-approved gain/loss and staleness bounds | NAV reporting remains paused |
-| Withdrawal liquidity policy | Price daily, reserve before settlement, preserve a governance-set idle-USDC floor | User withdrawal SLA and execution cap remain undefined |
+| P&L reporting cadence and finality lag | Daily reporting using a finalized, strictly increasing reference block | Reporting remains test-only until operational monitoring is specified |
+| NAV methodology and report-hash artifact | Versioned net-liquidation methodology with exact external-flow reconciliation | P&L reporting remains paused |
+| Redemption liquidity policy | Floating pending requests completed after approved unwinds return sufficient idle USDC | User redemption SLA remains undefined |
 | Veda licensing path | Independently designed AlphaEngine implementation | No Veda source may be copied |
 | External auditor and review window | Book before candidate freeze | No production-readiness claim |
 
@@ -1348,11 +1376,14 @@ Defaults already approved by the owner:
 
 - public USDC-only, share-based FundVault;
 - separate custodial FundVault, USDC deposit/NAV manager, and Merkle execution manager;
-- daily checkpoint pricing for deposits and withdrawals;
+- immediate USDC deposits and asynchronous floating-price redemptions;
 - off-chain reproducible net-liquidation NAV reports bound to finalized blocks;
-- 24-hour vesting for positive P&L and immediate loss recognition against unvested gain first;
-- 18-decimal shares with immutable `1e6` virtual USDC units and `1e18`
-  virtual share units for the initial conversion baseline;
+- configurable positive-P&L vesting initialized to 24 hours and immediate loss
+  recognition against unvested gain first;
+- configurable performance fee capped at 20%, charged only on net-new profit
+  above unrecovered loss, with prospective fee changes;
+- 18-decimal shares with an initial `assets * 1e12` USDC conversion and no
+  virtual-liquidity state;
 - no multi-asset Teller/Accountant or deposit conversion oracle in the initial release;
 - preserved v1 FHE schema;
 - Safe plus timelock governance;
@@ -1391,6 +1422,13 @@ Current status:
   controller/escrow route and retains exact output parity in both directions.
 - First-pass implementation changes may already exist in the working tree; the
   historical clean-tree statement does not describe current repository state.
-- No FundVault Solidity was implemented as part of this documentation revision.
+- Stage 12 adds the immutable FundVault entry/exit share core and USDC manager
+  described above. Merkle hashing, decoder/sanitizers, the execution-manager
+  authority, and Pendle integration remain Stages 13 through 17.
+- Stage 12 focused validation passes 37 unit/fuzz tests and 9 invariants at 64
+  runs × depth 32 with zero handler reverts. The complete repository passes 219
+  tests. Generated ABI parity, runtime size, formatting, repository hygiene,
+  and `git diff --check` also pass; coverage remains subject to the repository's
+  existing CapitalStrategyManager stack-depth instrumentation blocker.
 - Audit execution remains deferred to the consolidated end-of-implementation
   gate except for remediation audits after that consolidated review.
