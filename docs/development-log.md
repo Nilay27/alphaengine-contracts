@@ -1,5 +1,47 @@
 # Development Log
 
+## 2026-08-27 — Pendle decoder provenance requirement
+
+- Do not assume that public Veda/BoringVault repositories contain a decoder or
+  sanitizer compatible with the Pendle deployment AlphaEngine will use.
+- At the start of Stage 14, resolve the target from official Pendle
+  documentation and verified source, then record the chain, target/proxy and
+  implementation addresses, code hashes, source revision, ABI hash, supported
+  selectors, nested parameter layouts, and exact permitted-action matrix.
+- Stage 14 must then implement AlphaEngine-owned, fail-closed Pendle PT
+  decoder/sanitizers against those freshly pinned official interfaces. Public
+  Veda decoders are structural references only, not compatibility evidence.
+- Pendle ABI or implementation drift invalidates the affected policy artifact
+  until decoder tests, code hashes, and Merkle leaves are reviewed and
+  regenerated.
+
+## 2026-08-27 — Deferred final-audit swap hardening TODOs
+
+- Compared the fresh confidential swap path with baseline commit
+  `49d96e8a80d6903d1d30affc6f836bcc0ac13800`; no core shield, unshield,
+  lock, execute, settle, dust-return, or refund capability was identified as
+  missing from the replacement architecture.
+- Owner-directed deferral: record three non-standard-token/amount-domain
+  hardening items for the consolidated Stage 18 security pass rather than
+  interrupting FundVault implementation:
+  1. exact-receipt enforcement or direct-path restriction for inherited public
+     wrapper `shield(...)`;
+  2. zero-value claim compatibility for ERC20s that reject
+     `transfer(..., 0)`;
+  3. an explicit supported-decimal or amount bound for Uniswap v4's signed
+     `int128` delta domain.
+- These are unresolved TODOs, not permanent risk acceptances. Until resolved,
+  deployment configuration must allowlist reviewed exact-transfer assets with
+  supported decimals.
+- Stage 18 must pass the TODOs as known hypotheses into X-Ray, Fizz, Solidity
+  Auditor, and external-audit scope. Candidate freeze requires remediation and
+  regression tests or explicit final owner acceptance with documented
+  deployment restrictions.
+- Canonical details and acceptance conditions are recorded in
+  `docs/engineering/strategy-manager-fund-vault-implementation-plan.md` under
+  “Deferred confidential-swap hardening TODOs.” No Solidity or test behavior
+  changed in this documentation-only update.
+
 ## 2026-08-27 — Stage 8 bound confidential swap controller
 
 ### Added

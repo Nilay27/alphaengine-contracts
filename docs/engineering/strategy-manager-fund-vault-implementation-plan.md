@@ -922,6 +922,18 @@ The Foundry generator must:
 
 ### Initial Pendle-only action surface
 
+Do not assume that a public Veda/BoringVault decoder supports the current
+Pendle router, market, or calldata structures selected for AlphaEngine. At the
+start of Stage 14, resolve the exact official Pendle deployment from primary
+Pendle documentation and verified source, then pin its chain, target/proxy and
+implementation addresses, code hashes, source revision, ABI hash, supported
+selectors, and nested parameter layouts in the dependency/action matrix.
+Stage 14 must then implement AlphaEngine-owned decoder/sanitizers against those
+exact official interfaces. Veda decoders are structural references only and
+must not be copied or treated as compatibility evidence. Any Pendle upgrade or
+ABI drift invalidates the affected policy artifact until the decoder, tests,
+code hashes, and Merkle leaves are reviewed and regenerated.
+
 Allowed:
 
 - ERC20 exact approval to a pinned Pendle adapter/router.
@@ -1159,6 +1171,40 @@ The `$x-ray`, `$fizz`, and `$solidity-auditor` skills form one ordered internal
 security workflow. Existing baseline evidence is preserved; this
 architecture-only revision does not trigger another audit or fuzz campaign.
 
+### Deferred confidential-swap hardening TODOs
+
+The owner has explicitly deferred the following swap-hardening items to Stage
+18 so FundVault implementation can continue without another intermediate
+security-remediation cycle. They are known hypotheses, not resolved findings or
+permanent risk acceptances, and must be provided to X-Ray, Fizz, Solidity
+Auditor, and the external auditor rather than waiting for a tool to rediscover
+them:
+
+1. **Direct wrapper shielding with non-standard ERC20s.** The AlphaEngine
+   wrapper inherits a public `shield(...)` path whose minting calculation is
+   based on the requested transfer amount. Decide whether to enforce an exact
+   wrapper balance delta in that path or prohibit direct shielding in favor of
+   the guarded gateway. Add a regression test proving that fee-on-transfer,
+   rebasing, or otherwise non-exact-transfer assets cannot undercollateralize a
+   wrapper.
+2. **Zero-value claim compatibility.** The inherited wrapper claim path may
+   call the underlying ERC20 with `transfer(..., 0)`. Decide whether the
+   AlphaEngine wrapper should skip the transfer after a verified zero claim or
+   reject ERC20s that do not accept zero transfers. Add an end-to-end test that
+   an initialized encrypted-zero swap lock remains refundable for a
+   zero-transfer-reverting token.
+3. **Uniswap v4 signed amount domain.** A sufficiently high wrapper rate and
+   confidential amount can produce an underlying exact-input amount outside
+   the PoolManager `int128` delta domain. Add an explicit supported-decimal or
+   amount bound with a typed failure, and test the maximum accepted value plus
+   the first rejected value.
+
+Until these TODOs are closed, any deployment configuration must allowlist only
+reviewed exact-transfer assets with supported decimals. These items do not
+block Stages 12 through 17, but Stage 18 cannot freeze a release candidate until
+each item is fixed and regression-tested or receives explicit final owner risk
+acceptance documented with its deployment restrictions.
+
 Owner-approved cadence:
 
 1. Preserve any baseline audit evidence already captured for `49d96e8...`; do
@@ -1230,13 +1276,13 @@ Progression policy:
 | 9 | Deployment, ABI, listener migration | Fresh proxies, independent roles, wrong-chain tests, v2 manifest, ABI/layout snapshots | Legacy manifest overwritten or role/config mismatch |
 | 10 | First-pass integration checkpoint | All first-pass CI/release gates and local/Anvil deployment rehearsal pass; no internal audit or external deployment yet | Any unresolved gate or Fhenix/mock discrepancy |
 | 11 | First-pass implementation checkpoint | First-pass scope and SHA recorded for traceability while second-pass work continues | Any undocumented first-pass mutation |
-| 12 | Fund accounting specification and dependency provenance | Formula-lock vectors for net NAV, external-flow-neutral P&L, rounding, vesting, loss offset, checkpoints, and withdrawals; clean pinned Veda/Pendle references and legal path | Any unresolved accounting formula, first-depositor defense, USDC behavior, license ambiguity, or unfinished action matrix |
+| 12 | Fund accounting specification and dependency provenance | Formula-lock vectors for net NAV, external-flow-neutral P&L, rounding, vesting, loss offset, checkpoints, and withdrawals; clean pinned Veda references and legal path | Any unresolved accounting formula, first-depositor defense, USDC behavior, license ambiguity, or unfinished accounting specification |
 | 13 | Merkle hashing/root generator | Deterministic artifacts and tree cardinality vectors | Root mismatch, duplicate/odd-tree ambiguity |
-| 14 | ERC20 and Pendle PT decoders | Fail-closed selector/address/code-hash mutation coverage | Generic router, arbitrary recipient, or unsupported selector |
+| 14 | Official Pendle verification plus ERC20 and Pendle PT decoders | Verify and pin the official Pendle chain, deployment/proxy and implementation, source revision, ABI/code hashes, selectors, nested parameter layouts, and permitted-action matrix; build AlphaEngine-owned fail-closed decoders against that evidence; exhaustive selector/address/receiver/nested-parameter/code-hash mutation coverage and fork parity | Reliance on an unverified or stale public decoder, unverified Pendle deployment/interface, generic router, arbitrary recipient, ABI drift, unfinished action matrix, or unsupported selector |
 | 15 | Immutable FundVault core | USDC/position custody, share ledger, first-depositor defense, locked and disjoint manager selectors, pause/recovery controls, and no EOA bypass | Share inflation, selector overlap, arbitrary-call bypass, unsafe recovery, or accounting-manager custody leak |
 | 16 | USDC Vault Manager | Deposit/checkpoint/mint, NAV reporting, 24-hour positive vest, immediate loss offset, withdrawal price/reserve/settlement, flow-neutral formula, zero manager custody, fuzz/invariant vectors | Stale-price yield capture, flow counted as P&L, rounding loss, reserve reuse, delayed loss, or reporter asset authority |
 | 17 | Vault Execution Manager and Pendle integration | Exact capital consume/proof/risk flow, reserved-liquidity isolation, Pendle PT enter/redeem, spend/min-receive/rolling caps, approval reset, and pinned fork tests | Replay, reentrancy, reserve consumption, cap bypass, unbounded loss, target-upgrade uncertainty, or oracle dependency |
-| 18 | Consolidated security readiness/audit/remediation/freeze | Foundry release matrix passes; X-Ray readiness and Fizz campaigns are current; full repository is audited after all implementation; fixes are regression-tested and re-audited; final candidate is frozen; runbooks and local/Anvil deployment rehearsal are complete | Stale/missing X-Ray or applicable Fizz evidence, any unresolved security/accounting/provenance issue, or any unreviewed generated handler/property |
+| 18 | Consolidated security readiness/audit/remediation/freeze | Deferred swap-hardening TODOs are fixed and regression-tested or explicitly accepted with deployment restrictions; Foundry release matrix passes; X-Ray readiness and Fizz campaigns are current; full repository is audited after all implementation; fixes are regression-tested and re-audited; final candidate is frozen; runbooks and local/Anvil deployment rehearsal are complete | Stale/missing X-Ray or applicable Fizz evidence, an undispositioned deferred swap TODO, any unresolved security/accounting/provenance issue, or any unreviewed generated handler/property |
 
 Each completed stage updates the development log, invariant ledger,
 architecture/testing documents, and applicable ABI/layout snapshots before the
