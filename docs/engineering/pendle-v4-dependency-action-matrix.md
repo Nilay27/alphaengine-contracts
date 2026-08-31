@@ -61,8 +61,9 @@ call rechecks:
 2. expected PT-facet runtime code hash; and
 3. the live `selectorToFacet` result for the requested PT action.
 
-Any drift fails closed. Stage 16 must invoke the decoder before every vault
-call and must bind the decoder runtime code hash in the policy leaf.
+Any drift fails closed. The Stage 16 execution manager invokes the decoder
+before every vault call and binds the live decoder runtime code hash in the
+policy leaf.
 
 ## Permitted action matrix
 

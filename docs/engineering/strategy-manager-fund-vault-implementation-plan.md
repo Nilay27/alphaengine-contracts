@@ -14,13 +14,21 @@ The recommended architecture uses independent contracts for competition, capital
 
 Competition and capital managers share only interfaces and stateless hashing libraries. They do not inherit a storage-bearing `BaseStrategyManager`.
 
-Implementation status as of 2026-08-31: Stages P0 through 14 are implemented
-and committed through `1985b0c`.
+Implementation status as of 2026-08-31: Stages P0 through 15 are implemented
+and committed through `90dbdc4`.
 Stage 13 adds deterministic Merkle hashing and root generation. Decoder/
 sanitizers, root governance, and vault execution are not part of Stage 13.
-Stage 15's immutable FundVault execution surface is implemented and has
-completed its owner-review checkpoint. Root governance, capital consumption,
-replay, and risk enforcement remain Stage 16.
+Stage 15's immutable FundVault execution surface is implemented and committed.
+Stage 16's immutable Vault Execution Manager, delayed per-executor policy
+roots, exact Capital Manager consumption, dual replay protection, live-code
+Merkle verification, approval reset, and per-trader asset-risk enforcement are
+implemented and have completed their owner-review checkpoint. Its hardened
+stateful model separates entry, holding time, and later exit while independently
+reproducing both asset rolling windows. A separately authorized pre-Stage-17
+security checkpoint must run X-Ray first and the Solidity Auditor second; it is
+not part of the Stage 16 implementation commit. Stage 17 remains the pinned
+Pendle execution integration, and Stage 18 remains the final Fizz, audit,
+remediation, and release gate.
 Stage 7 adds the append-only confidential asset registry, non-custodial
 shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
 fresh bound swap controller, exact execution-data and salted minimum-output
@@ -1231,6 +1239,13 @@ The `$x-ray`, `$fizz`, and `$solidity-auditor` skills form one ordered internal
 security workflow. Existing baseline evidence is preserved; this
 architecture-only revision does not trigger another audit or fuzz campaign.
 
+Before Stage 17, run a separate owner-authorized full-repository checkpoint:
+X-Ray first to map the complete current attack surface, then Solidity Auditor
+against the same committed Stage 16 SHA. Do not merge this checkpoint into the
+Stage 16 implementation/fuzz commit. Remediate any blocking finding before the
+real Pendle fork integration. The later Stage 18 workflow still runs Fizz and
+refreshes the final audit evidence after Stage 17 changes.
+
 ### Deferred confidential-swap hardening TODOs
 
 The owner has explicitly deferred the following swap-hardening items to Stage
@@ -1341,6 +1356,7 @@ Progression policy:
 | 14 | Standard decoders plus official Pendle RouterV4 verification | Build AlphaEngine-owned fail-closed ERC20 approval and ERC4626 entry/exit decoders; verify and pin the official Pendle chain, RouterV4/facet dispatch, source revision, ABI/code hashes, selectors, and nested layouts; add a narrow PT decoder, exhaustive mutation coverage, and fixed-block fork parity | Unbounded ERC20 authority, arbitrary ERC4626 receiver/owner, reliance on a stale public decoder, unverified Pendle RouterV4/facet, generic router, ABI drift, unfinished action matrix, or unsupported selector |
 | 15 | Complete immutable FundVault execution surface | Add the permanently locked, selector-disjoint execution-manager authority, atomic call primitive, pause/recovery controls, and no EOA bypass without changing Stage 12 share accounting | Selector overlap, arbitrary-call bypass, unsafe recovery, or accounting-manager custody leak |
 | 16 | Vault Execution Manager | Exact capital consume, Merkle proof, root governance, replay, risk envelope, spend/min-receive/rolling caps, approval reset, and rollback invariants | Replay, reentrancy, cap bypass, unbounded call authority, or stale root/code hash |
+| 16A | Pre-Pendle security checkpoint | In a separate step after the clean Stage 16 commit, run X-Ray first and Solidity Auditor second against the same SHA; remediate blocking findings before integration | Audit mixed into the Stage 16 commit, stale X-Ray scope, or unresolved Critical/High finding |
 | 17 | Pendle integration | Connect the Stage 14 decoders to exact PT enter/redeem flows with pinned fork tests and demonstrate that pending redemptions complete after an approved unwind returns USDC | Receiver/selector drift, unbounded loss, target-upgrade uncertainty, oracle dependency, or redemption liveness failure |
 | 18 | Consolidated security readiness/audit/remediation/freeze | Deferred swap-hardening TODOs are fixed and regression-tested or explicitly accepted with deployment restrictions; Foundry release matrix passes; X-Ray readiness and Fizz campaigns are current; full repository is audited after all implementation; fixes are regression-tested and re-audited; final candidate is frozen; runbooks and local/Anvil deployment rehearsal are complete | Stale/missing X-Ray or applicable Fizz evidence, an undispositioned deferred swap TODO, any unresolved security/accounting/provenance issue, or any unreviewed generated handler/property |
 
@@ -1476,7 +1492,15 @@ Current status:
   one-time emergency/recovery configuration, exact full-balance ERC20
   migration, and irreversible post-recovery pause. Its focused suite passes 12
   unit/fuzz tests and four invariants at 256 runs x depth 128 with zero handler
-  reverts. Merkle verification and risk enforcement remain Stage 16.
+  reverts.
+- Stage 16 adds the immutable Vault Execution Manager, delayed policy roots and
+  artifact commitments per executor, exact capital consumption, dual replay
+  domains, live decoder/target code-hash proofs, exact approve/reset
+  enforcement, actual asset-delta checks, and exact rolling 24-hour
+  trader/asset caps. Its focused unit/fuzz, invariant, integration, ABI,
+  runtime-size, and coverage evidence is recorded in the development log. The
+  completed hardening also bounds cumulative approvals in memory and models
+  entry, arbitrary holding time, and later exit as separate transactions.
 - Stage 12 focused validation passes 43 unit/fuzz tests and 10 invariants. The
   hardened invariant campaign also passes at 256 runs × depth 128: 327,680
   aggregate randomized calls with zero handler reverts. The shadow model tracks

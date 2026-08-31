@@ -20,6 +20,7 @@ CONTRACTS = {
     "AlphaEngineConfidentialAssetGateway": "ABI/v2/AlphaEngineConfidentialAssetGateway.json",
     "AlphaEngineConfidentialSwapEscrow": "ABI/v2/AlphaEngineConfidentialSwapEscrow.json",
     "AlphaEngineConfidentialSwapController": "ABI/v2/AlphaEngineConfidentialSwapController.json",
+    "AlphaEngineVaultExecutionManager": "ABI/v2/AlphaEngineVaultExecutionManager.json",
     "AlphaEngineFHERC20ERC20Wrapper": "ABI/fherc20/AlphaEngineFHERC20ERC20Wrapper.json",
     "AlphaEngineV4SwapExecutor": "ABI/executors/AlphaEngineV4SwapExecutor.json",
 }

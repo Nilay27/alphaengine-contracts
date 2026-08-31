@@ -184,8 +184,54 @@ deferring those broad commands does not reduce focused test depth.
   call total and explicit expected-failure inspection. It proves exact external
   effects, atomic failure rollback, accounting-manager call-graph isolation,
   and immutable share/control-plane state with no handler reverts.
-- Stage 16 adds proof, root, replay, capital-consumption, and risk-envelope
-  state machines; Stage 15 tests do not mock those controls into the FundVault.
+- Stage 15 tests do not mock proof, root, replay, capital-consumption, or
+  risk-envelope controls into the FundVault; those controls are implemented and
+  tested at the Stage 16 execution-manager boundary.
+
+### Stage 16 Vault Execution Manager suites
+
+- Unit tests cover delayed per-executor policy proposal, activation,
+  cancellation, emergency zero-root revocation, artifact commitment, independent
+  root versions, paused risk configuration, vault-link enforcement, and role
+  separation. Here, executor means the keeper/automation address that relays an
+  already-approved execution, not the trader by default.
+- Exact-authorization tests mutate domain, time, policy, risk version, call
+  hash, risk hash, commitment, nonce, proof, decoder/target code hash, approval,
+  and caller fields. Every failure must occur with no Capital Manager
+  consumption, no manager replay mark, and no FundVault balance change.
+- Asset tests require an exact approve/use/reset sequence, enforce post-call
+  zero allowance even for a nonstandard token that ignores zero approval,
+  measure actual FundVault spend/receipt deltas, and roll back the complete
+  transaction when spend, minimum receipt, rolling cap, or allowance checks
+  fail.
+- Multiple nonzero approvals for one asset are accumulated in memory and must
+  collectively remain within the exact committed spend limit. The 65th
+  distinct rolling-spend record is tested through the complete manager/vault
+  path and must roll back after the bounded ledger fails closed.
+- The exact rolling 24-hour ledger aggregates spends in the same block, prunes
+  each record only after 24 hours, prevents fixed-window boundary double-spend,
+  and fails closed after 64 distinct records per trader/asset until the oldest
+  expires.
+- `AlphaEngineVaultExecutionManager.invariant.t.sol` uses independent ghost
+  spend and receive ledgers. Randomized sequences perform an entry transaction,
+  advance holding time independently, and execute a later exit transaction.
+  They prove balance/ghost parity for both assets, independently reproduce each
+  trailing 24-hour window, enforce allowance bounds, preserve atomic
+  failure/replay behavior, and keep custody/control-plane configuration
+  immutable without unchecked catches. They do not assume that position yield
+  is realized atomically with entry.
+- `AlphaEngineCapitalVaultExecution.t.sol` connects the real Qualification
+  Registry and Capital Strategy Manager to the Stage 16 manager and FundVault:
+  a qualified trader submits encrypted handles, receives an exact evaluated
+  approval, and only the selected executor can consume it through verified
+  calls.
+- Focused coverage instrumentation uses `--skip DeployAlphaEngineV2` for the
+  known deployment-script minimal-IR compiler limitation; it does not exclude
+  any Stage 16 production source.
+- The hardened checkpoint passes 27 unit/fuzz tests, four invariants at 256
+  runs x depth 128 (131,072 aggregate calls with zero handler reverts), and the
+  real Capital Manager integration. Execution-manager coverage is 93.63% lines,
+  91.47% statements, 62.32% branches, and 100% functions.
 
 ## Coverage
 

@@ -116,6 +116,10 @@ check_abi \
     ABI/v2/AlphaEngineUSDCVaultManager.json \
     usdc-vault-manager
 check_abi \
+    out/AlphaEngineVaultExecutionManager.sol/AlphaEngineVaultExecutionManager.json \
+    ABI/v2/AlphaEngineVaultExecutionManager.json \
+    vault-execution-manager
+check_abi \
     out/AlphaEngineERC20DecoderAndSanitizer.sol/AlphaEngineERC20DecoderAndSanitizer.json \
     ABI/v2/AlphaEngineERC20DecoderAndSanitizer.json \
     erc20-decoder-and-sanitizer
@@ -182,6 +186,9 @@ check_runtime_size \
 check_runtime_size \
     out/AlphaEngineUSDCVaultManager.sol/AlphaEngineUSDCVaultManager.json \
     usdc-vault-manager
+check_runtime_size \
+    out/AlphaEngineVaultExecutionManager.sol/AlphaEngineVaultExecutionManager.json \
+    vault-execution-manager
 check_runtime_size \
     out/AlphaEngineERC20DecoderAndSanitizer.sol/AlphaEngineERC20DecoderAndSanitizer.json \
     erc20-decoder-and-sanitizer

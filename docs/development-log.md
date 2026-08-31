@@ -1,5 +1,49 @@
 # Development Log
 
+## 2026-09-01 — Stage 16 Merkle-verified vault execution
+
+- Implemented the immutable `AlphaEngineVaultExecutionManager` between exact
+  Capital Manager approval and the FundVault's Stage 15 `executeBatch` surface.
+  The execution manager cannot hold custody, mint/burn shares, process user
+  entry/exit, or update vault accounting.
+- Added delayed policy-root proposals bound to each executor and its reviewed
+  artifact hash. Permissionless activation follows a 48-hour delay; an
+  emergency guardian may revoke one executor's root to zero and pause the
+  manager without installing replacement authority.
+- Bound execution to the approved chain, managers, FundVault, trader,
+  qualification version, executor, authorization nonce, validity window,
+  policy root/version, ordered calls, sorted asset limits, risk-policy version,
+  strategy payload, and evaluation evidence. Manager-local commitment and
+  nonce replay markers supplement the Capital Manager's one-time consumption.
+- Added live decoder/target code-hash proofs, fail-closed sanitization, exact
+  approve/use/reset sequencing, post-call zero-allowance checks, per-execution
+  spend and minimum-receive checks, and exact rolling 24-hour trader/asset
+  spend caps. The rolling ledger aggregates same-block spend and fails closed
+  after 64 distinct records until its oldest record expires.
+- Added in-memory cumulative approval accounting so multiple nonzero approvals
+  for one input asset cannot collectively exceed the exact committed spend
+  limit, even though each approval is individually below that limit.
+- Added focused unit/fuzz, stateful invariant, and real Capital Manager
+  integration coverage. The handler independently models successful asset
+  deltas and explicitly validates expected replay, proof, slippage, and cap
+  failures without unchecked catches.
+- The stateful model now separates entry, arbitrary holding-time advances, and
+  later exit transactions. It independently tracks FundVault/strategy balances
+  and exact rolling spend for both USDC and position tokens without assuming
+  that deployment and yield realization are atomic.
+- Focused validation passes 27 unit/fuzz tests, including 10,000 exact-delta
+  cases and 9,973 accepted calldata-mutation cases. Four stateful invariants
+  pass at 256 runs x depth 128 (131,072 aggregate calls) with zero handler
+  reverts. The real Qualification Registry/Capital Manager integration passes.
+  Targeted production coverage reaches 93.63% lines, 91.47% statements, 62.32%
+  branches, and 100% functions for the execution manager.
+- Stage 16 completed its owner-review checkpoint and is ready for its bounded
+  commit. A separate owner-authorized checkpoint will run X-Ray first and the
+  Solidity Auditor second against this committed SHA before Stage 17's pinned
+  Pendle fork integration; neither security skill was run as part of Stage 16.
+- Generated ABI/listener parity and runtime-size gates pass. The execution
+  manager runtime is 17,933 bytes, below the repository's 23,000-byte limit.
+
 ## 2026-08-31 — Stage 15 immutable FundVault execution boundary
 
 - Implemented the reserved `executeBatch` FundVault surface with a permanently

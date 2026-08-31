@@ -45,3 +45,20 @@ contract MockSelectiveFeeERC20 is MockERC20 {
         super._update(from, to, value);
     }
 }
+
+contract MockStickyAllowanceERC20 is MockERC20 {
+    bool public ignoreZeroApproval;
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_)
+        MockERC20(name_, symbol_, decimals_)
+    {}
+
+    function setIgnoreZeroApproval(bool enabled) external {
+        ignoreZeroApproval = enabled;
+    }
+
+    function approve(address spender, uint256 value) public override returns (bool) {
+        if (ignoreZeroApproval && value == 0) return true;
+        return super.approve(spender, value);
+    }
+}

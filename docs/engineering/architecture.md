@@ -36,6 +36,32 @@
   Every control-plane address is an invalid batch target. Pause-only emergency
   migration sends complete exact ERC20 balances to one precommitted recovery
   vault and permanently disables unpause after recovery begins.
+- Stage 16 implements the immutable `AlphaEngineVaultExecutionManager`. A
+  trader submits the confidential capital intent, an evaluator approves one
+  exact commitment, and a distinct executor/keeper relays that approved call
+  bundle and its proofs. The executor is not the trader by default and cannot
+  change any approved execution field.
+- Policy roots are stored per executor so each automation key receives only its
+  separately reviewed action policy and may be revoked independently. Each
+  delayed proposal also commits the reviewed policy artifact hash. The active
+  root/version, live decoder and target code hashes, exact calldata hash,
+  Capital Manager approval, risk-policy version, and dual replay state all
+  remain mandatory at execution.
+- Execution risk is configured per trader and asset while paused. The manager
+  measures actual FundVault balance deltas, enforces per-execution spend and
+  minimum receipt, records exact rolling 24-hour spend, and requires every
+  committed nonzero token approval to end at zero. A failed call or post-call
+  check reverts FundVault effects, Capital Manager consumption, and local replay
+  state atomically.
+- Nonzero approval amounts are accumulated per input asset for the complete
+  bundle before execution; repeated approve/use sequences cannot collectively
+  exceed the committed spend limit. This uses temporary memory rather than new
+  accounting storage.
+- Fund deployment and realization remain separate lifecycles. One approved
+  transaction may exchange USDC for a position token; the position may remain
+  in the FundVault for an arbitrary period; and a separately approved later
+  transaction may exchange the position token back to USDC. Daily NAV and user
+  redemption accounting remain the USDC manager's responsibility.
 - Transparent proxies are canonical for the five stateful first-pass domains;
   registry, gateway, wrapper, and swap executor remain non-upgradeable.
 - Competition, capital, and confidential swap use independent lifecycles,
@@ -188,7 +214,10 @@ Locked target boundaries:
   and a bounded prospective performance fee; nonzero profit remains locked
   until the exact unlock timestamp, and a loss that ends a vest crystallizes
   only the fee entitlement already earned by vested feeable profit
-- the future `AlphaEngineVaultExecutionManager` owns Merkle roots, exact execution authorization, risk caps, and protocol-call orchestration
+- `AlphaEngineVaultExecutionManager` owns Merkle roots, exact execution
+  authorization, risk caps, replay protection, and protocol-call orchestration.
+  Its executor is an operational keeper that relays a pre-approved bundle, not
+  an authority that designs or approves the trader's strategy.
 - the USDC manager and execution manager receive disjoint FundVault selector authority and cannot substitute for one another
 - the FundVault accounting path never reuses the swap escrow's accounting or lifecycle state
 - batching, AVS registration, hook logic, LP accounting, and new swap behavior remain out of scope for the separation

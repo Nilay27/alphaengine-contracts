@@ -111,8 +111,10 @@ and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
 - The Foundry generator reproduces its checked-in artifact byte-for-byte, while
   a dependency-free Python implementation independently reproduces all fields.
 - Labels and executor metadata are review/governance metadata rather than leaf
-  inputs. Stage 16 must bind the root to the exact executor and separately
-  commit the reviewed artifact hash before activation.
+  inputs. Stage 16 binds each active root/version to the exact executor and
+  separately commits the reviewed artifact hash before delayed activation. An
+  executor is the keeper/automation address that relays an approved call
+  bundle; it is not the trader by default.
 
 ## Decoder/sanitizer invariants
 
@@ -139,6 +141,45 @@ and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
 - Decoder immutables are embedded in runtime bytecode, and the Merkle leaf
   binds that decoder code hash. Deployments with different FundVault/router/
   facet pins therefore cannot share a decoder leaf accidentally.
+
+## Vault Execution Manager invariants
+
+- Only the exact executor stored in the approved commitment may relay it; the
+  executor cannot change the trader, calls, limits, validity, policy, evidence,
+  or any other committed field.
+- Every executed call has a valid proof under that executor's active nonzero
+  root/version and the proof uses the decoder and target's live code hashes.
+- A policy proposal cannot activate before 48 hours. Zero-root emergency
+  revocation increments only the affected executor's version, removes its
+  pending proposal, and pauses execution.
+- A commitment and authorization nonce are each consumed at most once in the
+  execution manager, and the Capital Manager independently consumes the same
+  commitment once.
+- Asset limits are sorted and unique. Actual per-asset FundVault spend never
+  exceeds the exact commitment or configured per-execution trader cap; actual
+  receipt never falls below the exact committed minimum.
+- Rolling 24-hour spend per trader/asset never exceeds its configured cap,
+  including across fixed-day boundaries. Same-block spends aggregate, expired
+  records prune exactly, and a full 64-record history fails closed.
+- Every nonzero ERC20 approval is risk-bound, has a later committed zero reset,
+  and is verified as zero after the complete bundle. Multiple approvals for the
+  same asset are accumulated in memory and cannot collectively exceed that
+  asset's committed maximum spend.
+- Any invalid proof, replay, slippage, cap violation, residual allowance,
+  Capital Manager mismatch, or downstream vault failure leaves FundVault
+  balances, Capital Manager consumption, local replay state, and rolling spend
+  exactly unchanged.
+- The execution manager never receives assets or shares and cannot alter the
+  FundVault's accounting manager, execution-manager link, recovery authority,
+  recovery vault, or share supply.
+- Entry and exit are independent transactions separated by arbitrary holding
+  time. Entry may leave USDC deployed as position tokens without returning
+  USDC; a later exit may spend those position tokens and return USDC. Ghost
+  accounting and rolling windows remain exact across the holding period, and
+  no invariant assumes yield realization is atomic with position entry.
+- Trader risk histories are isolated from one another, executor policy roots
+  are isolated from one another, and exhausting the 64-record rolling history
+  fails closed with complete capital/vault/replay rollback.
 
 ## USDC FundVault accounting invariants
 
