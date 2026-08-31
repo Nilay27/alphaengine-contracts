@@ -21,6 +21,10 @@
   externally deployed.
 - Stage 9 adds fresh paused deployment, independent ProxyAdmin, v2 manifest,
   delayed-governance action, ABI/topic snapshot, and listener-cutover tooling.
+- Stage 13 adds the stateless `AlphaEngineManageLeafHashLib` and deterministic
+  `GenerateAlphaEngineManageRoot` artifact generator. It defines policy leaves,
+  sorted-pair trees, odd-node carry, sorted/deduplicated definitions, and proofs;
+  it does not yet add decoders, root governance, or a vault call surface.
 - Transparent proxies are canonical for the five stateful first-pass domains;
   registry, gateway, wrapper, and swap executor remain non-upgradeable.
 - Competition, capital, and confidential swap use independent lifecycles,
@@ -58,6 +62,10 @@ Implemented shared boundary:
   encrypted strategy-payload commitments.
 - `AlphaEngineExecutionHashLib` defines ordered calls, sorted risk limits,
   execution commitments, and bound swap minimum-output commitments.
+- `AlphaEngineManageLeafHashLib` defines the V1 FundVault policy-leaf domain and
+  OpenZeppelin-compatible sorted-pair proof verification. Leaves bind chain,
+  execution manager, FundVault, decoder/target identities and code hashes,
+  selector, zero native value, and the sanitized-argument hash.
 - The qualification, capital-consumption, vault-manager, and FundVault
   interfaces define call direction without granting authority by themselves.
 

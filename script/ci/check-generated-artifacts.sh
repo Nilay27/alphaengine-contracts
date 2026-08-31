@@ -57,6 +57,8 @@ forge build --offline
 
 python3 script/reference/alphaengine_hash_vectors.py \
     --check test/vectors/alphaengine-hash-v1.json
+python3 script/reference/alphaengine_manage_root.py \
+    --check test/vectors/alphaengine-manage-root-v1.json
 python3 script/reference/alphaengine_listener_surface.py --check
 
 # The legacy manifest, ABI, and storage layouts are immutable historical evidence. Their

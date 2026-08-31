@@ -1,5 +1,26 @@
 # Development Log
 
+## 2026-08-31 — Stage 13 deterministic Merkle policy primitives
+
+- Added `AlphaEngineManageLeafHashLib` with the canonical V1 `abi.encode` leaf
+  domain, fail-closed identity/code-hash/selector/native-value validation,
+  sorted-pair hashing, and OpenZeppelin-compatible proof verification.
+- Added `GenerateAlphaEngineManageRoot`, which sorts definitions by leaf hash,
+  rejects duplicates and malformed metadata, carries odd nodes unchanged,
+  generates every proof, and emits a deterministic flat-column review artifact
+  containing aligned human-readable labels, leaf fields, tree layers, and proof
+  offsets/nodes.
+- Added a five-leaf reference artifact and dependency-free Python generator.
+  The focused Foundry suite reproduces the artifact byte-for-byte and checks it
+  against the independent implementation.
+- Stage 13 intentionally adds no decoder/sanitizer, root-governance state,
+  capital-consumption path, or FundVault call authority. Those remain Stages 14
+  through 16.
+- Local stage validation is intentionally focused on the new Merkle suite;
+  all 13 tests pass, including three fuzz properties at 10,000 runs each
+  (30,000 randomized cases). Complete-repository fuzzing and coverage remain
+  final integration gates.
+
 ## 2026-08-31 — Stage 12 accounting invariant hardening
 
 ### Accounting decisions

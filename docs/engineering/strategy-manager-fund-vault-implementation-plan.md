@@ -14,7 +14,9 @@ The recommended architecture uses independent contracts for competition, capital
 
 Competition and capital managers share only interfaces and stateless hashing libraries. They do not inherit a storage-bearing `BaseStrategyManager`.
 
-Implementation status as of 2026-08-31: Stages P0 through 12 are implemented.
+Implementation status as of 2026-08-31: Stages P0 through 13 are implemented.
+Stage 13 adds deterministic Merkle hashing and root generation. Decoder/
+sanitizers, root governance, and vault execution are not part of Stage 13.
 Stage 7 adds the append-only confidential asset registry, non-custodial
 shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
 fresh bound swap controller, exact execution-data and salted minimum-output
@@ -937,6 +939,12 @@ leaf = keccak256(
 );
 ```
 
+The exact V1 type string is:
+
+```text
+AlphaEngineManageLeafV1(uint256 chainId,address vaultExecutionManager,address fundVault,address decoder,bytes32 decoderCodeHash,address target,bytes32 targetCodeHash,bytes4 selector,uint256 maxNativeValue,bytes32 sanitizedArgumentsHash)
+```
+
 Initial `maxNativeValue` is always zero.
 
 For each executor:
@@ -961,6 +969,13 @@ The Foundry generator must:
 - prove deterministic behavior for 1, 2, 3, 5, and 16 leaves;
 - emit chain, vault, manager, executor, root/version, decoder/target code hashes, human-readable leaves, tree, and proofs;
 - reproduce the artifact byte-for-byte in CI.
+
+Stage 13 implements only this stateless hash/tree/artifact boundary. It caps a
+generated policy at 256 leaves, sorts definitions by leaf hash, rejects
+duplicate leaf hashes and malformed metadata, and represents nested tree/proof
+arrays as deterministic flattened nodes plus offsets. Labels are review
+metadata; the Stage 16 root proposal must separately bind the reviewed artifact
+hash and exact executor.
 
 ### Initial Pendle-only action surface
 
@@ -1432,8 +1447,16 @@ Current status:
 - First-pass implementation changes may already exist in the working tree; the
   historical clean-tree statement does not describe current repository state.
 - Stage 12 adds the immutable FundVault entry/exit share core and USDC manager
-  described above. Merkle hashing, decoder/sanitizers, the execution-manager
-  authority, and Pendle integration remain Stages 13 through 17.
+  described above. Decoder/sanitizers, execution-manager authority, and Pendle
+  integration remain Stages 14 through 17.
+- Stage 13 adds the canonical V1 manage-leaf hash library and deterministic
+  Foundry root/proof generator. Its focused suite covers the independent
+  reference artifact, exact reproduction, 1/2/3/5/16 cardinalities, the
+  256-leaf boundary, odd-node carry, duplicate rejection, proof/root/leaf
+  mutation, and input-order independence. Stage 14 remains responsible for
+  official Pendle verification and the actual decoder/sanitizers. All 13
+  focused tests pass, including three fuzz properties at 10,000 runs each;
+  complete-repository fuzzing and coverage remain final integration gates.
 - Stage 12 focused validation passes 43 unit/fuzz tests and 10 invariants. The
   hardened invariant campaign also passes at 256 runs × depth 128: 327,680
   aggregate randomized calls with zero handler reverts. The shadow model tracks

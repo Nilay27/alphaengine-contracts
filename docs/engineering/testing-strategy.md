@@ -9,6 +9,11 @@ the default fuzz/invariant profile; nightly and release-candidate workflows use
 at least 10,000 fuzz runs and 256 invariant runs at depth 128. GitHub Actions
 and the Foundry setup action are pinned by full commit SHA.
 
+During bounded implementation stages, local validation runs only the affected
+unit/fuzz/invariant contracts at the required depth. Complete-repository fuzz,
+coverage, and release gates remain mandatory at the final integration stage;
+deferring those broad commands does not reduce focused test depth.
+
 ## Required suites
 
 - Hash vectors: `AlphaEngineHashLibrariesTest` compares Solidity against the
@@ -121,6 +126,24 @@ and the Foundry setup action are pinned by full commit SHA.
 - Integration tests must cover immediate USDC deposit/mint, gain/loss vest and
   fee settlement, redemption request/unwind/completion, and an exact capital
   approval through Merkle verification into a pinned Pendle PT action.
+
+### Stage 13 Merkle policy primitives
+
+- `AlphaEngineManageRootGeneratorTest` compares the Solidity leaf/root output
+  with the dependency-free Python reference artifact and reproduces the
+  checked-in JSON byte-for-byte through the Foundry generator.
+- Fixed cardinalities cover 1, 2, 3, 5, and 16 leaves; the maximum 256-leaf
+  generator boundary verifies first, middle, and last proofs.
+- Fuzz properties prove every generated proof verifies, input reordering cannot
+  change the root, and pair hashing is commutative. Mutation tests alter proof,
+  root, leaf, and every security-bearing leaf field.
+- Definitions are sorted by leaf hash and duplicate leaves are rejected. Odd
+  nodes are carried unchanged rather than duplicated. Empty policies, empty
+  labels, zero versions/executors, oversized policies, zero identities/code
+  hashes/selectors, and native value fail with typed errors.
+- This stage is stateless, so state-machine invariant handlers would be
+  artificial. Root-governance, stale-root, replay, and execution invariants are
+  added with `AlphaEngineVaultExecutionManager` in Stage 16.
 
 ## Coverage
 

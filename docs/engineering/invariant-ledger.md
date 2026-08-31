@@ -93,6 +93,27 @@ collapsed: `AlphaEngineFundVault` for custody and shares,
 `AlphaEngineUSDCVaultManager` for USDC deposit/withdrawal and NAV accounting,
 and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
 
+## Merkle policy-generation properties
+
+- A V1 leaf binds chain ID, execution manager, FundVault, decoder and target
+  identities/code hashes, selector, zero native value, and the hash of exact
+  sanitized arguments using `abi.encode`.
+- Leaf hashes are strictly sorted and duplicate definitions are rejected before
+  tree construction. Input definition order cannot change the root, tree, or
+  proofs.
+- Every pair is hashed commutatively in sorted order. An unpaired node is
+  carried unchanged to the next layer and is never duplicated or hashed with
+  itself.
+- Every generated proof reconstructs the root; mutation of a proof node, root,
+  or leaf invalidates verification.
+- Cardinalities 1, 2, 3, 5, 16, and the 256-leaf generator maximum retain valid
+  boundary proofs.
+- The Foundry generator reproduces its checked-in artifact byte-for-byte, while
+  a dependency-free Python implementation independently reproduces all fields.
+- Labels and executor metadata are review/governance metadata rather than leaf
+  inputs. Stage 16 must bind the root to the exact executor and separately
+  commit the reviewed artifact hash before activation.
+
 ## USDC FundVault accounting invariants
 
 - Only the USDC manager can invoke FundVault entry/exit settlement; only the
