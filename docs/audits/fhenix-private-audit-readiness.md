@@ -1,100 +1,88 @@
-# Fhenix Private Audit Readiness
+# Fhenix Internal Review Readiness
 
-- Status: first-pass implementation checkpoint recorded; repository is not yet frozen for audit
-- Audit partner: Fhenix internal security and efficiency review
+- Status: Stage 16 implementation complete; admission-review documentation prepared
+- Review type: Fhenix FHE-efficiency, behavior and basic-security review
 - Designated reviewer: `@liorbond`
-- First-pass implementation checkpoint: `365b3e668217b1f1ca4caede9e6b8fb60526d430`
-- Audit commit: `TBD`
-- Target freeze: after the FundVault pass, consolidated internal security cadence, remediation, and production Fhenix validation
+- Review commit: `TBD at repository handoff`
+- Production claim: none; this is not a full external security audit
 
-## Proposed scope
+The reviewer entry point is
+[`FHENIX_REVIEW.md`](../../FHENIX_REVIEW.md). It contains the product map, exact
+FHE operation inventory, per-call bounds, permission/decryption flow,
+dependencies, known limitations and reproduction commands.
 
-The proposed review scope is the contracts used by AlphaEngine's Fhenix/CoFHE integration after the approved separation:
+## Proposed repository scope
 
-- `AlphaEngineTraderQualificationRegistry`
-- `AlphaEngineCompetitionStrategyManager`
-- `AlphaEngineCapitalStrategyManager`
-- `AlphaEngineConfidentialSwapController`
-- `AlphaEngineConfidentialSwapEscrow`
-- `AlphaEngineConfidentialAssetRegistry`
-- `AlphaEngineConfidentialAssetGateway`
-- `AlphaEngineFHERC20ERC20Wrapper`
-- `AlphaEngineV4SwapExecutor`
-- `AlphaEngineStrategyHashLib` and `AlphaEngineExecutionHashLib`
-- contract-owned interfaces, v2 deployment/manifest tooling, ABIs, layouts,
-  listener surface, and tests required to establish their behavior
+Fhenix may inspect the full sanitized contracts repository for unexpected
+behavior. The FHE-specific performance scope is narrower:
 
-The exact first-pass paths and implementation SHA are recorded in
-`docs/releases/first-pass-implementation-checkpoint.md`. Do not represent this
-document as a frozen audit scope until the final candidate SHA is recorded.
+- `AlphaEngineCompetitionStrategyManager`;
+- `AlphaEngineCapitalStrategyManager`;
+- `AlphaEngineConfidentialSwapController`;
+- `AlphaEngineConfidentialSwapEscrow`;
+- `AlphaEngineFHERC20ERC20Wrapper`;
+- the pinned `cofhe-contracts` and `fhenix-confidential-contracts`
+  implementations reached by those contracts.
 
-## Explicitly out of scope
+Qualification, USDC accounting, Merkle policy, decoder/sanitizer and FundVault
+execution contracts remain useful to the behavior/basic-security review, but
+they execute no FHE operations.
 
-- the future `AlphaEngineFundVault` and all LP share/NAV/fee/allocation accounting;
-- listener, SDK, simulation, ranking, and frontend repositories;
-- AVS/EigenLayer middleware;
-- batching, leverage loops, arbitrage, generic UEI, and arbitrary-call execution;
-- production/mainnet deployment transactions;
-- economic or legal review of AlphaEngine's fund-management model.
+## Review questions
 
-## Trust and privilege assumptions to confirm
+1. Are input verification, ACL grants, decrypt requests and inherited FHERC20
+   operations compatible with the intended Fhenix mainnet package/network?
+2. Are the encrypted operation types and explicit per-call bounds acceptable
+   for expected production frequency?
+3. Is the temporary encrypted-handle unshield extension compatible with the
+   production wrapper and decryption/claim lifecycle?
+4. Are permission grants and operator-rotation incident assumptions correct?
+5. Does Fhenix require any additional allowlist identity, network address,
+   compiler/EVM setting, integration test or monitoring control?
 
-- Proxy-admin and contract-owner addresses are trusted administrative roles.
-- Strategy and swap listener/operator roles are trusted to perform only their documented family-specific actions.
-- The swap executor is callable only through the authorized swap custody boundary.
-- Protocol-specific PoolManager behavior and official Fhenix contracts are external dependencies.
-- No intent controller holds token custody.
-- Swap escrow custody is temporary and per intent; it is not pooled LP custody.
+## Known limitations to disclose
 
-## Known integration considerations
+- Foundry uses a repository-owned Task Manager compatibility harness. A real
+  production-network permission/decryption test remains a release gate.
+- Previous ciphertext access cannot be revoked when an FHE operator rotates.
+- Competition public score decryption is asynchronous and intentionally bounded
+  to 96 decrypt tasks per request.
+- Stage 17 pinned Pendle market enter/hold/exit fork integration is pending.
+- Consolidated X-Ray, Solidity Auditor, remediation, final fuzzing and
+  independent external audit are not complete.
+- Deferred swap-hardening hypotheses remain tracked in the canonical plan and
+  cannot be omitted from the later release review.
 
-- Production contracts are pinned to the exact dependency commits recorded by git submodules.
-- Foundry tests use a repo-owned CoFHE task-manager compatibility harness because upstream Foundry mock parity does not currently match the pinned production package cleanly.
-- `AlphaEngineFHERC20ERC20Wrapper` contains a temporary encrypted-amount unshield extension required by the current settlement path; its production compatibility and removal trigger must be reviewed with Fhenix.
-- Official package behavior is authoritative over stale or untagged documentation.
-- The target Fhenix network, chain ID, canonical contract addresses, supported compiler/EVM profile, and package-version matrix must be confirmed before deployment.
+## Handoff checklist
 
-## Audit package checklist
+- [x] Separate strategy, swap, custody and vault execution responsibilities.
+- [x] Document every AlphaEngine-owned FHE entry point and bound.
+- [x] Include inherited FHERC20 encrypted balance operations in review scope.
+- [x] Record exact dependency commits in the reviewer guide.
+- [x] Link contract-family guides, diagrams, tests and invariants.
+- [x] State the local-mock/production-network gap.
+- [x] Run tracked secret-path, private-key, `.env` and broadcast-artifact hygiene checks.
+- [ ] Record the immutable review commit SHA and grant reviewer access.
+- [ ] Confirm target Fhenix network/package/address matrix.
+- [ ] Run the requested production Fhenix integration check.
+- [ ] Record findings and remediation against the immutable review SHA.
 
-- [ ] Add the designated reviewer to the private repository.
-- [x] Complete the strategy/confidential-swap separation.
-- [x] Record the first-pass implementation checkpoint and Stage 10 evidence.
-- [ ] Record the audit commit SHA and branch/tag.
-- [x] List exact first-pass source and script paths.
-- [ ] Preserve dependency commit SHAs.
-- [x] Capture first-pass ABI hashes/artifacts and listener surface.
-- [x] Capture storage layouts for each first-pass upgradeable contract.
-- [x] Record first-pass test, fuzz, invariant, integration, and coverage results.
-- [ ] Record known findings, limitations, and accepted external assumptions.
-- [ ] Record testnet deployment addresses separately from any future mainnet manifest.
-- [x] Confirm fresh deployment chain/config checks and independent ProxyAdmins.
-- [ ] Confirm no secrets, `.env` values, private keys, or broadcast artifacts are committed.
-
-## Reproducible verification
+## Reproduce
 
 ```bash
 git submodule update --init --recursive
 forge fmt --check
 forge build --offline
 forge test --offline
-forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
+python3 script/reference/alphaengine_listener_surface.py --check
 git diff --check
+git submodule status --recursive
 ```
-
-Record the exact command outputs and tool versions against the frozen audit commit.
 
 ## Immutable-review protocol
 
-- The reviewer audits one exact commit SHA.
-- Do not force-push, amend, squash, or rewrite the frozen audit history.
-- Each finding receives a separate traceable remediation commit.
-- Any post-audit deployment commit requires an explicit delta review from the frozen SHA.
-- Do not describe a deployment as audited if its bytecode comes from an unreviewed commit.
-
-## Open confirmations for Fhenix
-
-- Target mainnet launch window and chain/network identifiers.
-- Required whitelist identities and repository permissions.
-- Expected Fhenix package and contract-address versions.
-- Whether Fhenix wants only the confidential-swap/FHE surface or the complete contracts repository included in its internal review report.
-- Preferred format for findings, remediation responses, and final acknowledgement.
+- Review one exact commit SHA; do not force-push or rewrite it.
+- Give each finding and remediation a traceable commit.
+- Request explicit delta review for any post-review source change.
+- Verify deployed bytecode against the final reviewed build before making any
+  review or readiness claim.

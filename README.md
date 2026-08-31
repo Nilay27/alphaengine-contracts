@@ -1,98 +1,130 @@
-# alphaengine-contracts
+# AlphaEngine Contracts
 
-Foundry-only Solidity repo for AlphaEngine on-chain intent entrypoints.
+> **Private strategies. Open competition. Better yield.**
 
-The approved restructuring is implemented from the single canonical plan at
-`docs/engineering/strategy-manager-fund-vault-implementation-plan.md`.
+AlphaEngine is a confidential alpha network for on-chain finance. This
+repository contains the Solidity contracts for three deliberately separate
+surfaces:
 
-Implementation has reached the Stage 11 first-pass checkpoint. The independent
-Qualification Registry, Competition Strategy Manager, Capital Strategy
-Manager, confidential asset registry/gateway, confidential swap controller,
-swap escrow, and bound V4 execution path are implemented and tested locally.
-Fresh paused deployment, manifest, governance-action, ABI/topic, and listener
-cutover tooling is implemented, and the complete first-pass validation evidence
-is recorded under `docs/releases/`. The fresh contracts have not been deployed
-to a public testnet, and the second-pass FundVault stack is not yet implemented.
+1. private strategy competition and capital authorization;
+2. a public, USDC-denominated yield vault with policy-constrained execution;
+3. optional user-facing confidential swaps.
 
-## Historical testnet scope
+The public product documentation at [docs.alphaengine.trade](https://docs.alphaengine.trade/)
+provides product context. This repository is the source of truth for the
+implemented contract architecture and security boundaries.
 
-- Historical upgradeable testnet contracts: `AlphaEngineIntentController` and `AlphaEngineConfidentialVault`
-- Current TA / strategy-allocation intent family
-- Current confidential swap-intent submit / execute / refund phase
-- One listener/operator address
-- Lifecycle:
-  - strategy intents: `submit + cancel`
-  - swap intents: `submit + execute`, with terminal `refund` rescue for expired or pause-blocked live swaps
-- EigenCompute-operated only
-- Encrypted market selection is submitted as an encrypted `marketId` handle, not a plaintext market address
-- Encrypted component handles stored/emitted as `bytes32[]` using the current CoFHE Solidity package
-- Swap input amounts are submitted as encrypted FHERC20 `InEuint64` amounts and locked through `AlphaEngineConfidentialVault`
-- Foundry tests use a repo-owned CoFHE task-manager compatibility harness for the exact v1 surface we rely on
+## Start here
 
-## Approved restructuring
+| Reader | Guide |
+|---|---|
+| Fhenix engineering reviewer | [Fhenix review guide](FHENIX_REVIEW.md) |
+| Strategy and FHE lifecycle | [Strategy contracts](src/strategy/README.md) |
+| Confidential swap lifecycle | [Swap contracts](src/swap/README.md) |
+| Vault accounting and execution | [Vault contracts](src/vault/README.md) |
+| Detailed implementation decisions | [Canonical implementation plan](docs/engineering/strategy-manager-fund-vault-implementation-plan.md) |
+| Test design and security properties | [Testing strategy](docs/engineering/testing-strategy.md) and [invariant ledger](docs/engineering/invariant-ledger.md) |
 
-The combined controller and swap-custody implementation has been removed from
-the active source tree after full functional replacement. Its deployment
-manifest, ABI, storage layouts, addresses, and Git history remain immutable
-historical evidence. The replacement boundaries are:
+## System map
 
-- strategy intents remain an AlphaEngine strategy subsystem;
-- individual-user confidential swaps move to a dedicated swap controller and transient escrow module;
-- wrapper administration now lives in an append-only confidential asset
-  registry, while ordinary shield/unshield convenience calls use a separate
-  non-custodial gateway;
-- the existing V4 executor remains protocol-specific and separately bounded; and
-- the future pooled fund is a separate second pass: `AlphaEngineFundVault`
-  holds assets and shares, `AlphaEngineUSDCVaultManager` owns USDC-only
-  deposits/withdrawals and NAV accounting, and
-  `AlphaEngineVaultExecutionManager` owns Merkle-verified deployment policy.
+```mermaid
+flowchart LR
+    subgraph Strategy[Private strategy lifecycle]
+        Trader --> Competition[Competition Strategy Manager]
+        Competition --> Registry[Trader Qualification Registry]
+        Registry --> Capital[Capital Strategy Manager]
+    end
 
-The earlier single strategy-controller separation proposal is retained as
-historical context in `docs/engineering/strategy-swap-separation-plan.md` and
-is superseded by the current StrategyManager/FundVault implementation plan.
+    subgraph Vault[Public USDC vault]
+        LP[USDC depositor] --> VaultManager[USDC Vault Manager]
+        VaultManager --> FundVault[FundVault custody + shares]
+        Capital --> ExecutionManager[Vault Execution Manager]
+        Keeper[Executor / keeper] --> ExecutionManager
+        ExecutionManager --> FundVault
+        FundVault --> ApprovedProtocols[Proof-approved protocol calls]
+    end
 
-## Non-goals in V1
+    subgraph Swap[Optional confidential swap]
+        SwapUser[Swap user] --> SwapController[Confidential Swap Controller]
+        SwapController --> SwapEscrow[Temporary FHERC20 escrow]
+        SwapEscrow --> V4Executor[Uniswap V4 executor]
+    end
+```
 
-- Uniswap hooks
-- AVS/EigenLayer middleware registration
-- Result posting
-- Swap batching, leverage-loop, arbitrage, or UEI families
-- Hardhat scaffold
+Competition qualification makes a **trader eligible**; it never approves a
+strategy or allocates funds automatically. Every capital intent is submitted
+and evaluated independently, then bound to one exact, expiring execution
+commitment. Vault execution additionally requires an active Merkle policy,
+valid call proofs, decoder approval, live code-hash checks, and risk limits.
 
-## Toolchain and CI
+The confidential-swap path is an independent product. It does not execute
+FundVault capital and can be deployed or paused separately.
 
-- Canonical CI Foundry release: `v1.7.1`.
-- GitHub Actions are commit-pinned and run with read-only repository
-  permissions.
-- Pull-request CI runs formatting, build/size, the complete test suite,
-  coverage, repository hygiene, ABI parity, and storage-layout parity.
-- Nightly and release-candidate workflows increase fuzz and invariant runs.
-- The current local baseline was originally captured on the historical nightly
-  recorded in `docs/audits/internal/baseline-49d96e8-evidence.md`; CI is the
-  authoritative stable-toolchain gate.
+## Component ownership
 
-## Current Fhenix testing stance
+| Area | Primary contracts | Boundary |
+|---|---|---|
+| Competition | `AlphaEngineCompetitionStrategyManager` | Encrypted submissions and scores, public ranks, post-finalization score reveal |
+| Qualification | `AlphaEngineTraderQualificationRegistry` | Versioned, expiring, revocable trader eligibility |
+| Capital | `AlphaEngineCapitalStrategyManager` | Fresh encrypted intents and exact one-time execution authorization |
+| Vault accounting | `AlphaEngineFundVault`, `AlphaEngineUSDCVaultManager` | USDC custody, shares, deposits, asynchronous redemptions, reported P&L and fee vesting |
+| Vault execution | `AlphaEngineVaultExecutionManager`, decoders | Merkle policy, replay protection, calldata checks and trader/asset limits |
+| Confidential swap | controller, escrow, asset registry/gateway, FHERC20 wrapper, V4 executor | Bound route execution and temporary confidential custody |
 
-- Production contracts stay pinned to the current `cofhe-contracts` package.
-- The upstream Foundry mock wrapper is not used in v1 because it is not aligned cleanly with the current contract package.
-- Local Foundry tests cover encrypted input verification, handle storage, and permission grants through a repo-owned mock task manager instead.
+## FHE boundary
 
-## Listener-facing contract surface
+- Strategy contracts verify encrypted `euint128` inputs, register access, and
+  store encrypted `euint32` evaluation scores. They perform no encrypted
+  arithmetic or encrypted division.
+- Competition scores can be requested for asynchronous public decryption only
+  after finalization, in bounded batches.
+- Confidential swaps use `euint64` FHERC20 amounts. The AlphaEngine controller
+  verifies and permissions the input; the official FHERC20 dependency performs
+  bounded encrypted balance operations.
+- Vault accounting, Merkle verification, risk checks, and protocol execution
+  use ordinary Solidity and contain no FHE operations.
 
-- Source ABIs live under `ABI/v2/`; the canonical generated selector, typed
-  error, and event-topic map is `ABI/v2/listener-surface.json`.
-- Listener cutover, dual-read, reorg, deduplication, and getter-reconciliation
-  requirements are documented in `docs/migrations/v2-listener-cutover.md`.
-- Competition qualification never implies capital approval. Capital and swap
-  consumers use their independent event, nonce, pause, and lifecycle domains.
+See [FHENIX_REVIEW.md](FHENIX_REVIEW.md) for the operation inventory, limits,
+permission graph, dependencies, and reproduction commands.
 
-## Commands
+## Implementation status
+
+Implementation is complete through **Stage 16** of the canonical plan:
+
+- separate competition, qualification, capital, and confidential-swap paths;
+- USDC FundVault accounting with immediate deposits and asynchronous redemption;
+- ERC20, ERC4626, and current Pendle RouterV4 PT decoder/sanitizers;
+- deterministic Merkle policy artifacts and the immutable vault execution manager;
+- focused unit, fuzz, invariant, and integration coverage for each stage.
+
+No public-network deployment is performed by this repository state. Stage 17
+still requires pinned real-market Pendle enter/hold/exit fork integration.
+Consolidated X-Ray, Solidity Auditor, remediation, final fuzzing, production
+Fhenix validation, and release freeze remain later gates. This codebase must
+not be described as production-ready or externally audited.
+
+## Build and verify
+
+Canonical CI Foundry release: `v1.7.1`.
 
 ```bash
 git submodule update --init --recursive
 forge fmt --check
 forge build --offline
 forge test --offline
-forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
 python3 script/reference/alphaengine_listener_surface.py --check
+git diff --check
 ```
+
+Release profiles increase fuzz and invariant runs; see
+[testing-strategy.md](docs/engineering/testing-strategy.md). Generated listener
+ABIs live under [`ABI/v2/`](ABI/v2/), and deployment/cutover behavior is
+documented under [`docs/migrations/`](docs/migrations/).
+
+## Historical evidence
+
+The retired mixed `AlphaEngineIntentController` and
+`AlphaEngineConfidentialVault` are no longer active source. Their manifest,
+ABI, layouts, addresses, and Git history remain preserved as historical
+evidence. Fresh contracts use independent storage, nonces, pause domains,
+roles, ABIs, and deployment addresses; no legacy storage is reinterpreted.

@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-09-01 — Fhenix reviewer documentation
+
+- Replaced the stale root README with a Stage 16 system map that distinguishes
+  private strategy evaluation, the public USDC FundVault, and optional
+  confidential swaps.
+- Added `FHENIX_REVIEW.md` as the compact repository entry point for Fhenix's
+  permissioned-mainnet admission review. It inventories AlphaEngine-owned and
+  inherited FHERC20 operations, hard bounds, permissions, custody boundaries,
+  pinned dependencies, known limitations, and reproduction commands.
+- Added contract-family READMEs for strategy, confidential swap, and FundVault
+  modules, including lifecycle/sequence diagrams and focused test links.
+- Reconciled terminology with `docs.alphaengine.trade` while treating current
+  repository source as authoritative where public pages still describe the
+  retired combined controller or pre-implementation guarded-vault design.
+- Updated Fhenix review readiness to include the implemented vault stack in the
+  repository behavior review while making clear that it has no FHE operations.
+  No contract, ABI, deployment, storage layout, or test behavior changed.
+
 ## 2026-09-01 — Stage 16 Merkle-verified vault execution
 
 - Implemented the immutable `AlphaEngineVaultExecutionManager` between exact
