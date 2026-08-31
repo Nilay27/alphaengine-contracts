@@ -1,5 +1,33 @@
 # Development Log
 
+## 2026-08-31 — Stage 15 immutable FundVault execution boundary
+
+- Implemented the reserved `executeBatch` FundVault surface with a permanently
+  one-time-linked execution manager, a 16-call cap, exact array validation,
+  preflight contract checks, ordered return data, typed downstream failures,
+  and transaction-wide rollback.
+- Preserved selector-disjoint authority: only the USDC manager can mint/burn or
+  settle entry/exit, while only the execution manager can invoke external
+  batches. Batches reject the FundVault and every accounting, execution,
+  ownership, emergency, and recovery control-plane address as a target.
+- Added one-time emergency authority and recovery-vault configuration. Recovery
+  is pause-only, transfers an entire ERC20 balance with an exact receipt check,
+  cannot move FundVault shares, and permanently prevents the old vault from
+  being unpaused after the first successful migration.
+- Added focused unit/fuzz coverage and a stateful execution handler that checks
+  successful effects against an independent ghost total, deliberately fails a
+  later batch call to prove earlier effects roll back, and explicitly validates
+  the expected typed failures without unchecked catches.
+- The focused suite passes 12 unit/fuzz tests, including 10,000 fuzz cases. Four
+  stateful invariants pass at 256 runs x depth 128 (131,072 aggregate calls)
+  with zero handler reverts. The 43 existing accounting unit/fuzz tests and 10
+  accounting invariants also remain green. Combined focused coverage reaches
+  92.59% of FundVault lines and 100% of its functions; additional maximum-batch
+  and invalid-authority/recovery branches were exercised afterward.
+- Stage 15 completed owner review and is ready for its bounded stage commit.
+  Merkle proofs, roots, capital consumption, replay, and risk limits remain
+  exclusively Stage 16.
+
 ## 2026-08-31 — Stage 14 standard and Pendle RouterV4 decoders
 
 - Added a deterministic `sanitize(bytes)` interface and separate immutable

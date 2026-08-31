@@ -9,6 +9,9 @@ import {AlphaEngineFundVault} from "src/vault/AlphaEngineFundVault.sol";
 import {AlphaEngineUSDCVaultManager} from "src/vault/AlphaEngineUSDCVaultManager.sol";
 import {USDCVaultInvariantHandler} from "test/handlers/USDCVaultInvariantHandler.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
+import {
+    MockFundVaultExecutionManager, MockRecoveryVault
+} from "test/mocks/MockFundVaultExecution.sol";
 
 contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
     address private constant FEE_RECIPIENT = address(0xFEE);
@@ -35,6 +38,8 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
         handler = new USDCVaultInvariantHandler(usdc, fundVault, manager, FEE_RECIPIENT, STRATEGY);
 
         fundVault.setUsdcManager(address(manager));
+        fundVault.setExecutionManager(address(new MockFundVaultExecutionManager(address(this))));
+        fundVault.setEmergencyConfiguration(address(this), address(new MockRecoveryVault()));
         fundVault.unpause();
         manager.setNavReporter(address(handler));
         manager.unpause();

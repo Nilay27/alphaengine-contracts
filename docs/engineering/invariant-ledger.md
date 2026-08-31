@@ -143,7 +143,7 @@ and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
 ## USDC FundVault accounting invariants
 
 - Only the USDC manager can invoke FundVault entry/exit settlement; only the
-  execution manager can invoke `manage`.
+  execution manager can invoke `executeBatch`.
 - Total share supply equals user balances plus shares escrowed by pending
   withdrawals.
 - Manager-accounted assets equal cumulative deposits plus reported profit minus
@@ -175,6 +175,13 @@ and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
 - Illiquid redemption completion reverts atomically; a zero-value redemption
   with zero minimum retains a terminal share-burn path.
 - Neither manager retains assets outside an atomic operation.
+- FundVault batches are nonempty, capped at 16, order-preserving, and atomic;
+  any failed call restores all earlier effects in the batch.
+- The FundVault, USDC manager, execution manager, owner, emergency authority,
+  and recovery vault can never be batch targets.
+- Emergency recovery is pause-only, exact-receipt, and directed only to the
+  precommitted recovery vault. The first successful recovery permanently
+  disables unpause, and the FundVault share token is not recoverable.
 - No unproved, stale, mismatched, expired, or replayed capital bundle reaches a
   FundVault external call.
 - A failed external execution restores every replay flag atomically, and a

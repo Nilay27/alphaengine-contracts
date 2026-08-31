@@ -10,6 +10,9 @@ import {IAlphaEngineFundVault} from "src/interfaces/IAlphaEngineFundVault.sol";
 import {AlphaEngineFundVault} from "src/vault/AlphaEngineFundVault.sol";
 import {AlphaEngineUSDCVaultManager} from "src/vault/AlphaEngineUSDCVaultManager.sol";
 import {MockERC20, MockSelectiveFeeERC20} from "test/mocks/MockERC20.sol";
+import {
+    MockFundVaultExecutionManager, MockRecoveryVault
+} from "test/mocks/MockFundVaultExecution.sol";
 
 contract AlphaEngineUSDCVaultManagerTest is Test {
     uint64 private constant VESTING_PERIOD = 1 days;
@@ -24,6 +27,8 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
     MockERC20 private usdc;
     AlphaEngineFundVault private fundVault;
     AlphaEngineUSDCVaultManager private manager;
+    MockFundVaultExecutionManager private executionManager;
+    MockRecoveryVault private recoveryVault;
 
     function setUp() public {
         vm.roll(100);
@@ -38,7 +43,11 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
             VESTING_PERIOD,
             PERFORMANCE_FEE_BPS
         );
+        executionManager = new MockFundVaultExecutionManager(address(this));
+        recoveryVault = new MockRecoveryVault();
         fundVault.setUsdcManager(address(manager));
+        fundVault.setExecutionManager(address(executionManager));
+        fundVault.setEmergencyConfiguration(address(this), address(recoveryVault));
         fundVault.unpause();
         manager.unpause();
 
@@ -74,8 +83,23 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         assertEq(accounting.performanceFeeBps(), PERFORMANCE_FEE_BPS);
         assertEq(accounting.nextRedemptionId(), 1);
 
-        vm.expectRevert(AlphaEngineFundVault.ZeroAddress.selector);
+        vm.expectRevert(AlphaEngineFundVault.IncompleteConfiguration.selector);
         vault.unpause();
+
+        vault.setUsdcManager(address(accounting));
+        vm.expectRevert(AlphaEngineFundVault.IncompleteConfiguration.selector);
+        vault.unpause();
+
+        MockFundVaultExecutionManager localExecutionManager =
+            new MockFundVaultExecutionManager(address(this));
+        vault.setExecutionManager(address(localExecutionManager));
+        vm.expectRevert(AlphaEngineFundVault.IncompleteConfiguration.selector);
+        vault.unpause();
+
+        MockRecoveryVault localRecoveryVault = new MockRecoveryVault();
+        vault.setEmergencyConfiguration(address(this), address(localRecoveryVault));
+        vault.unpause();
+        assertFalse(vault.paused());
     }
 
     function testConstructorsRejectInvalidAccountingConfiguration() public {
@@ -343,7 +367,12 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
             VESTING_PERIOD,
             PERFORMANCE_FEE_BPS
         );
+        MockFundVaultExecutionManager feeExecutionManager =
+            new MockFundVaultExecutionManager(address(this));
+        MockRecoveryVault feeRecoveryVault = new MockRecoveryVault();
         feeVault.setUsdcManager(address(feeManager));
+        feeVault.setExecutionManager(address(feeExecutionManager));
+        feeVault.setEmergencyConfiguration(address(this), address(feeRecoveryVault));
         feeVault.unpause();
         feeManager.unpause();
 

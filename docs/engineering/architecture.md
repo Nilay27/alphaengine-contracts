@@ -29,7 +29,13 @@
   current Pendle RouterV4 PT decoder/sanitizers. The Pendle decoder binds the
   router, PT facet, FundVault, and deployment-time code hashes in immutable
   runtime bytecode and rechecks selector dispatch before every decode. Root
-  governance and FundVault execution remain later stages.
+  governance and Merkle-verified orchestration remain later stages.
+- Stage 15 completes the immutable FundVault call boundary. The USDC manager
+  retains only entry/exit settlement authority; a separately one-time-linked
+  execution manager receives only the capped atomic `executeBatch` surface.
+  Every control-plane address is an invalid batch target. Pause-only emergency
+  migration sends complete exact ERC20 balances to one precommitted recovery
+  vault and permanently disables unpause after recovery begins.
 - Transparent proxies are canonical for the five stateful first-pass domains;
   registry, gateway, wrapper, and swap executor remain non-upgradeable.
 - Competition, capital, and confidential swap use independent lifecycles,

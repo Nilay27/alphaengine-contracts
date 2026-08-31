@@ -167,6 +167,26 @@ deferring those broad commands does not reduce focused test depth.
   exhaustive mutation tests. Root, replay, batch, and atomic execution
   invariants begin in Stage 16.
 
+### Stage 15 FundVault execution suites
+
+- Unit tests prove one-time and complete authority configuration, accounting/
+  execution selector disjointness, owner and emergency pause behavior, ordered
+  batch results, a 16-call bound, array/target preflight, and rejection of every
+  FundVault control-plane target.
+- Failure tests execute a successful state change before a forced downstream
+  revert and require the exact typed `BatchCallFailed` context plus complete
+  rollback of the earlier effect.
+- Recovery tests require the emergency authority, paused state, a nonzero
+  recoverable ERC20, exact receipt by the precommitted recovery vault, and an
+  irreversible post-recovery pause. FundVault share tokens cannot be migrated
+  through the asset-recovery selector.
+- `AlphaEngineFundVaultExecution.invariant.t.sol` uses an independent successful
+  call total and explicit expected-failure inspection. It proves exact external
+  effects, atomic failure rollback, accounting-manager call-graph isolation,
+  and immutable share/control-plane state with no handler reverts.
+- Stage 16 adds proof, root, replay, capital-consumption, and risk-envelope
+  state machines; Stage 15 tests do not mock those controls into the FundVault.
+
 ## Coverage
 
 - `forge coverage` is mandatory.

@@ -14,13 +14,13 @@ The recommended architecture uses independent contracts for competition, capital
 
 Competition and capital managers share only interfaces and stateless hashing libraries. They do not inherit a storage-bearing `BaseStrategyManager`.
 
-Implementation status as of 2026-08-31: Stages P0 through 13 are implemented.
+Implementation status as of 2026-08-31: Stages P0 through 14 are implemented
+and committed through `1985b0c`.
 Stage 13 adds deterministic Merkle hashing and root generation. Decoder/
 sanitizers, root governance, and vault execution are not part of Stage 13.
-Stage 14 ERC20, ERC4626, and current Pendle RouterV4 decoder/sanitizers are
-implemented in the working tree and await the required owner-review checkpoint
-before the stage commit. Root governance and vault execution remain later
-stages.
+Stage 15's immutable FundVault execution surface is implemented and has
+completed its owner-review checkpoint. Root governance, capital consumption,
+replay, and risk enforcement remain Stage 16.
 Stage 7 adds the append-only confidential asset registry, non-custodial
 shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
 fresh bound swap controller, exact execution-data and salted minimum-output
@@ -682,7 +682,7 @@ Production defaults:
 | NAV reporter | Dedicated reporting service/Safe | Submit bounded NAV reports for finalized blocks | Move assets, execute strategies, set roots, mint shares directly |
 | USDC settlement operator | Deposits are user-called; redemption completion is permissionless once liquidity/minimum conditions hold | Complete the exact pending redemption | Choose P&L, alter recipients, execute protocol calls |
 | FundVault accounting manager | `AlphaEngineUSDCVaultManager` | Invoke only entry/exit settlement selectors | Invoke `manage`, set roots, evaluate strategies |
-| FundVault execution manager | `AlphaEngineVaultExecutionManager` | Invoke only the atomic `manage` selector | Mint/burn shares, process deposits/withdrawals, report NAV |
+| FundVault execution manager | `AlphaEngineVaultExecutionManager` | Invoke only the atomic `executeBatch` selector | Mint/burn shares, process deposits/withdrawals, report NAV |
 | Recovery authority | Emergency Safe | Pause and migrate supported assets only to a precommitted replacement custody vault that preserves shareholder claims | Send assets to treasury or choose an arbitrary recipient |
 
 The same production signer must not simultaneously control admin, evaluator, root, and execution authority.
@@ -1471,6 +1471,12 @@ Current status:
   router/facet code hashes, and live selector mappings pass the opt-in fork
   parity test. A production market/PT/USDC route remains a Stage 17 deployment
   input and is not silently selected by the generic decoder.
+- Stage 15 adds the FundVault's permanently one-time-linked execution manager,
+  capped atomic `executeBatch` surface, protected control-plane targets,
+  one-time emergency/recovery configuration, exact full-balance ERC20
+  migration, and irreversible post-recovery pause. Its focused suite passes 12
+  unit/fuzz tests and four invariants at 256 runs x depth 128 with zero handler
+  reverts. Merkle verification and risk enforcement remain Stage 16.
 - Stage 12 focused validation passes 43 unit/fuzz tests and 10 invariants. The
   hardened invariant campaign also passes at 256 runs × depth 128: 327,680
   aggregate randomized calls with zero handler reverts. The shadow model tracks
