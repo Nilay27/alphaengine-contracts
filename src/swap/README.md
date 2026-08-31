@@ -80,7 +80,7 @@ flowchart LR
     Condition -- Yes --> Proof[Verify decrypt result]
     Proof --> Claim[Claim input underlying]
     Claim --> Reshield[Reshield to original trader]
-    Reshield --> Refunded[Refunded; live lock decremented]
+    Reshield --> Refunded[Refunded and live lock decremented]
 ```
 
 ## FHE and privacy boundary

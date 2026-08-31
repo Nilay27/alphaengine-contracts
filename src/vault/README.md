@@ -31,9 +31,9 @@ sequenceDiagram
     Manager->>Manager: preview shares at current available-assets rate
     Manager->>Vault: pull USDC and mint shares
     Reporter->>Manager: report profit/loss + epoch + reference block + hash
-    Note over Manager: Profit vests linearly; loss applies immediately
-    LP->>Manager: request redemption; shares locked in Vault
-    Note over Vault: Capital may still be deployed; request remains pending
+    Note right of Manager: Profit vests linearly and loss applies immediately
+    LP->>Manager: request redemption and lock shares in Vault
+    Note right of Vault: Capital may remain deployed while request is pending
     Manager->>Vault: complete only after enough idle USDC exists
     Vault-->>LP: burn locked shares and transfer USDC
 ```
