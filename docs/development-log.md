@@ -1,5 +1,34 @@
 # Development Log
 
+## 2026-08-31 — Stage 14 standard and Pendle RouterV4 decoders
+
+- Added a deterministic `sanitize(bytes)` interface and separate immutable
+  decoders for finite ERC20 approval/reset, standard ERC4626 entry/exit, and
+  direct Pendle RouterV4 PT entry/unwind.
+- ERC4626 `deposit`, `mint`, `withdraw`, and `redeem` require the FundVault as
+  receiver and, for exits, owner. This reusable decoder does not enable any
+  target until a reviewed target/code-hash leaf is included in a policy root.
+- Replaced the stale Veda-POC Pendle assumption with official current evidence:
+  `pendle-core-v2-public` commit `0fcebf79...`, Arbitrum RouterV4, and the live PT
+  action facet at fixed block `500310277`.
+- Pendle RouterV4 can remap selectors without changing router bytecode. The
+  decoder therefore snapshots and rechecks router/facet code hashes and both
+  live selector mappings, in addition to rejecting aggregators, limit orders,
+  scaling, arbitrary recipients, zero amounts/minimums, invalid approximation,
+  oversized/noncanonical calldata, and unsupported selectors.
+- The focused suite passes 18 unit/fuzz tests, including three properties at
+  10,000 runs each (30,000 randomized cases). Focused production coverage is
+  100% for the ERC20 and Pendle decoders and above 90% for every ERC4626
+  metric. Generated ABI parity and runtime-size checks also pass; the decoder
+  runtimes are 487, 969, and 4,812 bytes respectively.
+- The opt-in fixed-block fork test
+  verifies both official PT selectors, router/facet code hashes, selector
+  dispatch, constructor pins, and local ABI parity. Actual market/PT/USDC
+  execution remains Stage 17 and no external deployment occurred.
+- Exact dependency hashes, action restrictions, and remaining market-selection
+  input are recorded in
+  `docs/engineering/pendle-v4-dependency-action-matrix.md`.
+
 ## 2026-08-31 — Stage 13 deterministic Merkle policy primitives
 
 - Added `AlphaEngineManageLeafHashLib` with the canonical V1 `abi.encode` leaf

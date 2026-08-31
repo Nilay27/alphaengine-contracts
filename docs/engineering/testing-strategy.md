@@ -145,6 +145,28 @@ deferring those broad commands does not reduce focused test depth.
   artificial. Root-governance, stale-root, replay, and execution invariants are
   added with `AlphaEngineVaultExecutionManager` in Stage 16.
 
+### Stage 14 decoder/sanitizer suites
+
+- Focused unit/fuzz tests cover the ERC20 finite-approval/zero-reset surface,
+  prohibit unlimited approvals and unsupported transfer selectors, and prove
+  that approval amounts cannot alter the spender-only policy arguments.
+- ERC4626 tests cover `deposit`, `mint`, `withdraw`, and `redeem`; zero amounts,
+  arbitrary receivers/owners, unsupported selectors, and noncanonical static
+  calldata fail closed. Fuzzing proves amounts do not alter the FundVault-only
+  address policy.
+- Pendle RouterV4 tests lock the official PT selectors and exercise every
+  receiver, market, token-pair, amount, minimum-output, approximation,
+  aggregator, scaling, limit-order, canonical-calldata, router-code,
+  facet-code, and selector-remap boundary. Dynamic calldata is capped before
+  decoding.
+- The opt-in fork suite runs at Arbitrum block `500310277` and verifies the live
+  RouterV4 and PT-facet code hashes, both selector mappings, constructor pins,
+  and local ABI encoding. Stage 17 owns actual market entry/unwind parity.
+- Decoders are stateless, so state-machine handlers would be artificial.
+  Their invariants are expressed as deterministic fuzz properties and
+  exhaustive mutation tests. Root, replay, batch, and atomic execution
+  invariants begin in Stage 16.
+
 ## Coverage
 
 - `forge coverage` is mandatory.

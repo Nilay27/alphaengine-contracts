@@ -114,6 +114,32 @@ and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
   inputs. Stage 16 must bind the root to the exact executor and separately
   commit the reviewed artifact hash before activation.
 
+## Decoder/sanitizer invariants
+
+- Every decoder rejects calldata shorter than a selector and every selector
+  outside its explicit action set.
+- Sanitized arguments contain only security-bearing policy addresses in a
+  deterministic `abi.encode` order. Exact amounts and full calldata remain
+  bound by the execution commitment rather than disappearing from policy.
+- ERC20 permits only finite `approve` and zero reset. The target token and its
+  code hash are leaf fields; the spender is a sanitized argument.
+- ERC4626 entry requires the immutable FundVault as receiver. Exit requires it
+  as both receiver and owner. No amount can change those sanitized arguments.
+- Pendle PT entry and exit require the immutable FundVault receiver, nonzero
+  market/token/input/minimum output, direct identical token/SY input or output,
+  empty aggregator/scaling data, empty limit-order data, zero native value, and
+  canonical calldata.
+- Pendle approximation bounds prevent zero or unbounded iterations and invalid
+  search ranges. Approximation and amounts are still committed exactly in the
+  call hash.
+- Pendle RouterV4 and expected PT-facet code hashes remain equal to the
+  constructor snapshots, and each permitted selector continues resolving to
+  the expected facet. Any drift makes sanitization unreachable until a new
+  decoder and reviewed root are deployed.
+- Decoder immutables are embedded in runtime bytecode, and the Merkle leaf
+  binds that decoder code hash. Deployments with different FundVault/router/
+  facet pins therefore cannot share a decoder leaf accidentally.
+
 ## USDC FundVault accounting invariants
 
 - Only the USDC manager can invoke FundVault entry/exit settlement; only the

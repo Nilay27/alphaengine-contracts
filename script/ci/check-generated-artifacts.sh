@@ -115,6 +115,18 @@ check_abi \
     out/AlphaEngineUSDCVaultManager.sol/AlphaEngineUSDCVaultManager.json \
     ABI/v2/AlphaEngineUSDCVaultManager.json \
     usdc-vault-manager
+check_abi \
+    out/AlphaEngineERC20DecoderAndSanitizer.sol/AlphaEngineERC20DecoderAndSanitizer.json \
+    ABI/v2/AlphaEngineERC20DecoderAndSanitizer.json \
+    erc20-decoder-and-sanitizer
+check_abi \
+    out/AlphaEngineERC4626DecoderAndSanitizer.sol/AlphaEngineERC4626DecoderAndSanitizer.json \
+    ABI/v2/AlphaEngineERC4626DecoderAndSanitizer.json \
+    erc4626-decoder-and-sanitizer
+check_abi \
+    out/AlphaEnginePendleV4PtDecoderAndSanitizer.sol/AlphaEnginePendleV4PtDecoderAndSanitizer.json \
+    ABI/v2/AlphaEnginePendleV4PtDecoderAndSanitizer.json \
+    pendle-v4-pt-decoder-and-sanitizer
 
 check_layout \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
@@ -170,3 +182,12 @@ check_runtime_size \
 check_runtime_size \
     out/AlphaEngineUSDCVaultManager.sol/AlphaEngineUSDCVaultManager.json \
     usdc-vault-manager
+check_runtime_size \
+    out/AlphaEngineERC20DecoderAndSanitizer.sol/AlphaEngineERC20DecoderAndSanitizer.json \
+    erc20-decoder-and-sanitizer
+check_runtime_size \
+    out/AlphaEngineERC4626DecoderAndSanitizer.sol/AlphaEngineERC4626DecoderAndSanitizer.json \
+    erc4626-decoder-and-sanitizer
+check_runtime_size \
+    out/AlphaEnginePendleV4PtDecoderAndSanitizer.sol/AlphaEnginePendleV4PtDecoderAndSanitizer.json \
+    pendle-v4-pt-decoder-and-sanitizer

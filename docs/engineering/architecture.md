@@ -25,6 +25,11 @@
   `GenerateAlphaEngineManageRoot` artifact generator. It defines policy leaves,
   sorted-pair trees, odd-node carry, sorted/deduplicated definitions, and proofs;
   it does not yet add decoders, root governance, or a vault call surface.
+- Stage 14 adds separate fail-closed ERC20 approval, ERC4626 entry/exit, and
+  current Pendle RouterV4 PT decoder/sanitizers. The Pendle decoder binds the
+  router, PT facet, FundVault, and deployment-time code hashes in immutable
+  runtime bytecode and rechecks selector dispatch before every decode. Root
+  governance and FundVault execution remain later stages.
 - Transparent proxies are canonical for the five stateful first-pass domains;
   registry, gateway, wrapper, and swap executor remain non-upgradeable.
 - Competition, capital, and confidential swap use independent lifecycles,
@@ -66,6 +71,12 @@ Implemented shared boundary:
   OpenZeppelin-compatible sorted-pair proof verification. Leaves bind chain,
   execution manager, FundVault, decoder/target identities and code hashes,
   selector, zero native value, and the sanitized-argument hash.
+- `IAlphaEngineDecoderAndSanitizer` defines one deterministic `sanitize(bytes)`
+  boundary. `AlphaEngineERC20DecoderAndSanitizer` permits finite approvals and
+  zero resets only; `AlphaEngineERC4626DecoderAndSanitizer` permits standard
+  entry/exit selectors only when receiver and owner are the FundVault; and
+  `AlphaEnginePendleV4PtDecoderAndSanitizer` permits only direct token-to-PT and
+  PT-to-token actions without aggregators or limit orders.
 - The qualification, capital-consumption, vault-manager, and FundVault
   interfaces define call direction without granting authority by themselves.
 
@@ -137,6 +148,14 @@ Execution-specific contracts are separate boundaries:
 - the first FundVault policy is limited to pinned Pendle PT actions through
   fail-closed decoders/sanitizers; generic routers, borrowing, leverage, flash
   loans, and bridges remain excluded.
+- reusable ERC4626 decoding is implemented, but it grants no authority by
+  itself. Each ERC4626 target and runtime code hash requires an explicit Merkle
+  leaf and separate asset/upgrade/risk review before inclusion in a root.
+- Pendle RouterV4 is a mutable selector-to-facet proxy. Its decoder rechecks
+  both router/facet code hashes and the live selector mapping, because the
+  router code hash alone cannot detect a facet remap. The pinned evidence and
+  action matrix are in
+  `docs/engineering/pendle-v4-dependency-action-matrix.md`.
 
 `@uniswap/v4-core` is pinned for Foundry pool behavior tests and the separately bounded V4 executor. It is not an intent-controller or custody-contract dependency. `@uniswap/v4-periphery` remains out of scope unless a specific test-fixture blocker is documented.
 

@@ -17,6 +17,10 @@ Competition and capital managers share only interfaces and stateless hashing lib
 Implementation status as of 2026-08-31: Stages P0 through 13 are implemented.
 Stage 13 adds deterministic Merkle hashing and root generation. Decoder/
 sanitizers, root governance, and vault execution are not part of Stage 13.
+Stage 14 ERC20, ERC4626, and current Pendle RouterV4 decoder/sanitizers are
+implemented in the working tree and await the required owner-review checkpoint
+before the stage commit. Root governance and vault execution remain later
+stages.
 Stage 7 adds the append-only confidential asset registry, non-custodial
 shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
 fresh bound swap controller, exact execution-data and salted minimum-output
@@ -146,8 +150,9 @@ The legacy combined proxy and escrow must not be upgraded into any new component
 | `AlphaEngineUSDCVaultManager` | Non-upgradeable | Immediate public USDC deposits, asynchronous redemptions, daily P&L reports, share pricing, configurable positive-P&L vesting, immediate loss recognition, and bounded performance fees |
 | `AlphaEngineVaultExecutionManager` | Non-upgradeable | Capital authorization, Merkle proofs, root governance, replay protection, risk envelopes, and vault orchestration |
 | `IAlphaEngineDecoderAndSanitizer` | Interface | Fail-closed protocol calldata inspection |
-| `AlphaEngineERC20DecoderAndSanitizer` | Non-upgradeable | Exact approvals/reset and FundVault receiver checks |
-| `AlphaEnginePendlePtDecoderAndSanitizer` | Non-upgradeable | Narrow exact-token-for-PT action validation |
+| `AlphaEngineERC20DecoderAndSanitizer` | Non-upgradeable | Finite approvals/reset and spender policy extraction |
+| `AlphaEngineERC4626DecoderAndSanitizer` | Non-upgradeable | Standard ERC4626 entry/exit with FundVault-only receiver and owner |
+| `AlphaEnginePendleV4PtDecoderAndSanitizer` | Non-upgradeable | Narrow current-RouterV4 token-to-PT and PT-to-token validation plus facet pinning |
 | `GenerateAlphaEngineManageRoot` | Foundry script | Deterministic leaf, tree, proof, and human-readable policy artifact generation |
 
 ```mermaid
@@ -977,7 +982,7 @@ arrays as deterministic flattened nodes plus offsets. Labels are review
 metadata; the Stage 16 root proposal must separately bind the reviewed artifact
 hash and exact executor.
 
-### Initial Pendle-only action surface
+### Initial standard and Pendle action surface
 
 Do not assume that a public Veda/BoringVault decoder supports the current
 Pendle router, market, or calldata structures selected for AlphaEngine. At the
@@ -995,6 +1000,9 @@ Allowed:
 
 - ERC20 exact approval to a pinned Pendle adapter/router.
 - Reset approval to zero.
+- ERC4626 `deposit`, `mint`, `withdraw`, and `redeem` against an individually
+  reviewed target/code hash, with the FundVault as receiver and owner. The
+  reusable decoder is included now, but no ERC4626 target is enabled by default.
 - Exact-token-for-PT execution.
 - PT receipt to the FundVault.
 - PT redemption/unwind back to FundVault-held USDC.
@@ -1330,7 +1338,7 @@ Progression policy:
 | 11 | First-pass implementation checkpoint | First-pass scope and SHA recorded for traceability while second-pass work continues | Any undocumented first-pass mutation |
 | 12 | USDC accounting core and dependency provenance | Immutable FundVault share/custody entry-exit surface plus USDC manager with immediate mint, asynchronous redemption, report ordering, configurable vesting/performance fee, loss recovery, exact-unlock formula vectors, an independent accounting shadow model, exact fee-share checks, and stateful invariants; clean pinned Veda references and legal path | Share dilution, early unlock, fee over/undercharge, stranded zero-value request, accounting drift, USDC exact-transfer failure, license ambiguity, or unfinished accounting specification |
 | 13 | Merkle hashing/root generator | Deterministic artifacts and tree cardinality vectors | Root mismatch, duplicate/odd-tree ambiguity |
-| 14 | Official Pendle verification plus ERC20 and Pendle PT decoders | Verify and pin the official Pendle chain, deployment/proxy and implementation, source revision, ABI/code hashes, selectors, nested parameter layouts, and permitted-action matrix; build AlphaEngine-owned fail-closed decoders against that evidence; exhaustive selector/address/receiver/nested-parameter/code-hash mutation coverage and fork parity | Reliance on an unverified or stale public decoder, unverified Pendle deployment/interface, generic router, arbitrary recipient, ABI drift, unfinished action matrix, or unsupported selector |
+| 14 | Standard decoders plus official Pendle RouterV4 verification | Build AlphaEngine-owned fail-closed ERC20 approval and ERC4626 entry/exit decoders; verify and pin the official Pendle chain, RouterV4/facet dispatch, source revision, ABI/code hashes, selectors, and nested layouts; add a narrow PT decoder, exhaustive mutation coverage, and fixed-block fork parity | Unbounded ERC20 authority, arbitrary ERC4626 receiver/owner, reliance on a stale public decoder, unverified Pendle RouterV4/facet, generic router, ABI drift, unfinished action matrix, or unsupported selector |
 | 15 | Complete immutable FundVault execution surface | Add the permanently locked, selector-disjoint execution-manager authority, atomic call primitive, pause/recovery controls, and no EOA bypass without changing Stage 12 share accounting | Selector overlap, arbitrary-call bypass, unsafe recovery, or accounting-manager custody leak |
 | 16 | Vault Execution Manager | Exact capital consume, Merkle proof, root governance, replay, risk envelope, spend/min-receive/rolling caps, approval reset, and rollback invariants | Replay, reentrancy, cap bypass, unbounded call authority, or stale root/code hash |
 | 17 | Pendle integration | Connect the Stage 14 decoders to exact PT enter/redeem flows with pinned fork tests and demonstrate that pending redemptions complete after an approved unwind returns USDC | Receiver/selector drift, unbounded loss, target-upgrade uncertainty, oracle dependency, or redemption liveness failure |
@@ -1457,6 +1465,12 @@ Current status:
   official Pendle verification and the actual decoder/sanitizers. All 13
   focused tests pass, including three fuzz properties at 10,000 runs each;
   complete-repository fuzzing and coverage remain final integration gates.
+- Stage 14 adds separate ERC20, ERC4626, and Pendle RouterV4 PT
+  decoder/sanitizers. The Pendle dependency is pinned to official source commit
+  `0fcebf79...` and fixed Arbitrum block `500310277`; both permitted selectors,
+  router/facet code hashes, and live selector mappings pass the opt-in fork
+  parity test. A production market/PT/USDC route remains a Stage 17 deployment
+  input and is not silently selected by the generic decoder.
 - Stage 12 focused validation passes 43 unit/fuzz tests and 10 invariants. The
   hardened invariant campaign also passes at 256 runs × depth 128: 327,680
   aggregate randomized calls with zero handler reverts. The shadow model tracks

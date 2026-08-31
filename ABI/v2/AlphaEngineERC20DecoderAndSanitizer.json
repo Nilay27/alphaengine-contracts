@@ -1,0 +1,82 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "targetData",
+          "type": "bytes"
+        }
+      ],
+      "name": "sanitize",
+      "outputs": [
+        {
+          "internalType": "bytes",
+          "name": "sanitizedArguments",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "length",
+          "type": "uint256"
+        }
+      ],
+      "name": "CalldataTooShort",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "selector",
+          "type": "bytes4"
+        },
+        {
+          "internalType": "uint256",
+          "name": "suppliedLength",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "expectedLength",
+          "type": "uint256"
+        }
+      ],
+      "name": "MalformedCalldata",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "spender",
+          "type": "address"
+        }
+      ],
+      "name": "UnlimitedApprovalNotPermitted",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "selector",
+          "type": "bytes4"
+        }
+      ],
+      "name": "UnsupportedSelector",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroSpender",
+      "type": "error"
+    }
+  ]
+}
