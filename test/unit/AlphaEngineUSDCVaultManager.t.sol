@@ -575,6 +575,53 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         );
     }
 
+    function testProfitAndFeeCannotFinishBeforeExactUnlockTimestamp() public {
+        _deposit(USER, 100e6);
+        _reportProfit(10);
+        uint256 vestingStart = block.timestamp;
+
+        vm.warp(vestingStart + VESTING_PERIOD - 1);
+        assertEq(manager.remainingLockedProfit(), 1);
+        assertEq(manager.settleFinishedProfit(), 0);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), 0);
+
+        vm.warp(vestingStart + VESTING_PERIOD);
+        uint256 expectedFeeShares = Math.mulDiv(1, 100e18, 100e6 + 10 - 1);
+        assertEq(manager.settleFinishedProfit(), expectedFeeShares);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
+        assertEq(manager.remainingLockedProfit(), 0);
+
+        vm.warp(vestingStart + VESTING_PERIOD + 1);
+        assertEq(manager.settleFinishedProfit(), 0);
+    }
+
+    function testFeeSettlementDoesNotChangeDepositOrRedemptionPricing() public {
+        _deposit(USER, 1000e6);
+        _reportProfit(100e6);
+        vm.warp(block.timestamp + VESTING_PERIOD);
+
+        uint256 depositPreviewBefore = manager.previewDeposit(100e6);
+        uint256 redeemPreviewBefore = manager.previewRedeem(100e18);
+        uint256 minted = manager.settleFinishedProfit();
+
+        assertGt(minted, 0);
+        assertEq(manager.previewDeposit(100e6), depositPreviewBefore);
+        assertEq(manager.previewRedeem(100e18), redeemPreviewBefore);
+    }
+
+    function testNewProfitAutomaticallyCrystallizesPreviousVestedFee() public {
+        _deposit(USER, 1000e6);
+        _reportProfit(100e6);
+        vm.warp(block.timestamp + VESTING_PERIOD);
+
+        uint256 firstFeeShares = Math.mulDiv(10e6, 1000e18, 1100e6 - 10e6);
+        _reportProfit(50e6);
+
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), firstFeeShares);
+        assertEq(manager.lockedProfit(), 50e6);
+        assertEq(manager.pendingFeeAssets(), 5e6);
+    }
+
     function testPerformanceFeeUpdateIsProspective() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
@@ -603,6 +650,81 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         assertApproxEqAbs(availableBefore - manager.availableAssets(), 10e6, 1);
         assertEq(manager.pendingFeeAssets(), 0);
         assertApproxEqAbs(manager.lossToRecover(), 10e6, 1);
+
+        uint256 survivingFeeAssets = 5e6;
+        uint256 expectedFeeShares =
+            Math.mulDiv(survivingFeeAssets, 1000e18, 1040e6 - survivingFeeAssets);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
+        assertEq(manager.previewRedeem(expectedFeeShares), survivingFeeAssets - 1);
+    }
+
+    function testLossEndingVestCrystallizesFeeOnlyOnSurvivingVestedProfit() public {
+        _deposit(USER, 1000e6);
+        _reportProfit(100e6);
+        vm.warp(block.timestamp + 12 hours);
+
+        uint256 survivingFeeAssets = 5e6;
+        uint256 expectedFeeShares =
+            Math.mulDiv(survivingFeeAssets, 1000e18, 1050e6 - survivingFeeAssets);
+        vm.roll(block.number + 1);
+        uint64 epoch = manager.reportEpoch() + 1;
+        uint64 referenceBlock = uint64(block.number - 1);
+        bytes32 reportHash = keccak256("loss-ending-vest");
+        vm.expectEmit(true, true, false, true, address(manager));
+        emit AlphaEngineUSDCVaultManager.LossReported(epoch, referenceBlock, 50e6, 50e6, reportHash);
+        vm.expectEmit(true, false, false, true, address(fundVault));
+        emit AlphaEngineFundVault.FeeSharesMinted(FEE_RECIPIENT, expectedFeeShares);
+        vm.expectEmit(true, false, false, true, address(manager));
+        emit AlphaEngineUSDCVaultManager.PerformanceFeeMinted(
+            FEE_RECIPIENT, survivingFeeAssets, expectedFeeShares
+        );
+        vm.prank(NAV_REPORTER);
+        manager.reportLoss(epoch, referenceBlock, 50e6, reportHash);
+
+        assertEq(manager.managedAssets(), 1050e6);
+        assertEq(manager.lockedProfit(), 0);
+        assertEq(manager.pendingFeeAssets(), 0);
+        assertEq(manager.lossToRecover(), 0);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
+        assertLe(manager.previewRedeem(expectedFeeShares), survivingFeeAssets);
+    }
+
+    function testLossOneUnitBelowRemainingProfitKeepsFinalUnitLocked() public {
+        _deposit(USER, 1000e6);
+        _reportProfit(100e6);
+        uint256 vestingStart = block.timestamp;
+        vm.warp(vestingStart + 12 hours);
+
+        _reportLoss(50e6 - 1);
+
+        assertEq(manager.lockedProfit(), 1);
+        assertEq(manager.remainingLockedProfit(), 1);
+        assertEq(manager.pendingFeeAssets(), 5e6);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), 0);
+
+        uint256 unlockTimestamp = manager.profitUnlockTimestamp();
+        vm.warp(unlockTimestamp - 1);
+        assertEq(manager.remainingLockedProfit(), 1);
+        assertEq(manager.settleFinishedProfit(), 0);
+
+        vm.warp(unlockTimestamp);
+        uint256 expectedFeeShares = Math.mulDiv(5e6, 1000e18, 1_050_000_001 - 5e6);
+        assertEq(manager.settleFinishedProfit(), expectedFeeShares);
+    }
+
+    function testLossAfterUnlockAutomaticallyCrystallizesFeeBeforeApplyingLoss() public {
+        _deposit(USER, 1000e6);
+        _reportProfit(100e6);
+        vm.warp(block.timestamp + VESTING_PERIOD);
+
+        uint256 expectedFeeShares = Math.mulDiv(10e6, 1000e18, 1100e6 - 10e6);
+        _reportLoss(50e6);
+
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
+        assertEq(manager.managedAssets(), 1050e6);
+        assertEq(manager.lockedProfit(), 0);
+        assertEq(manager.pendingFeeAssets(), 0);
+        assertEq(manager.lossToRecover(), 50e6);
     }
 
     function testRecoveredLossDoesNotPayPerformanceFeeTwice() public {
@@ -857,7 +979,9 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
 
         vm.warp(start + elapsed);
 
-        uint256 expectedRemaining = Math.mulDiv(profit, VESTING_PERIOD - elapsed, VESTING_PERIOD);
+        uint256 expectedRemaining = elapsed == VESTING_PERIOD
+            ? 0
+            : Math.mulDiv(profit, VESTING_PERIOD - elapsed, VESTING_PERIOD, Math.Rounding.Ceil);
         assertEq(manager.remainingLockedProfit(), expectedRemaining);
         assertEq(manager.availableAssets(), 1_000_000e6 + profit - expectedRemaining);
     }
@@ -879,6 +1003,12 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         manager.settleFinishedProfit();
 
         uint256 treasuryShares = fundVault.balanceOf(FEE_RECIPIENT);
+        uint256 expectedShares = feeAssets == 0
+            ? 0
+            : Math.mulDiv(
+                feeAssets, fundVault.totalSupply() - treasuryShares, assets + profit - feeAssets
+            );
+        assertEq(treasuryShares, expectedShares);
         assertLe(manager.previewRedeem(treasuryShares), feeAssets);
     }
 

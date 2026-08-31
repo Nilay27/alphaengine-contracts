@@ -14,14 +14,14 @@ The recommended architecture uses independent contracts for competition, capital
 
 Competition and capital managers share only interfaces and stateless hashing libraries. They do not inherit a storage-bearing `BaseStrategyManager`.
 
-Implementation status as of 2026-08-27: Stages P0 through 11 are implemented.
+Implementation status as of 2026-08-31: Stages P0 through 12 are implemented.
 Stage 7 adds the append-only confidential asset registry, non-custodial
 shield/unshield gateway, and fresh upgradeable swap escrow. Stage 8 adds the
 fresh bound swap controller, exact execution-data and salted minimum-output
 reveal checks, combined controller/escrow invariants, and fresh-path
-PoolManager differential parity. Stage 12 USDC FundVault accounting
-implementation is in the working tree and is under focused validation before
-the required owner-review checkpoint; no external deployment has occurred.
+PoolManager differential parity. Stage 12 USDC FundVault accounting is
+implemented and has completed its focused owner-review hardening pass; no
+external deployment has occurred.
 Stage 9 added fresh paused deployment, independent ProxyAdmin,
 versioned manifest, explicit delayed-admin action, selector/topic snapshot,
 and listener-cutover tooling. Superseded active legacy Solidity/tests/scripts
@@ -501,6 +501,8 @@ Accounting rules:
   hidden accounting balances.
 - Define `remainingLockedProfit` as the linearly unvested part of the current
   positive tranche and `availableAssets = managedAssets - remainingLockedProfit`.
+  Round the remaining amount up so a nonzero tranche cannot become fully
+  redeemable or fee-settle before the exact unlock timestamp.
 - For nonzero supply, deposits mint
   `floor(assets * totalSupply / availableAssets)`. Deposits round down and must
   not reduce the pre-deposit recognized share price; their cross-product
@@ -516,6 +518,11 @@ Accounting rules:
   It increases managed NAV immediately but becomes redeemable only as it vests.
 - Negative `periodPnL` reduces unvested positive P&L first and then recognized
   NAV immediately. A loss can never be deferred behind the vesting schedule.
+- Performance-fee entitlement vests with the feeable profit. A loss reduces the
+  fee associated with cancelled unvested feeable profit using conservative
+  upward rounding, but does not claw back entitlement on profit already vested.
+  If the loss consumes the final locked unit, any surviving vested fee is
+  crystallized in that same transaction rather than silently waived.
 - Losses that reduce previously recognized NAV increase `lossToRecover`.
   Subsequent profit first restores that amount and is not feeable.
 - A completed redemption scales `lossToRecover` by the remaining share-supply
@@ -529,6 +536,8 @@ Accounting rules:
   `feeShares = floor(feeAssets * totalSupply / (managedAssets - feeAssets))`.
   Mint those shares to the configured fee recipient. Their redemption value
   must never exceed `feeAssets`; rounding benefits existing shareholders.
+  Preview pricing includes the virtual matured fee before minting, so fee
+  crystallization itself cannot change deposit or redemption pricing.
 - PT redemption is a change in asset composition. Only the difference between
   redemption proceeds and the position's previously reported net value is new
   P&L. Redeployment fees and slippage appear in the next post-transaction NAV.
@@ -1304,7 +1313,7 @@ Progression policy:
 | 9 | Deployment, ABI, listener migration | Fresh proxies, independent roles, wrong-chain tests, v2 manifest, ABI/layout snapshots | Legacy manifest overwritten or role/config mismatch |
 | 10 | First-pass integration checkpoint | All first-pass CI/release gates and local/Anvil deployment rehearsal pass; no internal audit or external deployment yet | Any unresolved gate or Fhenix/mock discrepancy |
 | 11 | First-pass implementation checkpoint | First-pass scope and SHA recorded for traceability while second-pass work continues | Any undocumented first-pass mutation |
-| 12 | USDC accounting core and dependency provenance | Immutable FundVault share/custody entry-exit surface plus USDC manager with immediate mint, asynchronous redemption, report ordering, configurable vesting/performance fee, loss recovery, formula-lock unit/fuzz tests, and stateful invariants; clean pinned Veda references and legal path | Share dilution, fee overcharge, stranded zero-value request, accounting drift, USDC exact-transfer failure, license ambiguity, or unfinished accounting specification |
+| 12 | USDC accounting core and dependency provenance | Immutable FundVault share/custody entry-exit surface plus USDC manager with immediate mint, asynchronous redemption, report ordering, configurable vesting/performance fee, loss recovery, exact-unlock formula vectors, an independent accounting shadow model, exact fee-share checks, and stateful invariants; clean pinned Veda references and legal path | Share dilution, early unlock, fee over/undercharge, stranded zero-value request, accounting drift, USDC exact-transfer failure, license ambiguity, or unfinished accounting specification |
 | 13 | Merkle hashing/root generator | Deterministic artifacts and tree cardinality vectors | Root mismatch, duplicate/odd-tree ambiguity |
 | 14 | Official Pendle verification plus ERC20 and Pendle PT decoders | Verify and pin the official Pendle chain, deployment/proxy and implementation, source revision, ABI/code hashes, selectors, nested parameter layouts, and permitted-action matrix; build AlphaEngine-owned fail-closed decoders against that evidence; exhaustive selector/address/receiver/nested-parameter/code-hash mutation coverage and fork parity | Reliance on an unverified or stale public decoder, unverified Pendle deployment/interface, generic router, arbitrary recipient, ABI drift, unfinished action matrix, or unsupported selector |
 | 15 | Complete immutable FundVault execution surface | Add the permanently locked, selector-disjoint execution-manager authority, atomic call primitive, pause/recovery controls, and no EOA bypass without changing Stage 12 share accounting | Selector overlap, arbitrary-call bypass, unsafe recovery, or accounting-manager custody leak |
@@ -1425,10 +1434,16 @@ Current status:
 - Stage 12 adds the immutable FundVault entry/exit share core and USDC manager
   described above. Merkle hashing, decoder/sanitizers, the execution-manager
   authority, and Pendle integration remain Stages 13 through 17.
-- Stage 12 focused validation passes 37 unit/fuzz tests and 9 invariants at 64
-  runs × depth 32 with zero handler reverts. The complete repository passes 219
-  tests. Generated ABI parity, runtime size, formatting, repository hygiene,
-  and `git diff --check` also pass; coverage remains subject to the repository's
-  existing CapitalStrategyManager stack-depth instrumentation blocker.
+- Stage 12 focused validation passes 43 unit/fuzz tests and 10 invariants. The
+  hardened invariant campaign also passes at 256 runs × depth 128: 327,680
+  aggregate randomized calls with zero handler reverts. The shadow model tracks
+  managed assets, locked/recovery profit, fee entitlement, effective supply,
+  loss recovery, timestamps, and exact previews independently from manager
+  getters. The complete repository passes 226 tests. Generated ABI parity,
+  runtime size, formatting, repository hygiene, and `git diff --check` also
+  pass. Production coverage passes with the deployment script excluded from
+  instrumentation: 91.68% lines, 91.18% statements, 66.99% branches, and
+  99.51% functions repository-wide. `AlphaEngineUSDCVaultManager` specifically
+  reaches 97.30% lines, 94.91% statements, 75.00% branches, and 100% functions.
 - Audit execution remains deferred to the consolidated end-of-implementation
   gate except for remediation audits after that consolidated review.

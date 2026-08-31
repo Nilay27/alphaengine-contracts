@@ -104,14 +104,24 @@ and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
 - Physical USDC across vault and modeled strategy equals cumulative deposits
   plus donations minus completed redemption payouts.
 - Positive P&L cannot become fully redeemable before the configured vest ends;
-  confirmed loss immediately consumes unvested gain before recognized NAV.
+  remaining locked profit rounds up until the exact unlock timestamp. Confirmed
+  loss immediately consumes unvested gain before recognized NAV.
 - Immediate deposits and completion-time redemptions do not dilute the
   recognized price of remaining shares beyond deterministic floor-rounding
   residue.
 - Deposits receive no already-recognized historical profit. They can participate
   only in the remaining locked gain, the accepted vesting tradeoff.
-- Performance-fee shares redeem for no more than the snapshotted fee assets,
-  fee rates stay within the cap, and recovered losses are not charged twice.
+- Performance-fee shares equal the independently calculated share entitlement,
+  redeem for no more than the snapshotted fee assets, and do not change preview
+  pricing when virtual matured supply becomes actual supply. Fee rates stay
+  within the cap and recovered losses are not charged twice.
+- A loss reduces fee entitlement only for cancelled unvested feeable profit. If
+  it consumes the final locked unit, the surviving fee on already vested profit
+  is crystallized atomically rather than waived.
+- An independent shadow model reproduces managed assets, locked and recovery
+  profit, pending fee assets/rate, loss recovery, vesting timestamps, actual and
+  effective supply, available assets, and deposit/redemption previews after
+  every randomized action.
 - Deposits leave the pre-existing aggregate `lossToRecover` unchanged;
   completed redemptions scale it to the remaining supply with upward rounding,
   and a full exit clears it.

@@ -347,7 +347,10 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         lossToRecover += cancelledRecovery + (loss - cancelledProfit);
         managedAssets -= loss;
 
+        uint256 feeAssetsToSettle;
         if (newLockedProfit == 0) {
+            feeAssetsToSettle = pendingFeeAssets;
+            lockedRecoveryProfit = 0;
             profitLockTimestamp = 0;
             profitUnlockTimestamp = 0;
             pendingFeeAssets = 0;
@@ -358,6 +361,7 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
 
         _recordReport(expectedEpoch, referenceBlock);
         emit LossReported(expectedEpoch, referenceBlock, loss, cancelledProfit, reportHash);
+        _mintPerformanceFee(feeAssetsToSettle);
     }
 
     function settleFinishedProfit() external nonReentrant returns (uint256 feeShares) {
@@ -410,7 +414,7 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
 
         uint256 remainingTime = profitUnlockTimestamp - uint64(block.timestamp);
         uint256 lockDuration = profitUnlockTimestamp - profitLockTimestamp;
-        return Math.mulDiv(amount, remainingTime, lockDuration);
+        return Math.mulDiv(amount, remainingTime, lockDuration, Math.Rounding.Ceil);
     }
 
     function _settleFinishedProfit() private returns (uint256 feeShares) {
@@ -424,6 +428,10 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         profitLockTimestamp = 0;
         profitUnlockTimestamp = 0;
 
+        feeShares = _mintPerformanceFee(feeAssets);
+    }
+
+    function _mintPerformanceFee(uint256 feeAssets) private returns (uint256 feeShares) {
         if (feeAssets == 0) return 0;
         feeShares = _feeShares(feeAssets, FUND_VAULT.totalSupply());
         if (feeShares == 0) return 0;

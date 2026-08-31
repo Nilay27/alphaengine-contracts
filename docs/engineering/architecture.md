@@ -152,7 +152,9 @@ Locked target boundaries:
 - `AlphaEngineUSDCVaultManager` owns immediate USDC-only public deposits,
   floating-price asynchronous redemptions, daily P&L/share-price accounting,
   configurable positive-yield vesting, immediate loss recognition/recovery,
-  and a bounded prospective performance fee
+  and a bounded prospective performance fee; nonzero profit remains locked
+  until the exact unlock timestamp, and a loss that ends a vest crystallizes
+  only the fee entitlement already earned by vested feeable profit
 - the future `AlphaEngineVaultExecutionManager` owns Merkle roots, exact execution authorization, risk caps, and protocol-call orchestration
 - the USDC manager and execution manager receive disjoint FundVault selector authority and cannot substitute for one another
 - the FundVault accounting path never reuses the swap escrow's accounting or lifecycle state

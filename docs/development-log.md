@@ -1,5 +1,38 @@
 # Development Log
 
+## 2026-08-31 — Stage 12 accounting invariant hardening
+
+### Accounting decisions
+
+- Round the linearly remaining locked profit upward so a nonzero positive-P&L
+  tranche cannot become fully redeemable or fee-settle before its exact unlock
+  timestamp.
+- Performance-fee entitlement vests with feeable profit. A loss cancels the fee
+  attributable to unvested feeable profit first; if it consumes the final
+  locked unit, the surviving fee attributable to already vested profit is
+  crystallized in the loss transaction rather than waived.
+- Fee crystallization converts virtual matured fee supply into actual shares
+  without changing deposit or redemption preview pricing.
+
+### Tests and evidence
+
+- Added exact `unlock - 1`, `unlock`, and `unlock + 1` formula vectors; loss at,
+  below, and above the remaining-profit boundary; automatic prior-fee
+  crystallization; exact fee-share checks; and fee-settlement price-neutrality
+  coverage.
+- Replaced self-referential accounting confidence with an independent stateful
+  shadow model covering managed assets, locked/recovery profit, pending fees,
+  loss recovery, vesting timestamps, actual/effective supply, and exact
+  deposit/redemption previews across randomized deposit, redemption, P&L,
+  liquidity, donation, time, and settlement sequences.
+- Focused accounting validation passes 43 unit/fuzz tests and 10 invariants. The
+  deep campaign passes at 256 runs × depth 128 (327,680 aggregate calls) with
+  zero handler reverts. The full repository passes 226 tests.
+- Production coverage passes with `DeployAlphaEngineV2` excluded from
+  instrumentation: 91.68% lines, 91.18% statements, 66.99% branches, and
+  99.51% functions repository-wide. `AlphaEngineUSDCVaultManager` reaches
+  97.30% lines, 94.91% statements, 75.00% branches, and 100% functions.
+
 ## 2026-08-27 — Pendle decoder provenance requirement
 
 - Do not assume that public Veda/BoringVault repositories contain a decoder or

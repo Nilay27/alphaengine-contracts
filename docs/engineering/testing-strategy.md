@@ -98,17 +98,20 @@ and the Foundry setup action are pinned by full commit SHA.
 
 - Formula-lock unit/fuzz tests verify initial 6-to-18-decimal conversion,
   immediate deposit and completion-time redemption rounding, configurable
-  linear profit vesting, immediate loss offset, high-water recovery, and
+  linear profit vesting with conservative remaining-amount rounding, exact
+  unlock boundaries, immediate loss offset, high-water recovery, and exact
   performance-fee share minting.
 - Boundary tests cover zero, exact, above-balance, maximum supported, and
   uninitialized-user paths; exact USDC balance deltas reject fee-on-transfer
   deposits.
-- Stateful invariants use independent cumulative deposit, redemption, donation,
-  and deployed-liquidity ghost ledgers. They prove managed-asset and physical
-  USDC conservation, complete share accounting, deposit/redemption
-  non-dilution, locked-profit/recovery bounds, fee non-overcharge, report
-  sequencing, illiquid-completion atomicity, zero manager custody, and
-  non-vacuous transition coverage with `fail_on_revert = true`.
+- Stateful invariants use an independent accounting shadow model plus cumulative
+  deposit, redemption, donation, and deployed-liquidity ghost ledgers. They
+  reproduce locked/recovery profit, pending fees, effective supply, loss
+  recovery, timestamps, available assets, and exact previews after randomized
+  action sequences. They also prove physical USDC conservation, complete share
+  accounting, deposit/redemption non-dilution, exact fee shares, fee-settlement
+  price neutrality, report sequencing, illiquid-completion atomicity, zero
+  manager custody, and non-vacuous coverage with `fail_on_revert = true`.
 - Pending redemptions remain floating until completion; they create no reserved
   USDC claim. A total-loss request with zero minimum retains a terminal burn
   path.

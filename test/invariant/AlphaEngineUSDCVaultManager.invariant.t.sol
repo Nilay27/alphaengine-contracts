@@ -103,8 +103,28 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
 
     function invariant_performanceFeeNeverOvercharges() public view {
         assertFalse(handler.feeOverchargeViolation());
+        assertFalse(handler.feeExactnessViolation());
+        assertFalse(handler.feeSettlementPriceViolation());
         assertFalse(handler.lossRecoveryFlowViolation());
         assertLe(manager.performanceFeeBps(), manager.MAX_PERFORMANCE_FEE_BPS());
+    }
+
+    function invariant_independentAccountingModelMatchesEveryReachableState() public view {
+        assertFalse(handler.accountingModelViolation());
+        assertEq(manager.managedAssets(), handler.ghostManagedAssets());
+        assertEq(manager.lockedProfit(), handler.ghostLockedProfit());
+        assertEq(manager.lockedRecoveryProfit(), handler.ghostLockedRecoveryProfit());
+        assertEq(manager.pendingFeeAssets(), handler.ghostPendingFeeAssets());
+        assertEq(manager.lossToRecover(), handler.ghostLossToRecover());
+        assertEq(manager.profitLockTimestamp(), handler.ghostProfitLockTimestamp());
+        assertEq(manager.profitUnlockTimestamp(), handler.ghostProfitUnlockTimestamp());
+        assertEq(manager.pendingFeeBps(), handler.ghostPendingFeeBps());
+        assertEq(fundVault.totalSupply(), handler.ghostShareSupply());
+        assertEq(manager.remainingLockedProfit(), handler.modelRemainingLockedProfit());
+        assertEq(
+            manager.remainingLockedRecoveryProfit(), handler.modelRemainingLockedRecoveryProfit()
+        );
+        assertEq(manager.availableAssets(), handler.modelAvailableAssets());
     }
 
     function invariant_failedIlliquidCompletionIsAtomic() public view {
