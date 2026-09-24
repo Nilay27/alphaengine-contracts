@@ -3,16 +3,20 @@ pragma solidity 0.8.26;
 
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {Test} from "forge-std/Test.sol";
-import {IAlphaEngineTraderQualificationRegistry} from
-    "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    IAlphaEngineTraderQualificationRegistry
+} from "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
 
 contract AlphaEngineTraderQualificationRegistryUnitTest is Test {
     AlphaEngineTraderQualificationRegistry private implementation;
@@ -429,8 +433,9 @@ contract AlphaEngineTraderQualificationRegistryUnitTest is Test {
 
         vm.warp(firstExpiry);
         vm.prank(issuer);
-        uint64 version =
-            registry.qualifyTrader(trader, firstExpiry + secondDelta, COMPETITION_ID, EVIDENCE_HASH);
+        uint64 version = registry.qualifyTrader(
+            trader, firstExpiry + secondDelta, COMPETITION_ID, EVIDENCE_HASH
+        );
 
         assertEq(version, 2);
         assertFalse(registry.isQualifiedAtVersion(trader, 1));

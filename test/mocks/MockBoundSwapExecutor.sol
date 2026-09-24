@@ -28,7 +28,9 @@ contract MockBoundSwapExecutor is IAlphaEngineSwapExecutor {
         address recipient,
         bytes calldata executionData
     ) external returns (uint256 amountOut) {
-        if (msg.sender != authorizedCaller) revert UnauthorizedCaller(msg.sender);
+        if (msg.sender != authorizedCaller) {
+            revert UnauthorizedCaller(msg.sender);
+        }
 
         amountOut = abi.decode(executionData, (uint256));
         if (amountOut < minAmountOut) {

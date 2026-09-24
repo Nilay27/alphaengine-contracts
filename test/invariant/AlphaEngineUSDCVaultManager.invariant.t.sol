@@ -10,7 +10,8 @@ import {AlphaEngineUSDCVaultManager} from "src/vault/AlphaEngineUSDCVaultManager
 import {USDCVaultInvariantHandler} from "test/handlers/USDCVaultInvariantHandler.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {
-    MockFundVaultExecutionManager, MockRecoveryVault
+    MockFundVaultExecutionManager,
+    MockRecoveryVault
 } from "test/mocks/MockFundVaultExecution.sol";
 
 contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {

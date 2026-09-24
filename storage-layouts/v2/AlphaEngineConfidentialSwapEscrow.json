@@ -1,7 +1,7 @@
 {
   "storage": [
     {
-      "astId": 71077,
+      "astId": 106297,
       "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
       "label": "swapController",
       "offset": 0,
@@ -9,7 +9,7 @@
       "type": "t_address"
     },
     {
-      "astId": 71080,
+      "astId": 106300,
       "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
       "label": "assetRegistry",
       "offset": 0,
@@ -17,7 +17,7 @@
       "type": "t_address"
     },
     {
-      "astId": 71083,
+      "astId": 106303,
       "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
       "label": "liveSwapLockCount",
       "offset": 0,
@@ -25,15 +25,15 @@
       "type": "t_uint256"
     },
     {
-      "astId": 71088,
+      "astId": 106308,
       "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
       "label": "_swapIntentLocks",
       "offset": 0,
       "slot": "3",
-      "type": "t_mapping(t_bytes32,t_struct(SwapIntentLock)70733_storage)"
+      "type": "t_mapping(t_bytes32,t_struct(SwapIntentLock)96698_storage)"
     },
     {
-      "astId": 71093,
+      "astId": 106313,
       "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
       "label": "__gap",
       "offset": 0,
@@ -58,24 +58,24 @@
       "label": "bytes32",
       "numberOfBytes": "32"
     },
-    "t_enum(SwapIntentLockStatus)70719": {
+    "t_enum(SwapIntentLockStatus)96682": {
       "encoding": "inplace",
       "label": "enum IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus",
       "numberOfBytes": "1"
     },
-    "t_mapping(t_bytes32,t_struct(SwapIntentLock)70733_storage)": {
+    "t_mapping(t_bytes32,t_struct(SwapIntentLock)96698_storage)": {
       "encoding": "mapping",
       "key": "t_bytes32",
       "label": "mapping(bytes32 => struct IAlphaEngineConfidentialSwapEscrow.SwapIntentLock)",
       "numberOfBytes": "32",
-      "value": "t_struct(SwapIntentLock)70733_storage"
+      "value": "t_struct(SwapIntentLock)96698_storage"
     },
-    "t_struct(SwapIntentLock)70733_storage": {
+    "t_struct(SwapIntentLock)96698_storage": {
       "encoding": "inplace",
       "label": "struct IAlphaEngineConfidentialSwapEscrow.SwapIntentLock",
       "members": [
         {
-          "astId": 70721,
+          "astId": 96684,
           "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
           "label": "account",
           "offset": 0,
@@ -83,7 +83,7 @@
           "type": "t_address"
         },
         {
-          "astId": 70723,
+          "astId": 96686,
           "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
           "label": "wrapper",
           "offset": 0,
@@ -91,38 +91,46 @@
           "type": "t_address"
         },
         {
-          "astId": 70726,
+          "astId": 96689,
           "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
           "label": "lockedAmount",
           "offset": 0,
           "slot": "2",
-          "type": "t_userDefinedValueType(euint64)25"
+          "type": "t_userDefinedValueType(euint64)19"
         },
         {
-          "astId": 70729,
+          "astId": 96692,
           "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
           "label": "unshieldRequestHandle",
           "offset": 0,
           "slot": "3",
-          "type": "t_userDefinedValueType(euint64)25"
+          "type": "t_userDefinedValueType(euint64)19"
         },
         {
-          "astId": 70732,
+          "astId": 96695,
           "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
           "label": "status",
           "offset": 0,
           "slot": "4",
-          "type": "t_enum(SwapIntentLockStatus)70719"
+          "type": "t_enum(SwapIntentLockStatus)96682"
+        },
+        {
+          "astId": 96697,
+          "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+          "label": "unshieldClaimId",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_bytes32"
         }
       ],
-      "numberOfBytes": "160"
+      "numberOfBytes": "192"
     },
     "t_uint256": {
       "encoding": "inplace",
       "label": "uint256",
       "numberOfBytes": "32"
     },
-    "t_userDefinedValueType(euint64)25": {
+    "t_userDefinedValueType(euint64)19": {
       "encoding": "inplace",
       "label": "euint64",
       "numberOfBytes": "32"

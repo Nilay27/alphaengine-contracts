@@ -3,23 +3,35 @@ pragma solidity 0.8.26;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {
+    ERC20ConfidentialLib
+} from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
-import {IAlphaEngineConfidentialAssetRegistry} from
-    "src/interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
-import {AlphaEngineCapitalStrategyManager} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
-import {AlphaEngineCompetitionStrategyManager} from
-    "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "src/interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineCapitalStrategyManager
+} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
+import {
+    AlphaEngineCompetitionStrategyManager
+} from "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 
 /// @title DeployAlphaEngineV2
@@ -100,6 +112,7 @@ contract DeployAlphaEngineV2 is Script {
         address swapEscrowProxy;
         address swapEscrowProxyAdmin;
         address swapExecutor;
+        address confidentialTokenLibrary;
     }
 
     error UnexpectedChainId(uint256 expectedChainId, uint256 actualChainId);
@@ -107,6 +120,7 @@ contract DeployAlphaEngineV2 is Script {
     error InvalidPoolManager(address poolManager);
     error RoleOverlap(bytes32 relationship, address holder);
     error MissingArtifactMetadata(bytes32 field);
+    error MissingConfidentialTokenLibrary(address libraryAddress);
 
     function run() external returns (Deployment memory deployment) {
         DeploymentConfig memory config = _readConfig();
@@ -182,7 +196,8 @@ contract DeployAlphaEngineV2 is Script {
             swapEscrowImplementation: address(swapEscrowImplementation),
             swapEscrowProxy: address(swapEscrow),
             swapEscrowProxyAdmin: swapEscrowProxyAdmin,
-            swapExecutor: address(swapExecutor)
+            swapExecutor: address(swapExecutor),
+            confidentialTokenLibrary: address(ERC20ConfidentialLib)
         });
     }
 
@@ -271,6 +286,9 @@ contract DeployAlphaEngineV2 is Script {
         vm.serializeUint(object, "optimizerRuns", 200);
         vm.serializeString(object, "evmVersion", "cancun");
         vm.serializeString(object, "fhenixPackageRevision", config.metadata.fhenixPackageRevision);
+        vm.serializeString(object, "cofheContractsVersion", "0.2.0");
+        vm.serializeString(object, "confidentialContractsVersion", "0.4.0");
+        vm.serializeString(object, "contractApiRevision", "v2-cofhe-0.2");
         vm.serializeBytes32(object, "dependencyLockHash", config.metadata.dependencyLockHash);
         vm.serializeBytes32(object, "abiBundleHash", config.metadata.abiBundleHash);
         vm.serializeBytes32(
@@ -343,14 +361,12 @@ contract DeployAlphaEngineV2 is Script {
             config.roles.proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineCompetitionStrategyManager.initialize,
-                (
-                    AlphaEngineCompetitionStrategyManager.InitializationParams({
+                (AlphaEngineCompetitionStrategyManager.InitializationParams({
                         initialDefaultAdmin: config.roles.defaultAdmin,
                         initialPauser: config.roles.pauser,
                         initialFheOperator: config.roles.competitionFheOperator,
                         qualificationRegistry: registry
-                    })
-                )
+                    }))
             )
         );
         proxy = AlphaEngineCompetitionStrategyManager(address(proxyContract));
@@ -371,14 +387,12 @@ contract DeployAlphaEngineV2 is Script {
             config.roles.proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineCapitalStrategyManager.initialize,
-                (
-                    AlphaEngineCapitalStrategyManager.InitializationParams({
+                (AlphaEngineCapitalStrategyManager.InitializationParams({
                         initialDefaultAdmin: config.roles.defaultAdmin,
                         initialPauser: config.roles.pauser,
                         initialFheOperator: config.roles.capitalFheOperator,
                         qualificationRegistry: registry
-                    })
-                )
+                    }))
             )
         );
         proxy = AlphaEngineCapitalStrategyManager(address(proxyContract));
@@ -399,13 +413,11 @@ contract DeployAlphaEngineV2 is Script {
             config.roles.proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: config.roles.defaultAdmin,
                         initialPauser: config.roles.pauser,
                         initialSwapOperator: config.roles.swapOperator
-                    })
-                )
+                    }))
             )
         );
         proxy = AlphaEngineConfidentialSwapController(address(proxyContract));
@@ -470,6 +482,7 @@ contract DeployAlphaEngineV2 is Script {
         vm.serializeAddress(object, "swapEscrowProxy", deployment.swapEscrowProxy);
         vm.serializeAddress(object, "swapEscrowProxyAdmin", deployment.swapEscrowProxyAdmin);
         vm.serializeAddress(object, "swapExecutor", deployment.swapExecutor);
+        vm.serializeAddress(object, "confidentialTokenLibrary", deployment.confidentialTokenLibrary);
     }
 
     function _serializeDeploymentCodeHashes(string memory object, Deployment memory deployment)
@@ -501,7 +514,10 @@ contract DeployAlphaEngineV2 is Script {
         vm.serializeBytes32(
             object, "swapEscrowImplementationCodeHash", deployment.swapEscrowImplementation.codehash
         );
-        json = vm.serializeBytes32(object, "swapExecutorCodeHash", deployment.swapExecutor.codehash);
+        vm.serializeBytes32(object, "swapExecutorCodeHash", deployment.swapExecutor.codehash);
+        json = vm.serializeBytes32(
+            object, "confidentialTokenLibraryCodeHash", deployment.confidentialTokenLibrary.codehash
+        );
     }
 
     function _validateConfig(DeploymentConfig memory config) private view {
@@ -510,6 +526,9 @@ contract DeployAlphaEngineV2 is Script {
         }
         if (config.poolManager == address(0) || config.poolManager.code.length == 0) {
             revert InvalidPoolManager(config.poolManager);
+        }
+        if (address(ERC20ConfidentialLib).code.length == 0) {
+            revert MissingConfidentialTokenLibrary(address(ERC20ConfidentialLib));
         }
         _requireNonzeroRoles(config.roles);
         if (!config.metadata.testOnlyRoleCollapse) _validateRoleSeparation(config.roles);
@@ -613,10 +632,7 @@ contract DeployAlphaEngineV2 is Script {
         });
     }
 
-    function _logDeployment(Deployment memory deployment, string memory manifestPath)
-        private
-        pure
-    {
+    function _logDeployment(Deployment memory deployment, string memory manifestPath) private pure {
         console2.log("AlphaEngine v2 local deployment rehearsal");
         console2.log("qualification registry proxy:", deployment.qualificationRegistryProxy);
         console2.log("competition manager proxy:", deployment.competitionManagerProxy);

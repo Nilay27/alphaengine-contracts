@@ -5,14 +5,16 @@ import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-import {AlphaEngineERC20DecoderAndSanitizer} from
-    "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
+import {
+    AlphaEngineERC20DecoderAndSanitizer
+} from "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
 import {IAlphaEngineFundVault} from "src/interfaces/IAlphaEngineFundVault.sol";
 import {AlphaEngineManageLeafHashLib} from "src/libraries/AlphaEngineManageLeafHashLib.sol";
 import {AlphaEngineFundVault} from "src/vault/AlphaEngineFundVault.sol";
 import {AlphaEngineVaultExecutionManager} from "src/vault/AlphaEngineVaultExecutionManager.sol";
-import {VaultExecutionManagerInvariantHandler} from
-    "test/handlers/VaultExecutionManagerInvariantHandler.sol";
+import {
+    VaultExecutionManagerInvariantHandler
+} from "test/handlers/VaultExecutionManagerInvariantHandler.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {MockFundVaultCallTarget, MockRecoveryVault} from "test/mocks/MockFundVaultExecution.sol";
 import {
@@ -95,17 +97,17 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[] memory inputs =
             new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](2);
         AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput memory inputRisk =
-        AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetIn),
-            maxSpendPerExecution: handler.MAX_PER_EXECUTION(),
-            maxSpendPer24Hours: handler.MAX_PER_24_HOURS()
-        });
+            AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
+                asset: address(assetIn),
+                maxSpendPerExecution: handler.MAX_PER_EXECUTION(),
+                maxSpendPer24Hours: handler.MAX_PER_24_HOURS()
+            });
         AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput memory positionRisk =
-        AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetOut),
-            maxSpendPerExecution: handler.MAX_POSITION_PER_EXECUTION(),
-            maxSpendPer24Hours: handler.MAX_POSITION_PER_24_HOURS()
-        });
+            AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
+                asset: address(assetOut),
+                maxSpendPerExecution: handler.MAX_POSITION_PER_EXECUTION(),
+                maxSpendPer24Hours: handler.MAX_POSITION_PER_24_HOURS()
+            });
         if (address(assetIn) < address(assetOut)) {
             inputs[0] = inputRisk;
             inputs[1] = positionRisk;

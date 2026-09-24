@@ -547,14 +547,10 @@ contract AlphaEngineHashLibrariesTest is Test {
     {
         limits = new AlphaEngineExecutionHashLib.AssetDeltaLimitV1[](2);
         limits[0] = AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-            asset: address(0x10),
-            maxSpend: 1_000_000,
-            minReceive: 0
+            asset: address(0x10), maxSpend: 1_000_000, minReceive: 0
         });
         limits[1] = AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-            asset: address(0x20),
-            maxSpend: 0,
-            minReceive: 900_000
+            asset: address(0x20), maxSpend: 0, minReceive: 900_000
         });
     }
 

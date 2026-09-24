@@ -1,24 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialSwapController} from
-    "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialSwapController
+} from "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineStrategyHashLib} from "src/libraries/AlphaEngineStrategyHashLib.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
-import {ConfidentialSwapControllerInvariantHandler} from
-    "test/handlers/ConfidentialSwapControllerInvariantHandler.sol";
+import {
+    ConfidentialSwapControllerInvariantHandler
+} from "test/handlers/ConfidentialSwapControllerInvariantHandler.sol";
 import {MockBoundSwapExecutor} from "test/mocks/MockBoundSwapExecutor.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
@@ -148,9 +155,9 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             ConfidentialSwapControllerInvariantHandler.IntentSnapshot memory snapshot =
                 handler.snapshotAt(i);
             IAlphaEngineConfidentialSwapController.SwapIntentStatus controllerStatus =
-                controller.getSwapIntent(snapshot.intentId).status;
+            controller.getSwapIntent(snapshot.intentId).status;
             IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus escrowStatus =
-                escrow.getSwapIntentLock(snapshot.intentId).status;
+            escrow.getSwapIntentLock(snapshot.intentId).status;
             assertEq(uint8(controllerStatus), uint8(snapshot.expectedStatus));
             if (controllerStatus == IAlphaEngineConfidentialSwapController.SwapIntentStatus.Active)
             {
@@ -210,13 +217,11 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: admin,
                         initialPauser: pauser,
                         initialSwapOperator: operator
-                    })
-                )
+                    }))
             )
         );
         return AlphaEngineConfidentialSwapController(address(proxy));

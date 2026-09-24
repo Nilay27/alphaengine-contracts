@@ -252,10 +252,11 @@ deferring those broad commands does not reduce focused test depth.
 - Prefer current Fhenix mock contracts if they work cleanly in Foundry.
 - Do not introduce a Hardhat test harness in v1.
 - Current v1 implementation uses a repo-owned mock task manager and helper harness for the exact contract surface in use:
-  - `verifyInput`
+  - `batchVerifyInputs` with real ECDSA fixture signatures binding sender, chain, consumer, types and order
   - `allow`
   - `isAllowed`
-  - `createDecryptTask` with caller-permission enforcement and request tracking
+  - `allowGlobal` with caller-permission enforcement and public-grant tracking
+  - transient ACL grants and single-use, sender-bound `shareCtHash`/`receiveCtHash`
   - deterministic `trivialEncrypt`, arithmetic, comparison, and `select` operations needed by official FHERC20 wrapper tests
   - decrypt-result publication and reverting verification semantics for wrapper claim tests
   - deterministic mock-value lookup for stored handles
@@ -263,13 +264,21 @@ deferring those broad commands does not reduce focused test depth.
 - If upstream mock parity is incomplete, keep Foundry canonical and document the missing integration gap explicitly.
 - Assert handle-access grants against the current `bytes32` handle semantics from the pinned CoFHE Solidity package.
 
+`CoFheV020MigrationTest` checks proof-consumer binding, authenticated single-use
+shares, unique claim IDs, out-of-order claim completion and rejection of handles
+used as claim IDs. Strategy tests check one 17-input batch and one three-score
+batch plus failed consumer/order/chain mutations with no partial state. The
+mock models plaintext FHE operations and returns registered raw handles rather
+than production metadata-appended handles; result publication is a test helper,
+not threshold-network signature validation. Live CoFHE testing remains a release gate.
+
 ## Confidential swap/vault policy
 
 - Use official Fhenix FHERC20 / confidential token behavior as the target surface; do not test against a revived hookathon `HybridFHERC20`.
 - Unit tests must cover one wrapper per underlying ERC20, deposit/shield, withdraw/unshield request/claim, atomic swap lock plus immediate encrypted-amount unshield request, actual swap settlement, and output confidential credit/mint.
 - Deposit/shield tests must assert exact `rate()` multiples and reject fee-on-transfer or other balance-drift behavior.
 - Controller/vault integration tests must assert the intent controller never receives token custody, validates configured vault identity, and stores the canonical FHERC20 returned transfer handle.
-- Controller swap-intent tests must verify the user's `InEuint64`, grant the vault handle access, and then lock through `lockForSwapIntent(...)` with the verified `euint64`.
+- Controller swap-intent tests must verify the user's `externalEuint64` plus proof, grant the vault handle access, and then lock through `lockForSwapIntent(...)` with the verified `euint64`.
 - `routeKey` tests remain limited to event/state parity; the concrete route execution is passed in executor-specific calldata rather than decoded from `routeKey`.
 - Failure-path tests must cover invalid token, missing wrapper, duplicate lock, unauthorized vault calls, expired deadline, refund-unavailable before expiry, and zero or invalid returned lock/unshield result where detectable.
 - Insufficient confidential balance must be tested as an initialized encrypted

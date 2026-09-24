@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {Test} from "forge-std/Test.sol";
-import {IAlphaEngineTraderQualificationRegistry} from
-    "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
-import {QualificationRegistryInvariantHandler} from
-    "test/handlers/QualificationRegistryInvariantHandler.sol";
+import {
+    IAlphaEngineTraderQualificationRegistry
+} from "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    QualificationRegistryInvariantHandler
+} from "test/handlers/QualificationRegistryInvariantHandler.sol";
 
 contract AlphaEngineTraderQualificationRegistryInvariantTest is StdInvariant, Test {
     AlphaEngineTraderQualificationRegistry private registry;

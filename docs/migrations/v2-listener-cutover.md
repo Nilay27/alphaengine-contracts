@@ -6,6 +6,22 @@ AlphaEngine v2 replaces the mixed legacy intent controller and confidential vaul
 
 The canonical function selectors, typed-error selectors, and event topics are checked in at `ABI/v2/listener-surface.json`. The source ABIs remain authoritative and CI regenerates the listener surface from them.
 
+## CoFHE 0.2 API revision
+
+Manifests identify `contractApiRevision: v2-cofhe-0.2`. Regenerate clients from
+the corresponding ABIs: strategy inputs are external handles with one ordered
+batch proof; swap inputs include a batch-of-one proof. Proof generation must
+specify the consuming manager/controller. FHERC20 callers must use the 0.4
+shared-handle protocol and compatible CoFHE 0.7 client encoding.
+
+`UnshieldRequested` and `SwapIntentUnshieldRequested` now include
+`unshieldClaimId` in addition to the ciphertext handle. Decrypt the handle,
+then call `claimUnshielded` with the ID. Indexers reconcile against the stored
+escrow lock and the wrapper's canonical `getClaim(id)`. The controller's existing
+swap payload still binds the returned handles; its identifier/hash domain is unchanged.
+Fresh wrappers are mandatory. Preserve existing deployment evidence and drain
+all old-wrapper claims/locks before cutover. See [migration notes](../engineering/cofhe-v020-migration.md).
+
 ## Required listener behavior
 
 1. Allowlist the exact chain, manifest schema, contract address, and ABI family before decoding a log. Unknown addresses or schema versions fail closed.
@@ -14,7 +30,7 @@ The canonical function selectors, typed-error selectors, and event topics are ch
 4. Persist logs only after the configured confirmation depth and roll back orphaned logs on reorganization.
 5. Reconcile every state-changing event against the corresponding contract getter. An event is evidence of a transition, not a substitute for current state.
 6. Never interpret trader qualification as capital approval. Every capital intent has its own evaluation, commitment, expiry, revocation, and consumption state.
-7. Competition score revelation is asynchronous. `CompetitionScoreRevealRequested` indicates only a pending request; consume revealed plaintext components only after the callback event and getter agree.
+7. Competition score revelation is asynchronous. `CompetitionScoreRevealRequested` indicates only a pending request; consume revealed plaintext components only after verified result publication and the getter readiness flags agree.
 8. For swaps, retain both confidential settlement and `SwapSettlementDustReturned`. Total user output is the encryptable wrapper amount plus any directly returned underlying dust.
 9. Indexer replay must be deterministic: the same manifest, block range, confirmation policy, and ABI snapshot must reproduce the same state.
 

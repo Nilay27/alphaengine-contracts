@@ -1,25 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {Vm} from "forge-std/Vm.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {FHE, InEuint64, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {FHE, externalEuint64, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
-import {IFHERC20ERC20Wrapper} from
-    "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {
+    IFHERC20ERC20Wrapper
+} from "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
 import {FHERC20ZeroBalance} from "fhenix-confidential-contracts/FHERC20/utils/FHERC20Errors.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialAssetRegistry} from
-    "src/interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "src/interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {IAlphaEngineSwapExecutor} from "src/interfaces/IAlphaEngineSwapExecutor.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
@@ -161,6 +168,18 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
         );
         registry.registerWrapper(address(underlying), address(zeroRate));
     }
+
+    function test_registerRejectsWrapperWithoutClaimIdLookup() public {
+        Stage7WrapperSurface legacySurface = new Stage7WrapperSurface(address(underlying), 1);
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.InvalidWrapper.selector, address(legacySurface)
+            )
+        );
+        registry.registerWrapper(address(underlying), address(legacySurface));
+        assertEq(registry.wrapperForUnderlying(address(underlying)), address(0));
+    }
 }
 
 contract AlphaEngineConfidentialAssetGatewayTest is MockCoFheTest {
@@ -300,14 +319,31 @@ contract AlphaEngineConfidentialAssetGatewayTest is MockCoFheTest {
         vm.startPrank(user);
         underlying.approve(address(gateway), depositAmount);
         gateway.depositAndShield(address(underlying), depositAmount, user);
-        AlphaEngineFHERC20ERC20Wrapper(wrapper).setOperator(
-            address(gateway), uint48(block.timestamp + 1 hours)
-        );
-        euint64 requestHandle = gateway.requestUnshield(wrapper, user, unshieldAmount);
+        AlphaEngineFHERC20ERC20Wrapper(wrapper)
+            .setOperator(address(gateway), uint48(block.timestamp + 1 hours));
+        vm.recordLogs();
+        (euint64 requestHandle, bytes32 requestId) =
+            gateway.requestUnshield(wrapper, user, unshieldAmount);
         vm.stopPrank();
 
-        bytes32 requestId = euint64.unwrap(requestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), unshieldAmount, "");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        Vm.Log memory requestEvent = logs[logs.length - 1];
+        assertEq(requestEvent.emitter, address(gateway));
+        assertEq(
+            requestEvent.topics[0],
+            keccak256("UnshieldRequested(address,address,address,uint64,bytes32,bytes32)")
+        );
+        assertEq(requestEvent.topics[1], bytes32(uint256(uint160(wrapper))));
+        assertEq(requestEvent.topics[2], bytes32(uint256(uint160(user))));
+        assertEq(requestEvent.topics[3], bytes32(uint256(uint160(user))));
+        assertEq(requestEvent.data, abi.encode(unshieldAmount, requestHandle, requestId));
+        assertEq(
+            AlphaEngineFHERC20ERC20Wrapper(wrapper).getClaim(requestId).ctHash,
+            euint64.unwrap(requestHandle)
+        );
+        assertEq(AlphaEngineFHERC20ERC20Wrapper(wrapper).getClaim(requestId).to, user);
+
+        taskManager.publishDecryptResult(uint256(euint64.unwrap(requestHandle)), unshieldAmount, "");
         gateway.claimUnshielded(wrapper, requestId, unshieldAmount, "");
 
         assertEq(underlying.balanceOf(user), unshieldAmount);
@@ -463,9 +499,43 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
 
     function test_lockStoresCanonicalReturnedHandleAndImmediateUnshieldRequest() public {
         bytes32 intentId = keccak256("canonical-lock");
+        vm.recordLogs();
         euint64 lockedAmount = _lock(intentId, 40e6);
         IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory intentLock =
             escrow.getSwapIntentLock(intentId);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 matchingEvents;
+        for (uint256 index; index < logs.length; ++index) {
+            if (
+                logs[index].emitter == address(escrow)
+                    && logs[index].topics[0]
+                        == keccak256(
+                            "SwapIntentUnshieldRequested(bytes32,address,address,bytes32,bytes32)"
+                        )
+            ) {
+                ++matchingEvents;
+                assertEq(logs[index].topics[1], intentId);
+                assertEq(logs[index].topics[2], bytes32(uint256(uint160(user))));
+                assertEq(logs[index].topics[3], bytes32(uint256(uint160(inputWrapper))));
+                assertEq(
+                    logs[index].data,
+                    abi.encode(intentLock.unshieldRequestHandle, intentLock.unshieldClaimId)
+                );
+            }
+        }
+        assertEq(matchingEvents, 1);
+        assertTrue(intentLock.unshieldClaimId != bytes32(0));
+        assertEq(
+            AlphaEngineFHERC20ERC20Wrapper(inputWrapper)
+            .getClaim(intentLock.unshieldClaimId)
+            .ctHash,
+            euint64.unwrap(intentLock.unshieldRequestHandle)
+        );
+        assertEq(
+            AlphaEngineFHERC20ERC20Wrapper(inputWrapper).getClaim(intentLock.unshieldClaimId).to,
+            address(escrow)
+        );
 
         assertTrue(escrow.existsSwapIntentLock(intentId));
         assertEq(escrow.liveSwapLockCount(), 1);
@@ -483,10 +553,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_lockAboveBalanceCreatesZeroLockThatRefundCanClear() public {
         _fundAndShield(40e6);
         bytes32 intentId = keccak256("overdraw-zero-lock");
-        InEuint64 memory input = createInEuint64(40e6 + 1, user);
+        externalEuint64 input = createExternalEuint64(40e6 + 1, user);
 
         vm.prank(user);
-        euint64 lockedAmount = controller.lockWithInput(intentId, user, inputWrapper, input);
+        euint64 lockedAmount = controller.lockWithInput(
+            intentId, user, inputWrapper, input, _inputProof(address(controller), input)
+        );
         IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory intentLock =
             escrow.getSwapIntentLock(intentId);
 
@@ -495,8 +567,10 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         assertEq(_confidentialBalance(inputWrapper, user), 40e6);
         assertEq(escrow.liveSwapLockCount(), 1);
 
-        bytes32 requestId = euint64.unwrap(intentLock.unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 0, "");
+        bytes32 requestId = intentLock.unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)), 0, ""
+        );
 
         vm.expectEmit(true, true, true, true, address(escrow));
         emit AlphaEngineConfidentialSwapEscrow.SwapIntentLockRefunded(
@@ -517,15 +591,18 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_lockFromUninitializedAccountRetainsDependencyTypedFailure() public {
         address uninitializedAccount = makeAddr("uninitialized-confidential-account");
         vm.prank(uninitializedAccount);
-        AlphaEngineFHERC20ERC20Wrapper(inputWrapper).setOperator(
-            address(escrow), uint48(block.timestamp + 1 days)
-        );
-        InEuint64 memory input = createInEuint64(1, uninitializedAccount);
+        AlphaEngineFHERC20ERC20Wrapper(inputWrapper)
+            .setOperator(address(escrow), uint48(block.timestamp + 1 days));
+        externalEuint64 input = createExternalEuint64(1, uninitializedAccount);
 
         vm.prank(uninitializedAccount);
         vm.expectRevert(abi.encodeWithSelector(FHERC20ZeroBalance.selector, uninitializedAccount));
         controller.lockWithInput(
-            keccak256("uninitialized-account"), uninitializedAccount, inputWrapper, input
+            keccak256("uninitialized-account"),
+            uninitializedAccount,
+            inputWrapper,
+            input,
+            _inputProof(address(controller), input)
         );
 
         assertEq(escrow.liveSwapLockCount(), 0);
@@ -543,10 +620,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         );
 
         _fundAndShield(100e6);
-        InEuint64 memory input = createInEuint64(40e6, user);
+        externalEuint64 input = createExternalEuint64(40e6, user);
         vm.prank(user);
         vm.expectRevert(AlphaEngineConfidentialSwapEscrow.ZeroIntentId.selector);
-        controller.lockWithInput(bytes32(0), user, inputWrapper, input);
+        controller.lockWithInput(
+            bytes32(0), user, inputWrapper, input, _inputProof(address(controller), input)
+        );
 
         vm.prank(user);
         vm.expectRevert(
@@ -555,18 +634,28 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
                 makeAddr("unknown-wrapper")
             )
         );
-        controller.lockWithInput(keccak256("unknown"), user, makeAddr("unknown-wrapper"), input);
+        controller.lockWithInput(
+            keccak256("unknown"),
+            user,
+            makeAddr("unknown-wrapper"),
+            input,
+            _inputProof(address(controller), input)
+        );
 
         bytes32 duplicateId = keccak256("duplicate");
         vm.prank(user);
-        controller.lockWithInput(duplicateId, user, inputWrapper, input);
+        controller.lockWithInput(
+            duplicateId, user, inputWrapper, input, _inputProof(address(controller), input)
+        );
         vm.prank(user);
         vm.expectRevert(
             abi.encodeWithSelector(
                 AlphaEngineConfidentialSwapEscrow.SwapIntentLockAlreadyExists.selector, duplicateId
             )
         );
-        controller.lockWithInput(duplicateId, user, inputWrapper, input);
+        controller.lockWithInput(
+            duplicateId, user, inputWrapper, input, _inputProof(address(controller), input)
+        );
     }
 
     function test_unknownGetterFailsTypedAndExistsReturnsFalse() public {
@@ -583,8 +672,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_settleConsumesOnceShieldsExactOutputAndLeavesNoResidualBalances() public {
         bytes32 intentId = keccak256("settle");
         _lock(intentId, 40e6);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            40e6,
+            ""
+        );
         MockMintingSwapExecutor executor = new MockMintingSwapExecutor();
 
         (uint256 outputAmount, bytes32 shieldedOutputHandle) = controller.settle(
@@ -606,8 +699,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_settleReconcilesPermissionlessPreclaimWithoutStrandingInput() public {
         bytes32 intentId = keccak256("preclaimed-settle");
         _lock(intentId, 40e6);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            40e6,
+            ""
+        );
 
         vm.prank(makeAddr("permissionless-preclaimer"));
         AlphaEngineFHERC20ERC20Wrapper(inputWrapper).claimUnshielded(requestId, 40e6, "");
@@ -631,8 +728,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_refundReconcilesPermissionlessPreclaimWithoutDoubleClaiming() public {
         bytes32 intentId = keccak256("preclaimed-refund");
         _lock(intentId, 40e6);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            40e6,
+            ""
+        );
 
         vm.prank(makeAddr("permissionless-preclaimer"));
         AlphaEngineFHERC20ERC20Wrapper(inputWrapper).claimUnshielded(requestId, 40e6, "");
@@ -653,8 +754,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_settleEnforcesMinimumEvenWhenExecutorIgnoresIt() public {
         bytes32 intentId = keccak256("independent-minimum");
         _lock(intentId, 40e6);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            40e6,
+            ""
+        );
         Stage7IgnoringMinimumExecutor executor = new Stage7IgnoringMinimumExecutor();
 
         vm.expectRevert(
@@ -684,8 +789,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
 
         bytes32 intentId = keccak256("fee-output");
         _lock(intentId, 40e6);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            40e6,
+            ""
+        );
         MockMintingSwapExecutor executor = new MockMintingSwapExecutor();
 
         vm.expectRevert(
@@ -708,8 +817,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_refundRemainsAvailableWhilePausedAndRestoresExactConfidentialAmount() public {
         bytes32 intentId = keccak256("refund");
         _lock(intentId, 40e6);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            40e6,
+            ""
+        );
 
         vm.prank(pauser);
         escrow.pause();
@@ -728,8 +841,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function test_dustSettlementShieldsRepresentableAmountAndReturnsRemainder() public {
         bytes32 intentId = keccak256("dust");
         _lock(intentId, 40e6);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), 40e6, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            40e6,
+            ""
+        );
         MockMintingSwapExecutor executor = new MockMintingSwapExecutor();
         MockERC20 highPrecisionOutput = new MockERC20("High Precision", "HIGH", 18);
         vm.prank(admin);
@@ -777,8 +894,12 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         uint64 amount = uint64(bound(rawAmount, 1, 1_000_000e6));
         bytes32 intentId = keccak256(abi.encode("fuzz-refund", amount));
         _lock(intentId, amount);
-        bytes32 requestId = euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle);
-        taskManager.publishDecryptResult(uint256(requestId), amount, "");
+        bytes32 requestId = escrow.getSwapIntentLock(intentId).unshieldClaimId;
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(escrow.getSwapIntentLock(intentId).unshieldRequestHandle)),
+            amount,
+            ""
+        );
 
         bytes32 refundedHandle = controller.refund(intentId, amount, "");
         assertEq(_evalue(euint64.wrap(refundedHandle)), amount);
@@ -788,9 +909,11 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
 
     function _lock(bytes32 intentId, uint64 amount) private returns (euint64 lockedAmount) {
         _fundAndShield(amount + 60e6);
-        InEuint64 memory input = createInEuint64(amount, user);
+        externalEuint64 input = createExternalEuint64(amount, user);
         vm.prank(user);
-        lockedAmount = controller.lockWithInput(intentId, user, inputWrapper, input);
+        lockedAmount = controller.lockWithInput(
+            intentId, user, inputWrapper, input, _inputProof(address(controller), input)
+        );
     }
 
     function _fundAndShield(uint256 amount) private {
@@ -798,9 +921,8 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         vm.startPrank(user);
         inputUnderlying.approve(address(gateway), amount);
         gateway.depositAndShield(address(inputUnderlying), amount, user);
-        AlphaEngineFHERC20ERC20Wrapper(inputWrapper).setOperator(
-            address(escrow), uint48(block.timestamp + 1 days)
-        );
+        AlphaEngineFHERC20ERC20Wrapper(inputWrapper)
+            .setOperator(address(escrow), uint48(block.timestamp + 1 days));
         vm.stopPrank();
     }
 
@@ -829,9 +951,10 @@ contract Stage7SwapControllerHarness {
         bytes32 intentId,
         address account,
         address wrapper,
-        InEuint64 calldata encryptedAmount
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof
     ) external returns (euint64 lockedAmount) {
-        euint64 amount = FHE.asEuint64(encryptedAmount);
+        euint64 amount = FHE.asEuint64(encryptedAmount, inputProof);
         FHE.allow(amount, address(_escrow));
         return _escrow.lockForSwapIntent(intentId, account, wrapper, amount);
     }

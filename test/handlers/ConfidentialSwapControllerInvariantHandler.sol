@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IAlphaEngineConfidentialSwapController} from
-    "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialSwapController
+} from "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 
@@ -200,17 +203,19 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
         uint40 deadline = uint40(block.timestamp + 1 days);
 
         IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory submission =
-        IAlphaEngineConfidentialSwapController.SwapIntentSubmission({
-            inputWrapper: INPUT_WRAPPER,
-            outputWrapper: OUTPUT_WRAPPER,
-            routeKey: ROUTE_KEY,
-            executionDataHash: keccak256(executionData),
-            minimumOutputCommitment: AlphaEngineExecutionHashLib.hashSwapMinimumOutput(
-                intentId, outputAmount, salt
-            ),
-            encryptedInputAmount: createInEuint64(inputAmount, trader),
-            deadline: deadline
-        });
+            IAlphaEngineConfidentialSwapController.SwapIntentSubmission({
+                inputWrapper: INPUT_WRAPPER,
+                outputWrapper: OUTPUT_WRAPPER,
+                routeKey: ROUTE_KEY,
+                executionDataHash: keccak256(executionData),
+                minimumOutputCommitment: AlphaEngineExecutionHashLib.hashSwapMinimumOutput(
+                        intentId, outputAmount, salt
+                    ),
+                encryptedInputAmount: createExternalEuint64(inputAmount, trader),
+                inputProof: "",
+                deadline: deadline
+            });
+        submission.inputProof = _inputProof(address(CONTROLLER), submission.encryptedInputAmount);
 
         vm.prank(trader);
         bytes32 actualIntentId = CONTROLLER.submitSwapIntent(submission);
@@ -249,7 +254,7 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
             IntentSnapshot storage snapshot = _snapshots[index];
             if (
                 snapshot.expectedStatus
-                    == IAlphaEngineConfidentialSwapController.SwapIntentStatus.Active
+                        == IAlphaEngineConfidentialSwapController.SwapIntentStatus.Active
                     && (!requirePositive || snapshot.inputAmount != 0)
                     && (!requireUnexpired || snapshot.deadline > block.timestamp)
             ) return (true, index);
@@ -283,10 +288,10 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
         bytes4 expectedSelector,
         bool asOperator
     ) private {
-        IAlphaEngineConfidentialSwapController.SwapIntentStatus controllerStatusBefore =
-            CONTROLLER.getSwapIntent(snapshot.intentId).status;
+        IAlphaEngineConfidentialSwapController.SwapIntentStatus
+            controllerStatusBefore = CONTROLLER.getSwapIntent(snapshot.intentId).status;
         IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus escrowStatusBefore =
-            ESCROW.getSwapIntentLock(snapshot.intentId).status;
+        ESCROW.getSwapIntentLock(snapshot.intentId).status;
         uint256 liveCountBefore = ESCROW.liveSwapLockCount();
 
         if (asOperator) vm.prank(OPERATOR);

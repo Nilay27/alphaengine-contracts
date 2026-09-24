@@ -84,14 +84,27 @@ replacement state domain. Its combined controller/escrow handler proves:
 The Competition Manager handler also exercises randomized, repeated score
 reveal batches. It asserts that a score reveal can only be observed after the
 competition is finalized, that all three component handles for a submission
-receive the same number of decrypt requests, and that the manager is the CoFHE
-requestor. Plaintext results remain asynchronous and are not duplicated in
+receive the same number of public ACL grants, and that the manager is the
+authorizing caller. Plaintext results remain asynchronous and are not duplicated in
 manager storage.
 
 The approved second-pass fund design has three stateful domains that must not be
 collapsed: `AlphaEngineFundVault` for custody and shares,
 `AlphaEngineUSDCVaultManager` for USDC deposit/withdrawal and NAV accounting,
 and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
+
+## CoFHE 0.2 migration invariants
+
+- A batch proof authenticates the ordered input list, its types, sender, chain
+  and consuming contract; a failed verification changes no nonce or stored handle.
+- A token argument/return share is directed, authenticates its sharer and can
+  be consumed only once within the transaction. Escrow persists access to the
+  actual returned locked and burned handles.
+- Every lock pins the unique `unshieldClaimId` in addition to its ciphertext.
+  The wrapper claim must match the ID, escrow recipient and burned handle;
+  later requests cannot redirect or replace an earlier lock's claim.
+- Gateway/escrow request events expose the same claim ID and handle as their
+  return/getter surfaces. Claim proofs bind the handle; claims are looked up by ID.
 
 ## Merkle policy-generation properties
 
@@ -1212,6 +1225,7 @@ event.intentId == id
 event.account == VL[V][id].account
 event.inputWrapper == VL[V][id].wrapper
 euint64.unwrap(event.unshieldRequestHandle) == euint64.unwrap(VL[V][id].unshieldRequestHandle)
+event.unshieldClaimId == VL[V][id].unshieldClaimId // CoFHE 0.2 revision
 ```
 
 For every `SwapIntentLockConsumed` event:

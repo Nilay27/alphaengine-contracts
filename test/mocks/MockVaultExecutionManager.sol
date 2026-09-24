@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {IAlphaEngineCapitalStrategyManager} from
-    "src/interfaces/IAlphaEngineCapitalStrategyManager.sol";
-import {IAlphaEngineVaultExecutionManager} from
-    "src/interfaces/IAlphaEngineVaultExecutionManager.sol";
+import {
+    IAlphaEngineCapitalStrategyManager
+} from "src/interfaces/IAlphaEngineCapitalStrategyManager.sol";
+import {
+    IAlphaEngineVaultExecutionManager
+} from "src/interfaces/IAlphaEngineVaultExecutionManager.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
 
 /// @notice Stage-6 integration consumer proving the capital-consumption boundary.

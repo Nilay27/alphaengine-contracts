@@ -3,8 +3,9 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 
-import {AlphaEnginePendleV4PtDecoderAndSanitizer} from
-    "src/decoders/AlphaEnginePendleV4PtDecoderAndSanitizer.sol";
+import {
+    AlphaEnginePendleV4PtDecoderAndSanitizer
+} from "src/decoders/AlphaEnginePendleV4PtDecoderAndSanitizer.sol";
 import {IAlphaEnginePendleRouterV4} from "src/interfaces/IAlphaEnginePendleRouterV4.sol";
 
 contract ForkFundVaultCode {}
@@ -36,15 +37,13 @@ contract AlphaEnginePendleV4DecoderForkTest is Test {
         assertEq(ROUTER.codehash, ROUTER_CODE_HASH);
         assertEq(PT_FACET.codehash, PT_FACET_CODE_HASH);
         assertEq(
-            IAlphaEnginePendleRouterV4(ROUTER).selectorToFacet(
-                IAlphaEnginePendleRouterV4.swapExactTokenForPt.selector
-            ),
+            IAlphaEnginePendleRouterV4(ROUTER)
+                .selectorToFacet(IAlphaEnginePendleRouterV4.swapExactTokenForPt.selector),
             PT_FACET
         );
         assertEq(
-            IAlphaEnginePendleRouterV4(ROUTER).selectorToFacet(
-                IAlphaEnginePendleRouterV4.swapExactPtForToken.selector
-            ),
+            IAlphaEnginePendleRouterV4(ROUTER)
+                .selectorToFacet(IAlphaEnginePendleRouterV4.swapExactPtForToken.selector),
             PT_FACET
         );
 
@@ -70,13 +69,14 @@ contract AlphaEnginePendleV4DecoderForkTest is Test {
         pure
         returns (bytes memory)
     {
-        IAlphaEnginePendleRouterV4.TokenInput memory input = IAlphaEnginePendleRouterV4.TokenInput({
-            tokenIn: token,
-            netTokenIn: 1_000_000,
-            tokenMintSy: token,
-            pendleSwap: address(0),
-            swapData: _emptySwap()
-        });
+        IAlphaEnginePendleRouterV4.TokenInput memory input =
+            IAlphaEnginePendleRouterV4.TokenInput({
+                tokenIn: token,
+                netTokenIn: 1_000_000,
+                tokenMintSy: token,
+                pendleSwap: address(0),
+                swapData: _emptySwap()
+            });
         return abi.encodeCall(
             IAlphaEnginePendleRouterV4.swapExactTokenForPt,
             (receiver, market, 990_000, _defaultApproximation(), input, _emptyLimit())
@@ -88,14 +88,14 @@ contract AlphaEnginePendleV4DecoderForkTest is Test {
         pure
         returns (bytes memory)
     {
-        IAlphaEnginePendleRouterV4.TokenOutput memory output = IAlphaEnginePendleRouterV4
-            .TokenOutput({
-            tokenOut: token,
-            minTokenOut: 990_000,
-            tokenRedeemSy: token,
-            pendleSwap: address(0),
-            swapData: _emptySwap()
-        });
+        IAlphaEnginePendleRouterV4.TokenOutput memory output =
+            IAlphaEnginePendleRouterV4.TokenOutput({
+                tokenOut: token,
+                minTokenOut: 990_000,
+                tokenRedeemSy: token,
+                pendleSwap: address(0),
+                swapData: _emptySwap()
+            });
         return abi.encodeCall(
             IAlphaEnginePendleRouterV4.swapExactPtForToken,
             (receiver, market, 1_000_000, output, _emptyLimit())
@@ -108,11 +108,7 @@ contract AlphaEnginePendleV4DecoderForkTest is Test {
         returns (IAlphaEnginePendleRouterV4.ApproxParams memory approximation)
     {
         approximation = IAlphaEnginePendleRouterV4.ApproxParams({
-            guessMin: 0,
-            guessMax: type(uint256).max,
-            guessOffchain: 0,
-            maxIteration: 256,
-            eps: 1e14
+            guessMin: 0, guessMax: type(uint256).max, guessOffchain: 0, maxIteration: 256, eps: 1e14
         });
     }
 
@@ -122,11 +118,11 @@ contract AlphaEnginePendleV4DecoderForkTest is Test {
         returns (IAlphaEnginePendleRouterV4.SwapData memory swapData)
     {
         swapData = IAlphaEnginePendleRouterV4.SwapData({
-            swapType: IAlphaEnginePendleRouterV4.SwapType.NONE,
-            extRouter: address(0),
-            extCalldata: "",
-            needScale: false
-        });
+                swapType: IAlphaEnginePendleRouterV4.SwapType.NONE,
+                extRouter: address(0),
+                extCalldata: "",
+                needScale: false
+            });
     }
 
     function _emptyLimit()

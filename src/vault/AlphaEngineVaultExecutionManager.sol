@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {AccessControlDefaultAdminRules} from
-    "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
+import {
+    AccessControlDefaultAdminRules
+} from "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {IAlphaEngineCapitalStrategyManager} from
-    "../interfaces/IAlphaEngineCapitalStrategyManager.sol";
+import {
+    IAlphaEngineCapitalStrategyManager
+} from "../interfaces/IAlphaEngineCapitalStrategyManager.sol";
 import {IAlphaEngineDecoderAndSanitizer} from "../interfaces/IAlphaEngineDecoderAndSanitizer.sol";
 import {IAlphaEngineFundVault} from "../interfaces/IAlphaEngineFundVault.sol";
-import {IAlphaEngineVaultExecutionManager} from
-    "../interfaces/IAlphaEngineVaultExecutionManager.sol";
+import {
+    IAlphaEngineVaultExecutionManager
+} from "../interfaces/IAlphaEngineVaultExecutionManager.sol";
 import {AlphaEngineExecutionHashLib} from "../libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineManageLeafHashLib} from "../libraries/AlphaEngineManageLeafHashLib.sol";
 import {AlphaEngineRollingSpendLib} from "../libraries/AlphaEngineRollingSpendLib.sol";
@@ -267,9 +270,7 @@ contract AlphaEngineVaultExecutionManager is
         if (previousVersion == type(uint64).max) revert PolicyVersionExhausted(executor);
         uint64 newVersion = previousVersion + 1;
         activePolicies[executor] = ActivePolicy({
-            root: pending.root,
-            artifactHash: pending.artifactHash,
-            version: newVersion
+            root: pending.root, artifactHash: pending.artifactHash, version: newVersion
         });
         delete pendingPolicies[executor];
         emit PolicyRootActivated(executor, pending.root, pending.artifactHash, newVersion);
@@ -317,10 +318,9 @@ contract AlphaEngineVaultExecutionManager is
             bool removing = input.maxSpendPerExecution == 0 && input.maxSpendPer24Hours == 0;
             if (
                 !removing
-                    && (
-                        input.maxSpendPerExecution == 0 || input.maxSpendPer24Hours == 0
-                            || input.maxSpendPerExecution > input.maxSpendPer24Hours
-                    )
+                    && (input.maxSpendPerExecution == 0
+                        || input.maxSpendPer24Hours == 0
+                        || input.maxSpendPerExecution > input.maxSpendPer24Hours)
             ) {
                 revert InvalidRiskLimit(asset, input.maxSpendPerExecution, input.maxSpendPer24Hours);
             }

@@ -16,8 +16,7 @@ interface IAlphaEngineFundVault {
 
     function totalSupply() external view returns (uint256);
 
-    function settleDeposit(address payer, address receiver, uint256 assets, uint256 shares)
-        external;
+    function settleDeposit(address payer, address receiver, uint256 assets, uint256 shares) external;
 
     function lockRedemptionShares(address account, uint256 shares) external;
 

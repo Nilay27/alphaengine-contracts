@@ -17,7 +17,7 @@ public.
 | [`AlphaEngineConfidentialSwapEscrow`](AlphaEngineConfidentialSwapEscrow.sol) | Temporary FHERC20 lock, unshield claim, settlement, refund and custody accounting |
 | [`AlphaEngineConfidentialAssetRegistry`](../fherc20/AlphaEngineConfidentialAssetRegistry.sol) | Append-only canonical wrapper/underlying association; no custody |
 | [`AlphaEngineConfidentialAssetGateway`](../fherc20/AlphaEngineConfidentialAssetGateway.sol) | Non-custodial shield and ordinary request/claim convenience |
-| [`AlphaEngineFHERC20ERC20Wrapper`](../fherc20/AlphaEngineFHERC20ERC20Wrapper.sol) | Official Fhenix wrapper plus encrypted-handle unshield extension |
+| [`AlphaEngineFHERC20ERC20Wrapper`](../fherc20/AlphaEngineFHERC20ERC20Wrapper.sol) | Official Fhenix v0.4.0 wrapper plus constant-time claim ID lookup |
 | [`AlphaEngineV4SwapExecutor`](../executors/AlphaEngineV4SwapExecutor.sol) | Escrow-only Uniswap V4 exact-input execution |
 
 The **escrow** owns temporary custody and settlement bookkeeping. The
@@ -38,7 +38,7 @@ sequenceDiagram
     participant Pool as Uniswap V4
 
     User->>Controller: submit encrypted amount + route commitments
-    Controller->>Controller: verify InEuint64 and pin escrow/executor/wrappers/deadline
+    Controller->>Controller: verify externalEuint64 + batch proof and pin escrow/executor/wrappers/deadline
     Controller->>Escrow: lockForSwapIntent
     Escrow->>Wrapper: confidentialTransferFrom(user, escrow, encrypted amount)
     Wrapper-->>Escrow: actual encrypted amount transferred
@@ -85,7 +85,7 @@ flowchart LR
 
 ## FHE and privacy boundary
 
-- The controller internalizes one `InEuint64`, grants access to itself and the
+- The controller internalizes one `externalEuint64` with a batch-of-one proof, grants access to itself and the
   recorded escrow, then stores only canonical handles/hashes.
 - FHERC20 transfer, mint and burn use the pinned official dependency's bounded
   `euint64` comparison, select, add and subtract operations.
@@ -97,6 +97,19 @@ flowchart LR
 - The swap operator learns the decrypted input needed for execution. Public
   DEX execution exposes normal settlement effects; AlphaEngine does not claim
   to hide public pool state changes.
+
+## CoFHE 0.2 / FHERC20 0.4 boundary
+
+Transfers and unshielding pass `FHE.shareEuint64(handle, wrapper)` and consume
+returned shares with `FHE.receiveEuint64FromCall(result, wrapper)`. The escrow
+persistently allows stored handles. The controller-to-escrow call remains
+restricted to the configured controller and uses its existing explicit ACL grant.
+
+An unshield ciphertext is **not** its claim ID. The escrow stores both, and its
+request event exposes both; gateway unshield returns/emits both. Clients decrypt
+the handle and claim by ID. Reconciliation verifies the claim's ID, recipient,
+handle and proven amount. Old wrappers must be drained before a fresh cutover.
+See the [migration guide](../../docs/engineering/cofhe-v020-migration.md).
 
 ## Wrapper rate and dust
 

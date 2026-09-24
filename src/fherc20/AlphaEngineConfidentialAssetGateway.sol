@@ -4,11 +4,17 @@ pragma solidity 0.8.26;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {IFHERC20ERC20Wrapper} from
-    "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialAssetRegistry} from
-    "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+import {FHE, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    IFHERC20ERC20Wrapper
+} from "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+
+import {
+    IAlphaEngineEncryptedUnshieldFHERC20Wrapper
+} from "../interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
 
 /// @title AlphaEngineConfidentialAssetGateway
 /// @notice Non-custodial convenience surface for shielding and ordinary unshield claims.
@@ -42,7 +48,8 @@ contract AlphaEngineConfidentialAssetGateway is ReentrancyGuard {
         address indexed account,
         address indexed recipient,
         uint64 amount,
-        euint64 unshieldRequestHandle
+        euint64 unshieldRequestHandle,
+        bytes32 unshieldClaimId
     );
     event UnshieldClaimed(
         address indexed wrapper, bytes32 indexed unshieldRequestId, uint64 decryptedAmount
@@ -88,7 +95,9 @@ contract AlphaEngineConfidentialAssetGateway is ReentrancyGuard {
         _assertUnderlyingBalance(token, address(this), gatewayBalanceBefore + amount);
 
         token.forceApprove(wrapper, amount);
-        shieldedAmount = IFHERC20ERC20Wrapper(wrapper).shield(recipient, amount);
+        shieldedAmount = FHE.receiveEuint64FromCall(
+            IFHERC20ERC20Wrapper(wrapper).shield(recipient, amount), wrapper
+        );
         token.forceApprove(wrapper, 0);
 
         _assertUnderlyingBalance(token, address(this), gatewayBalanceBefore);
@@ -102,7 +111,7 @@ contract AlphaEngineConfidentialAssetGateway is ReentrancyGuard {
     function requestUnshield(address wrapper, address recipient, uint64 amount)
         external
         nonReentrant
-        returns (euint64 unshieldRequestHandle)
+        returns (euint64 unshieldRequestHandle, bytes32 unshieldClaimId)
     {
         _registeredUnderlyingForWrapper(wrapper);
         if (recipient == address(0)) {
@@ -112,10 +121,15 @@ contract AlphaEngineConfidentialAssetGateway is ReentrancyGuard {
             revert ZeroAmount();
         }
 
-        unshieldRequestHandle =
-            IFHERC20ERC20Wrapper(wrapper).unshield(msg.sender, recipient, amount);
+        unshieldRequestHandle = FHE.receiveEuint64FromCall(
+            IFHERC20ERC20Wrapper(wrapper).unshield(msg.sender, recipient, amount), wrapper
+        );
+        unshieldClaimId =
+            IAlphaEngineEncryptedUnshieldFHERC20Wrapper(wrapper).latestUnshieldClaimId(recipient);
 
-        emit UnshieldRequested(wrapper, msg.sender, recipient, amount, unshieldRequestHandle);
+        emit UnshieldRequested(
+            wrapper, msg.sender, recipient, amount, unshieldRequestHandle, unshieldClaimId
+        );
     }
 
     function claimUnshielded(
@@ -126,9 +140,8 @@ contract AlphaEngineConfidentialAssetGateway is ReentrancyGuard {
     ) external nonReentrant {
         _registeredUnderlyingForWrapper(wrapper);
 
-        IFHERC20ERC20Wrapper(wrapper).claimUnshielded(
-            unshieldRequestId, decryptedAmount, decryptionProof
-        );
+        IFHERC20ERC20Wrapper(wrapper)
+            .claimUnshielded(unshieldRequestId, decryptedAmount, decryptionProof);
 
         emit UnshieldClaimed(wrapper, unshieldRequestId, decryptedAmount);
     }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {InEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {externalEuint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
 /// @title IAlphaEngineConfidentialSwapController
 /// @notice Bound confidential-swap lifecycle surface consumed by users and operators.
@@ -19,7 +19,8 @@ interface IAlphaEngineConfidentialSwapController {
         bytes32 routeKey;
         bytes32 executionDataHash;
         bytes32 minimumOutputCommitment;
-        InEuint64 encryptedInputAmount;
+        externalEuint64 encryptedInputAmount;
+        bytes inputProof;
         uint40 deadline;
     }
 
@@ -62,10 +63,7 @@ interface IAlphaEngineConfidentialSwapController {
 
     function existsSwapIntent(bytes32 intentId) external view returns (bool);
 
-    function getSwapIntent(bytes32 intentId)
-        external
-        view
-        returns (SwapIntentRecord memory record);
+    function getSwapIntent(bytes32 intentId) external view returns (SwapIntentRecord memory record);
 
     function computeSwapIntentId(address trader, uint64 traderNonce)
         external

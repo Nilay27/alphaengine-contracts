@@ -3,22 +3,29 @@ pragma solidity 0.8.26;
 
 import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
-import {IFHERC20ERC20Wrapper} from
-    "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
-import {FHERC20WrapperClaimHelper} from
-    "fhenix-confidential-contracts/FHERC20/utils/FHERC20WrapperClaimHelper.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    IFHERC20ERC20Wrapper
+} from "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {
+    ERC20ConfidentialLib
+} from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
-import {ConfidentialSwapEscrowInvariantHandler} from
-    "test/handlers/ConfidentialSwapEscrowInvariantHandler.sol";
+import {
+    ConfidentialSwapEscrowInvariantHandler
+} from "test/handlers/ConfidentialSwapEscrowInvariantHandler.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 
@@ -132,6 +139,7 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
                 euint64.unwrap(intentLock.unshieldRequestHandle), snapshot.unshieldRequestHandle
             );
             assertEq(_evalue(intentLock.lockedAmount), snapshot.inputAmount);
+            assertEq(intentLock.unshieldClaimId, snapshot.unshieldClaimId);
             assertEq(uint8(intentLock.status), uint8(snapshot.expectedStatus));
 
             if (
@@ -198,13 +206,15 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
             bytes32 intentId = handler.lockIdAt(index);
             ConfidentialSwapEscrowInvariantHandler.LockSnapshot memory snapshot =
                 handler.lockSnapshot(intentId);
-            FHERC20WrapperClaimHelper.Claim memory claim = AlphaEngineFHERC20ERC20Wrapper(
-                inputWrapper
-            ).getClaim(snapshot.unshieldRequestHandle);
+            ERC20ConfidentialLib.Claim memory claim =
+                AlphaEngineFHERC20ERC20Wrapper(inputWrapper).getClaim(snapshot.unshieldClaimId);
+            assertEq(claim.id, snapshot.unshieldClaimId);
+            assertEq(claim.to, address(escrow));
+            assertEq(claim.ctHash, snapshot.unshieldRequestHandle);
 
             if (
                 snapshot.expectedStatus
-                    == IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Consumed
+                        == IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Consumed
                     || snapshot.expectedStatus
                         == IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Refunded
             ) {
@@ -252,11 +262,7 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         vm.stopPrank();
     }
 
-    function _confidentialBalance(address wrapper, address account)
-        private
-        view
-        returns (uint256)
-    {
+    function _confidentialBalance(address wrapper, address account) private view returns (uint256) {
         return _evalue(IERC7984(wrapper).confidentialBalanceOf(account));
     }
 

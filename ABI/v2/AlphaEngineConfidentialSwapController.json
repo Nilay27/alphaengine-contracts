@@ -633,31 +633,14 @@
               "type": "bytes32"
             },
             {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "ctHash",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "securityZone",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "utype",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "signature",
-                  "type": "bytes"
-                }
-              ],
-              "internalType": "struct InEuint64",
+              "internalType": "externalEuint64",
               "name": "encryptedInputAmount",
-              "type": "tuple"
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes",
+              "name": "inputProof",
+              "type": "bytes"
             },
             {
               "internalType": "uint40",
@@ -1295,22 +1278,6 @@
     {
       "inputs": [],
       "name": "ExpectedPause",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint8",
-          "name": "got",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "expected",
-          "type": "uint8"
-        }
-      ],
-      "name": "InvalidEncryptedInput",
       "type": "error"
     },
     {

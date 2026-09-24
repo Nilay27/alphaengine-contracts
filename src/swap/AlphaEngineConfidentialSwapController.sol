@@ -2,19 +2,25 @@
 pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {
+    AccessControlDefaultAdminRulesUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {FHE, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {IAlphaEngineConfidentialAssetRegistry} from
-    "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
-import {IAlphaEngineConfidentialSwapController} from
-    "../interfaces/IAlphaEngineConfidentialSwapController.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "../interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+import {
+    IAlphaEngineConfidentialSwapController
+} from "../interfaces/IAlphaEngineConfidentialSwapController.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "../interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineExecutionHashLib} from "../libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineStrategyHashLib} from "../libraries/AlphaEngineStrategyHashLib.sol";
 
@@ -192,13 +198,15 @@ contract AlphaEngineConfidentialSwapController is
             block.chainid, address(this), msg.sender, traderNonce
         );
 
-        euint64 internalizedInputAmount = FHE.asEuint64(submission.encryptedInputAmount);
+        euint64 internalizedInputAmount =
+            FHE.asEuint64(submission.encryptedInputAmount, submission.inputProof);
         FHE.allowThis(internalizedInputAmount);
         FHE.allow(internalizedInputAmount, escrow);
 
-        euint64 lockedAmount = IAlphaEngineConfidentialSwapEscrow(escrow).lockForSwapIntent(
-            intentId, msg.sender, submission.inputWrapper, internalizedInputAmount
-        );
+        euint64 lockedAmount = IAlphaEngineConfidentialSwapEscrow(escrow)
+            .lockForSwapIntent(
+                intentId, msg.sender, submission.inputWrapper, internalizedInputAmount
+            );
         IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory intentLock =
             IAlphaEngineConfidentialSwapEscrow(escrow).getSwapIntentLock(intentId);
         if (
@@ -306,16 +314,17 @@ contract AlphaEngineConfidentialSwapController is
 
         record.status = SwapIntentStatus.Executed;
         (outputUnderlyingAmount, shieldedOutputHandle) = IAlphaEngineConfidentialSwapEscrow(
-            record.escrow
-        ).settleSwapIntent(
-            intentId,
-            record.executor,
-            record.outputWrapper,
-            decryptedInputAmount,
-            minimumOutput,
-            decryptionProof,
-            executionData
-        );
+                record.escrow
+            )
+            .settleSwapIntent(
+                intentId,
+                record.executor,
+                record.outputWrapper,
+                decryptedInputAmount,
+                minimumOutput,
+                decryptionProof,
+                executionData
+            );
 
         emit ConfidentialSwapExecuted(
             intentId,
@@ -342,9 +351,8 @@ contract AlphaEngineConfidentialSwapController is
         }
 
         record.status = SwapIntentStatus.Refunded;
-        refundedShieldedHandle = IAlphaEngineConfidentialSwapEscrow(record.escrow).refundSwapIntent(
-            intentId, decryptedInputAmount, decryptionProof
-        );
+        refundedShieldedHandle = IAlphaEngineConfidentialSwapEscrow(record.escrow)
+            .refundSwapIntent(intentId, decryptedInputAmount, decryptionProof);
 
         emit ConfidentialSwapRefunded(
             intentId,

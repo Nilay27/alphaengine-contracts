@@ -1,5 +1,42 @@
 # Development Log
 
+## 2026-09-25 — CoFHE dependency migration (Fhenix finding 1)
+
+- Upgraded pinned CoFHE to v0.2.0 and FHERC20 to v0.4.0, with regular
+  OpenZeppelin v5.2.0 for the dependency's transient reentrancy guard. Kept
+  AlphaEngine's upgradeable OpenZeppelin pin unchanged. Synchronized gitlinks
+  and `foundry.lock`; removed the stale lock entry for the absent CoFHE mock
+  submodule. Foundry remains the canonical runtime.
+- Migrated strategy/evaluation inputs to one consumer-bound batch proof and
+  swap inputs to external handles plus proof. Preserved strategy schemas,
+  canonical handle persistence, ACLs, hashes, scoring and qualification rules.
+- Replaced the removed score-decrypt task call with public ACL grants and the
+  existing published-result getter. Reveal batch size and repeatability remain
+  unchanged pending the separate decrypt-pressure remediation.
+- Integrated official shared-handle transfers, shielding and unshielding.
+  Captured upstream unique claim IDs separately from ciphertexts in gateway
+  returns/events and an appended escrow lock field. Preserved zero-value refund
+  cleanup, preclaim reconciliation, exact custody deltas and cross-asset dust.
+- Replaced the old bare-handle wrapper extension with the small claim-ID
+  discovery hook; its owner and removal trigger are recorded in the
+  [migration notes](engineering/cofhe-v020-migration.md). Deployment metadata
+  now identifies the required linked `ERC20ConfidentialLib` and its code hash.
+- Regenerated current ABIs, listener selectors/topics and the escrow layout.
+  Legacy manifests/ABIs/layouts remain historical evidence. OpenZeppelin's
+  inherited error ABI changes also propagate to the executor and public vault
+  artifacts; their application functions and events are unchanged.
+- Updated the local CoFHE harness for batch-signature binding and directed,
+  single-use transient shares. Added migration regressions for maximum-size
+  inputs, proof replay boundaries, share authentication, claim independence,
+  request-event/getter parity and linked-library deployment checks.
+- Used CI's pinned Foundry v1.7.1. Its formatter also normalizes existing
+  imports/line wrapping in otherwise unchanged Solidity files so the full
+  repository formatting gate passes.
+- Validation and limits are recorded in the
+  [migration validation report](releases/cofhe-v020-migration-validation.md).
+  This local first commit addresses library/API compatibility. Rate limits,
+  minimum amounts, pending-request gates and reveal pacing remain separate.
+
 ## 2026-09-01 — Fhenix reviewer documentation
 
 - Replaced the stale root README with a Stage 16 system map that distinguishes

@@ -4,6 +4,13 @@
 
 `alphaengine-contracts` owns AlphaEngine’s Solidity entrypoint contracts and their upgrade, event, and storage semantics.
 
+## CoFHE dependency revision
+
+The current v2 input/claim API uses CoFHE v0.2.0 and FHERC20 v0.4.0.
+[Migration requirements](cofhe-v020-migration.md) define batched external inputs,
+consumer-bound proofs, shared token handles, unique wrapper claim IDs, and
+linked-library deployment. Stored strategy handles and hash domains are retained.
+
 ## Current shape
 
 - The active source tree contains independent competition, capital, confidential
@@ -327,12 +334,18 @@ encrypted value that differs from the requested encrypted value, so escrow lock
 state and future swap-controller events use the actual returned handle as
 canonical.
 
-Until Fhenix publishes official encrypted-amount unshield support, `AlphaEngineFHERC20ERC20Wrapper` carries a temporary `unshield(address from, address to, euint64 amount)` overload. This is an integration bridge for swap settlement only: it burns/requests unshield against the actual vault-held locked eUSDC handle and stores a claim for the returned actual unshield handle. Do not replace this with a direct release of underlying ERC20 based only on the pre-burn locked handle.
+`AlphaEngineFHERC20ERC20Wrapper` inherits official encrypted unshielding with
+`sharedEuint64` inputs and returns. Its `_unshield` hook retains the official
+`_createClaim` return value as `latestUnshieldClaimId[recipient]`, allowing the
+gateway/escrow to capture the ID atomically without enumerating pending claims.
+The escrow stores this ID separately from the returned burned handle and checks
+both against the official claim before claiming or reconciling a preclaim.
+The underlying balance is released only against that claim's verified result.
 
 Fresh controller/escrow semantics are intentionally narrow:
 - the controller atomically configures a reciprocal escrow/executor pair while
   paused, and every intent stores the pair used at submission;
-- `submitSwapIntent(...)` verifies the user's `InEuint64` while `msg.sender` is
+- `submitSwapIntent(...)` verifies the user's `externalEuint64` plus batch proof while `msg.sender` is
   still the user, grants the recorded escrow access, and immediately locks and
   requests unshield through that escrow;
 - the record additionally binds the output wrapper, exact execution-data hash,

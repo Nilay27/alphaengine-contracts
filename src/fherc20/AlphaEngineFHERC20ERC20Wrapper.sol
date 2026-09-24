@@ -5,17 +5,20 @@ import {FHE, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {FHERC20} from "fhenix-confidential-contracts/FHERC20/FHERC20.sol";
-import {FHERC20ERC20Wrapper} from
-    "fhenix-confidential-contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol";
+import {
+    FHERC20ERC20Wrapper
+} from "fhenix-confidential-contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol";
 import {
     FHERC20InvalidReceiver,
-    FHERC20UnauthorizedSpender,
-    FHERC20UnauthorizedUseOfEncryptedAmount
+    FHERC20UnauthorizedSpender
 } from "fhenix-confidential-contracts/FHERC20/utils/FHERC20Errors.sol";
 
 contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
     error ZeroUnderlying();
     error InvalidUnderlying(address underlying);
+
+    /// @notice Latest unique claim ID created for a recipient. Read atomically after unshield.
+    mapping(address recipient => bytes32 claimId) public latestUnshieldClaimId;
 
     constructor(
         IERC20 underlying_,
@@ -34,9 +37,13 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
         }
     }
 
-    function unshield(address from, address to, euint64 amount)
-        public
+    /// @dev Upstream unshield returns only a shared ciphertext. Retain the official claim ID
+    ///      here so callers can obtain it in O(1), without enumerating every pending claim.
+    ///      Both inherited, non-reentrant unshield overloads use this hook.
+    function _unshield(address from, address to, euint64 amount)
+        internal
         virtual
+        override
         returns (euint64 unshieldAmount)
     {
         if (to == address(0)) {
@@ -45,13 +52,9 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
         if (from != msg.sender && !isOperator(from, msg.sender)) {
             revert FHERC20UnauthorizedSpender(from, msg.sender);
         }
-        if (!FHE.isAllowed(amount, msg.sender)) {
-            revert FHERC20UnauthorizedUseOfEncryptedAmount(amount, msg.sender);
-        }
-
         unshieldAmount = _burn(from, amount);
         FHE.allowPublic(unshieldAmount);
-        _createClaim(to, 0, unshieldAmount);
+        latestUnshieldClaimId[to] = _createClaim(to, unshieldAmount);
 
         emit Unshielded(to, unshieldAmount);
     }

@@ -115,10 +115,6 @@
           "signature": "InvalidComponentCount(uint256)"
         },
         {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
-        },
-        {
           "selector": "0xe662e444",
           "signature": "InvalidFundVault(address)"
         },
@@ -331,8 +327,8 @@
           "signature": "acceptDefaultAdminTransfer()"
         },
         {
-          "selector": "0x8a7dbdc3",
-          "signature": "approveCapitalIntent(bytes32,((uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes)),(uint256,address,address,address,bytes32,address,uint64,address,uint64,uint40,uint40,bytes32,uint64,bytes32,bytes32,uint64,bytes32,bytes32))"
+          "selector": "0x0aec81a7",
+          "signature": "approveCapitalIntent(bytes32,(bytes32,bytes32,bytes32,bytes),(uint256,address,address,address,bytes32,address,uint64,address,uint64,uint40,uint40,bytes32,uint64,bytes32,bytes32,uint64,bytes32,bytes32))"
         },
         {
           "selector": "0x58a1af94",
@@ -459,8 +455,8 @@
           "signature": "qualificationRegistry()"
         },
         {
-          "selector": "0x567a6450",
-          "signature": "rejectCapitalIntent(bytes32,((uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes)),bytes32,bytes32)"
+          "selector": "0xa0e1e16a",
+          "signature": "rejectCapitalIntent(bytes32,(bytes32,bytes32,bytes32,bytes),bytes32,bytes32)"
         },
         {
           "selector": "0x36568abe",
@@ -483,8 +479,8 @@
           "signature": "setExecutionManagerAuthorization(address,bool)"
         },
         {
-          "selector": "0x9e9bc4da",
-          "signature": "submitCapitalIntent((uint256,uint8,uint8,bytes),bytes32,uint40,(uint256,uint8,uint8,bytes)[])"
+          "selector": "0x3da775b5",
+          "signature": "submitCapitalIntent(bytes32,uint40,bytes32,bytes32[],bytes)"
         },
         {
           "selector": "0x01ffc9a7",
@@ -593,10 +589,6 @@
         {
           "selector": "0x02388316",
           "signature": "InvalidComponentCount(uint256)"
-        },
-        {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
         },
         {
           "selector": "0xf92ee8a9",
@@ -967,8 +959,8 @@
           "signature": "qualificationRegistry()"
         },
         {
-          "selector": "0x928a5344",
-          "signature": "recordEvaluation(bytes32,((uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes)),uint16,bytes32)"
+          "selector": "0x96dde83f",
+          "signature": "recordEvaluation(bytes32,(bytes32,bytes32,bytes32,bytes),uint16,bytes32)"
         },
         {
           "selector": "0x36568abe",
@@ -991,8 +983,8 @@
           "signature": "submissionByRank(bytes32,uint16)"
         },
         {
-          "selector": "0xc2e100de",
-          "signature": "submitCompetitionStrategy(bytes32,(uint256,uint8,uint8,bytes),bytes32,(uint256,uint8,uint8,bytes)[])"
+          "selector": "0x306d9957",
+          "signature": "submitCompetitionStrategy(bytes32,bytes32,bytes32,bytes32[],bytes)"
         },
         {
           "selector": "0x01ffc9a7",
@@ -1015,24 +1007,12 @@
     "AlphaEngineConfidentialAssetGateway": {
       "errors": [
         {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
           "selector": "0xb6a9dcbc",
           "signature": "AmountExceedsFHERC20Precision(uint256,uint256)"
         },
         {
           "selector": "0x87a756c1",
           "signature": "AmountNotMultipleOfRate(uint256,uint256)"
-        },
-        {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
         },
         {
           "selector": "0x5f5ac8b5",
@@ -1081,8 +1061,8 @@
           "topic0": "0xe7ce5f41e2512fdfc65a7b65aa6af118069439ef545835cdcd87bc832478eab1"
         },
         {
-          "signature": "UnshieldRequested(address,address,address,uint64,bytes32)",
-          "topic0": "0x75ce396e939b11144bfb35d1506fb9916e7f26912a6cd7fa9cc966c844ce7227"
+          "signature": "UnshieldRequested(address,address,address,uint64,bytes32,bytes32)",
+          "topic0": "0xb7e370fe6b39bd6703c17bc52325973a606eefacbe2053c5537b77562aec5c24"
         }
       ],
       "functions": [
@@ -1245,10 +1225,6 @@
         {
           "selector": "0x8dfc202b",
           "signature": "ExpectedPause()"
-        },
-        {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
         },
         {
           "selector": "0xf92ee8a9",
@@ -1527,8 +1503,8 @@
           "signature": "setSwapConfiguration(address,address)"
         },
         {
-          "selector": "0x6dc9898f",
-          "signature": "submitSwapIntent((address,address,bytes32,bytes32,bytes32,(uint256,uint8,uint8,bytes),uint40))"
+          "selector": "0x2a9c28ef",
+          "signature": "submitSwapIntent((address,address,bytes32,bytes32,bytes32,bytes32,bytes,uint40))"
         },
         {
           "selector": "0x01ffc9a7",
@@ -1579,14 +1555,6 @@
           "signature": "ActiveSwapLocksPresent(uint256)"
         },
         {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
           "selector": "0xb6a9dcbc",
           "signature": "AmountExceedsFHERC20Precision(uint256,uint256)"
         },
@@ -1601,10 +1569,6 @@
         {
           "selector": "0x8dfc202b",
           "signature": "ExpectedPause()"
-        },
-        {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
         },
         {
           "selector": "0x54d593e1",
@@ -1777,8 +1741,8 @@
           "topic0": "0x8c6e13fb053ff9d78c1f645e32144bbc804ee51776af021c2e6740e87d20d278"
         },
         {
-          "signature": "SwapIntentUnshieldRequested(bytes32,address,address,bytes32)",
-          "topic0": "0x8c31c074bacc5b17f2d69e736c08eb30afb05838dd140b3188366c15336183bc"
+          "signature": "SwapIntentUnshieldRequested(bytes32,address,address,bytes32,bytes32)",
+          "topic0": "0x6b9d854aec765e27000f12898a5912c29b9a95b2eec78c648e9a15f2a7b50aef"
         },
         {
           "signature": "SwapSettlementDustReturned(bytes32,address,address,uint256)",
@@ -1931,16 +1895,12 @@
     "AlphaEngineFHERC20ERC20Wrapper": {
       "errors": [
         {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
           "selector": "0x646cf558",
           "signature": "AlreadyClaimed()"
+        },
+        {
+          "selector": "0x1b957b58",
+          "signature": "ClaimBatchLengthMismatch()"
         },
         {
           "selector": "0x0455eeee",
@@ -1979,20 +1939,12 @@
           "signature": "FHERC20ZeroBalance(address)"
         },
         {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
-        },
-        {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
-        },
-        {
           "selector": "0x1dfa3154",
           "signature": "InvalidUnderlying(address)"
         },
         {
-          "selector": "0xff633a38",
-          "signature": "LengthMismatch()"
+          "selector": "0x3ee5aeb5",
+          "signature": "ReentrancyGuardReentrantCall()"
         },
         {
           "selector": "0x6dfcc650",
@@ -2079,36 +2031,36 @@
           "signature": "confidentialTotalSupply()"
         },
         {
-          "selector": "0xa794ee95",
-          "signature": "confidentialTransfer(address,(uint256,uint8,uint8,bytes))"
-        },
-        {
           "selector": "0x5bebed7e",
           "signature": "confidentialTransfer(address,bytes32)"
         },
         {
-          "selector": "0xd174999a",
-          "signature": "confidentialTransferAndCall(address,(uint256,uint8,uint8,bytes),bytes)"
+          "selector": "0x2fb74e62",
+          "signature": "confidentialTransfer(address,bytes32,bytes)"
         },
         {
           "selector": "0x537d3c50",
           "signature": "confidentialTransferAndCall(address,bytes32,bytes)"
         },
         {
-          "selector": "0x7edb0e7d",
-          "signature": "confidentialTransferFrom(address,address,(uint256,uint8,uint8,bytes))"
+          "selector": "0xde642119",
+          "signature": "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
         },
         {
           "selector": "0xeb3155b5",
           "signature": "confidentialTransferFrom(address,address,bytes32)"
         },
         {
-          "selector": "0xfca114d6",
-          "signature": "confidentialTransferFromAndCall(address,address,(uint256,uint8,uint8,bytes),bytes)"
+          "selector": "0xe064b9bb",
+          "signature": "confidentialTransferFrom(address,address,bytes32,bytes)"
         },
         {
           "selector": "0xc7b8a75e",
           "signature": "confidentialTransferFromAndCall(address,address,bytes32,bytes)"
+        },
+        {
+          "selector": "0x34c45743",
+          "signature": "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
         },
         {
           "selector": "0xe8a3d485",
@@ -2141,6 +2093,10 @@
         {
           "selector": "0xb6363cf2",
           "signature": "isOperator(address,address)"
+        },
+        {
+          "selector": "0x8609af0f",
+          "signature": "latestUnshieldClaimId(address)"
         },
         {
           "selector": "0x2ab4d052",
@@ -2486,18 +2442,6 @@
     },
     "AlphaEngineV4SwapExecutor": {
       "errors": [
-        {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
-        },
         {
           "selector": "0x6e3ff7cf",
           "signature": "InvalidInputToken(address)"

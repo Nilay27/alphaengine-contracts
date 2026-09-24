@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
@@ -13,18 +14,23 @@ import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialSwapController} from
-    "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialSwapController
+} from "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
@@ -75,13 +81,11 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: owner,
                         initialPauser: pauser,
                         initialSwapOperator: operator
-                    })
-                )
+                    }))
             )
         );
         controller = AlphaEngineConfidentialSwapController(address(proxy));
@@ -228,25 +232,25 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
         private
         returns (uint256 outputAmount)
     {
-        uint256 inputUnderlyingAmount =
-            uint256(inputAmount) * AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).rate();
+        uint256 inputUnderlyingAmount = uint256(inputAmount)
+            * AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).rate();
         fixture.inputUnderlying.mint(REFERENCE_TRADER, inputUnderlyingAmount);
 
         vm.startPrank(REFERENCE_TRADER);
-        fixture.inputUnderlying.approve(
-            address(fixture.referencePool.swapRouter), type(uint256).max
-        );
+        fixture.inputUnderlying
+            .approve(address(fixture.referencePool.swapRouter), type(uint256).max);
         uint256 outputBalanceBefore = fixture.outputUnderlying.balanceOf(REFERENCE_TRADER);
-        fixture.referencePool.swapRouter.swap(
-            fixture.referencePool.poolKey,
-            IPoolManager.SwapParams({
-                zeroForOne: fixture.zeroForOne,
-                amountSpecified: -int256(inputUnderlyingAmount),
-                sqrtPriceLimitX96: _defaultPriceLimit(fixture.zeroForOne)
-            }),
-            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
-            ""
-        );
+        fixture.referencePool.swapRouter
+            .swap(
+                fixture.referencePool.poolKey,
+                IPoolManager.SwapParams({
+                    zeroForOne: fixture.zeroForOne,
+                    amountSpecified: -int256(inputUnderlyingAmount),
+                    sqrtPriceLimitX96: _defaultPriceLimit(fixture.zeroForOne)
+                }),
+                PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
+                ""
+            );
         vm.stopPrank();
 
         outputAmount = fixture.outputUnderlying.balanceOf(REFERENCE_TRADER) - outputBalanceBefore;
@@ -265,25 +269,26 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
         vm.startPrank(trader);
         fixture.inputUnderlying.approve(address(fixture.gateway), depositAmount);
         fixture.gateway.depositAndShield(address(fixture.inputUnderlying), depositAmount, trader);
-        AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).setOperator(
-            address(fixture.escrow), uint48(block.timestamp + 1 hours)
-        );
+        AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper)
+            .setOperator(address(fixture.escrow), uint48(block.timestamp + 1 hours));
         vm.stopPrank();
 
         uint64 nonce = controller.traderNonces(trader);
         intentId = controller.computeSwapIntentId(trader, nonce);
         IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory submission =
-        IAlphaEngineConfidentialSwapController.SwapIntentSubmission({
-            inputWrapper: fixture.inputWrapper,
-            outputWrapper: fixture.outputWrapper,
-            routeKey: ROUTE_KEY,
-            executionDataHash: keccak256(executionData),
-            minimumOutputCommitment: AlphaEngineExecutionHashLib.hashSwapMinimumOutput(
-                intentId, minimumOutput, MINIMUM_OUTPUT_SALT
-            ),
-            encryptedInputAmount: createInEuint64(inputAmount, trader),
-            deadline: uint40(block.timestamp + 1 hours)
-        });
+            IAlphaEngineConfidentialSwapController.SwapIntentSubmission({
+                inputWrapper: fixture.inputWrapper,
+                outputWrapper: fixture.outputWrapper,
+                routeKey: ROUTE_KEY,
+                executionDataHash: keccak256(executionData),
+                minimumOutputCommitment: AlphaEngineExecutionHashLib.hashSwapMinimumOutput(
+                        intentId, minimumOutput, MINIMUM_OUTPUT_SALT
+                    ),
+                encryptedInputAmount: createExternalEuint64(inputAmount, trader),
+                inputProof: "",
+                deadline: uint40(block.timestamp + 1 hours)
+            });
+        submission.inputProof = _inputProof(address(controller), submission.encryptedInputAmount);
         vm.prank(trader);
         assertEq(controller.submitSwapIntent(submission), intentId);
         unshieldRequestHandle = controller.getSwapIntent(intentId).unshieldRequestHandle;
@@ -384,12 +389,10 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
         fixture.registry = new AlphaEngineConfidentialAssetRegistry(owner);
         fixture.gateway = new AlphaEngineConfidentialAssetGateway(fixture.registry);
         vm.startPrank(owner);
-        fixture.inputWrapper = fixture.registry.createWrapper(
-            address(fixture.inputUnderlying), "Encrypted Input", "eINPUT", ""
-        );
-        fixture.outputWrapper = fixture.registry.createWrapper(
-            address(fixture.outputUnderlying), "Encrypted Output", "eOUTPUT", ""
-        );
+        fixture.inputWrapper = fixture.registry
+            .createWrapper(address(fixture.inputUnderlying), "Encrypted Input", "eINPUT", "");
+        fixture.outputWrapper = fixture.registry
+            .createWrapper(address(fixture.outputUnderlying), "Encrypted Output", "eOUTPUT", "");
         vm.stopPrank();
 
         AlphaEngineConfidentialSwapEscrow escrowImplementation =
@@ -437,16 +440,17 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
         tokenB.approve(address(fixture.liquidityRouter), type(uint256).max);
 
         fixture.poolManager.initialize(fixture.poolKey, initialSqrtPriceX96);
-        fixture.liquidityRouter.modifyLiquidity(
-            fixture.poolKey,
-            IPoolManager.ModifyLiquidityParams({
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                liquidityDelta: liquidityDelta,
-                salt: bytes32(0)
-            }),
-            ""
-        );
+        fixture.liquidityRouter
+            .modifyLiquidity(
+                fixture.poolKey,
+                IPoolManager.ModifyLiquidityParams({
+                    tickLower: tickLower,
+                    tickUpper: tickUpper,
+                    liquidityDelta: liquidityDelta,
+                    salt: bytes32(0)
+                }),
+                ""
+            );
     }
 
     function _buildPoolKey(MockERC20 tokenA, MockERC20 tokenB)
@@ -483,10 +487,7 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
     {
         return abi.encode(
             AlphaEngineV4SwapExecutor.ExactInputParams({
-                key: poolKey,
-                zeroForOne: zeroForOne,
-                sqrtPriceLimitX96: 0,
-                hookData: ""
+                key: poolKey, zeroForOne: zeroForOne, sqrtPriceLimitX96: 0, hookData: ""
             })
         );
     }

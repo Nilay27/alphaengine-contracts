@@ -2,23 +2,29 @@
 pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialSwapController} from
-    "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialSwapController
+} from "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineStrategyHashLib} from "src/libraries/AlphaEngineStrategyHashLib.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 import {MockBoundSwapExecutor} from "test/mocks/MockBoundSwapExecutor.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
@@ -66,13 +72,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: admin,
                         initialPauser: pauser,
                         initialSwapOperator: operator
-                    })
-                )
+                    }))
             )
         );
         controller = AlphaEngineConfidentialSwapController(address(controllerProxy));
@@ -93,9 +97,7 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         implementation.initialize(
             AlphaEngineConfidentialSwapController.InitializationParams({
-                initialDefaultAdmin: admin,
-                initialPauser: pauser,
-                initialSwapOperator: operator
+                initialDefaultAdmin: admin, initialPauser: pauser, initialSwapOperator: operator
             })
         );
 
@@ -174,8 +176,9 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         uint40 deadline = uint40(block.timestamp + 1 hours);
 
         vm.recordLogs();
-        bytes32 actualIntentId =
-            _submit(trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT);
+        bytes32 actualIntentId = _submit(
+            trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT
+        );
         assertEq(actualIntentId, intentId);
 
         IAlphaEngineConfidentialSwapController.SwapIntentRecord memory record =
@@ -202,24 +205,24 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         assertTrue(controller.existsSwapIntent(intentId));
         assertTrue(taskManager.isAllowed(uint256(record.lockedAmountHandle), address(escrow)));
 
-        AlphaEngineStrategyHashLib.SwapPayloadV1 memory payload = AlphaEngineStrategyHashLib
-            .SwapPayloadV1({
-            chainId: block.chainid,
-            controller: address(controller),
-            intentId: intentId,
-            trader: trader,
-            traderNonce: 0,
-            escrow: address(escrow),
-            executor: address(executor),
-            inputWrapper: inputWrapper,
-            outputWrapper: outputWrapper,
-            routeKey: ROUTE_KEY,
-            executionDataHash: keccak256(executionData),
-            minimumOutputCommitment: minimumCommitment,
-            deadline: deadline,
-            lockedAmountHandle: record.lockedAmountHandle,
-            unshieldRequestHandle: record.unshieldRequestHandle
-        });
+        AlphaEngineStrategyHashLib.SwapPayloadV1 memory payload =
+            AlphaEngineStrategyHashLib.SwapPayloadV1({
+                chainId: block.chainid,
+                controller: address(controller),
+                intentId: intentId,
+                trader: trader,
+                traderNonce: 0,
+                escrow: address(escrow),
+                executor: address(executor),
+                inputWrapper: inputWrapper,
+                outputWrapper: outputWrapper,
+                routeKey: ROUTE_KEY,
+                executionDataHash: keccak256(executionData),
+                minimumOutputCommitment: minimumCommitment,
+                deadline: deadline,
+                lockedAmountHandle: record.lockedAmountHandle,
+                unshieldRequestHandle: record.unshieldRequestHandle
+            });
         assertEq(record.payloadHash, AlphaEngineStrategyHashLib.hashSwapPayload(payload));
 
         _assertSubmissionEvents(vm.getRecordedLogs(), record);
@@ -428,8 +431,9 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         uint256 outputAmount = 97e6;
         bytes memory executionData = abi.encode(outputAmount);
         uint40 deadline = uint40(block.timestamp + 1 hours);
-        bytes32 intentId =
-            _submit(trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT);
+        bytes32 intentId = _submit(
+            trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT
+        );
         _publishInput(intentId, inputAmount);
 
         vm.prank(outsider);
@@ -658,11 +662,13 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             routeKey: ROUTE_KEY,
             executionDataHash: keccak256(executionData),
             minimumOutputCommitment: AlphaEngineExecutionHashLib.hashSwapMinimumOutput(
-                intentId, minimumOutput, salt
-            ),
-            encryptedInputAmount: createInEuint64(inputAmount, submitter),
+                    intentId, minimumOutput, salt
+                ),
+            encryptedInputAmount: createExternalEuint64(inputAmount, submitter),
+            inputProof: "",
             deadline: deadline
         });
+        submission.inputProof = _inputProof(address(controller), submission.encryptedInputAmount);
     }
 
     function _expectSubmitError(
@@ -684,9 +690,8 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         vm.startPrank(account);
         inputUnderlying.approve(address(gateway), amount);
         gateway.depositAndShield(address(inputUnderlying), amount, account);
-        AlphaEngineFHERC20ERC20Wrapper(inputWrapper).setOperator(
-            address(escrow), uint48(block.timestamp + 30 days)
-        );
+        AlphaEngineFHERC20ERC20Wrapper(inputWrapper)
+            .setOperator(address(escrow), uint48(block.timestamp + 30 days));
         vm.stopPrank();
     }
 
@@ -697,13 +702,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: admin,
                         initialPauser: pauser,
                         initialSwapOperator: operator
-                    })
-                )
+                    }))
             )
         );
         return AlphaEngineConfidentialSwapController(address(proxy));
@@ -739,13 +742,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: initialDefaultAdmin,
                         initialPauser: initialPauser,
                         initialSwapOperator: initialOperator
-                    })
-                )
+                    }))
             )
         );
     }
@@ -754,9 +755,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         Vm.Log[] memory logs,
         IAlphaEngineConfidentialSwapController.SwapIntentRecord memory record
     ) private view {
-        bytes32 submissionTopic = keccak256(
-            "ConfidentialSwapSubmitted(bytes32,address,address,address,address,address,bytes32,bytes32,bytes32,uint40,bytes32,uint64)"
-        );
+        bytes32
+            submissionTopic =
+            keccak256(
+                "ConfidentialSwapSubmitted(bytes32,address,address,address,address,address,bytes32,bytes32,bytes32,uint40,bytes32,uint64)"
+            );
         bytes32 commitmentTopic =
             keccak256("ConfidentialSwapExecutionCommitted(bytes32,bytes32,bytes32)");
         bool foundSubmission;
@@ -813,7 +816,9 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             "ConfidentialSwapExecuted(bytes32,address,address,address,uint64,uint256,bytes32)"
         );
         for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) continue;
+            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) {
+                continue;
+            }
             assertEq(logs[i].topics[1], intentId);
             assertEq(address(uint160(uint256(logs[i].topics[2]))), trader);
             assertEq(address(uint160(uint256(logs[i].topics[3]))), operator);
@@ -838,10 +843,13 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         uint64 inputAmount,
         bytes32 refundHandle
     ) private view {
-        bytes32 eventTopic =
-            keccak256("ConfidentialSwapRefunded(bytes32,address,address,address,uint64,bytes32)");
+        bytes32 eventTopic = keccak256(
+            "ConfidentialSwapRefunded(bytes32,address,address,address,uint64,bytes32)"
+        );
         for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) continue;
+            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) {
+                continue;
+            }
             assertEq(logs[i].topics[1], intentId);
             assertEq(address(uint160(uint256(logs[i].topics[2]))), trader);
             assertEq(address(uint160(uint256(logs[i].topics[3]))), outsider);

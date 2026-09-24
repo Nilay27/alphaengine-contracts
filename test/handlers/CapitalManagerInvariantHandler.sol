@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {IAlphaEngineTraderQualificationRegistry} from
-    "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {externalEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    IAlphaEngineTraderQualificationRegistry
+} from "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
-import {AlphaEngineCapitalStrategyManager} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineCapitalStrategyManager
+} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockFundVault, MockVaultExecutionManager} from "test/mocks/MockVaultExecutionManager.sol";
 
@@ -60,14 +64,19 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
             : qualification.validUntil;
         if (deadline <= block.timestamp) return;
 
-        InEuint128 memory encryptedMarket = createInEuint128(market, trader);
-        InEuint128[] memory components = new InEuint128[](2);
-        components[0] = createInEuint128(component, trader);
-        components[1] = createInEuint128(component ^ 1, trader);
+        externalEuint128 encryptedMarket = createExternalEuint128(market, trader);
+        externalEuint128[] memory components = new externalEuint128[](2);
+        components[0] = createExternalEuint128(component, trader);
+        components[1] = createExternalEuint128(component ^ 1, trader);
 
         vm.prank(trader);
-        bytes32 intentId =
-            MANAGER.submitCapitalIntent(encryptedMarket, TIMEFRAME_KEY, deadline, components);
+        bytes32 intentId = MANAGER.submitCapitalIntent(
+            TIMEFRAME_KEY,
+            deadline,
+            encryptedMarket,
+            components,
+            _strategyProof(address(MANAGER), encryptedMarket, components)
+        );
         _intentIds.push(intentId);
         successfulSubmissions[trader] += 1;
         submittedQualificationVersion[intentId] = qualification.version;
@@ -159,7 +168,7 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
             _authorizations[intentId];
         bytes32 commitment = observedCommitment[intentId];
         AlphaEngineCapitalStrategyManager.CapitalIntentStatus previousStatus =
-            MANAGER.getCapitalIntentState(intentId).status;
+        MANAGER.getCapitalIntentState(intentId).status;
 
         try EXECUTION_MANAGER.executeThenRevert(authorization) {
             downstreamRollbackViolation = true;
@@ -231,7 +240,7 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
         uint64 beforeAuthorizationNonce = MANAGER.nextAuthorizationNonce();
         if (
             beforeState.status
-                == AlphaEngineCapitalStrategyManager.CapitalIntentStatus.PendingEvaluation
+                    == AlphaEngineCapitalStrategyManager.CapitalIntentStatus.PendingEvaluation
                 && block.timestamp < beforeState.deadline
         ) {
             AlphaEngineExecutionHashLib.ExecutionCommitmentV1 memory authorization =
@@ -318,11 +327,15 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
         returns (AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission memory)
     {
         scoreSeed = uint32(bound(scoreSeed, 0, uint256(type(uint32).max) - 2));
-        return AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
-            realSisterScore: createInEuint32(scoreSeed, address(this)),
-            perturbationP25Score: createInEuint32(scoreSeed + 1, address(this)),
-            stressP25Score: createInEuint32(scoreSeed + 2, address(this))
-        });
+        return _withScoreProof(
+            address(MANAGER),
+            AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
+                realSisterScore: createExternalEuint32(scoreSeed, address(this)),
+                perturbationP25Score: createExternalEuint32(scoreSeed + 1, address(this)),
+                stressP25Score: createExternalEuint32(scoreSeed + 2, address(this)),
+                inputProof: ""
+            })
+        );
     }
 
     function _canConsume(bytes32 intentId) private view returns (bool) {
@@ -335,7 +348,8 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
             _authorizations[intentId];
         return state.status == AlphaEngineCapitalStrategyManager.CapitalIntentStatus.Approved
             && REGISTRY.isQualifiedAtVersion(identity.trader, state.qualificationVersion)
-            && block.timestamp >= authorization.validAfter && block.timestamp < authorization.deadline;
+            && block.timestamp >= authorization.validAfter
+            && block.timestamp < authorization.deadline;
     }
 
     function _intentAt(uint256 seed) private view returns (bytes32) {

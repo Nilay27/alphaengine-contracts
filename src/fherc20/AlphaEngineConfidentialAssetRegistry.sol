@@ -3,11 +3,16 @@ pragma solidity 0.8.26;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IFHERC20ERC20Wrapper} from
-    "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {
+    IFHERC20ERC20Wrapper
+} from "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "./AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialAssetRegistry} from
-    "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+import {
+    IAlphaEngineEncryptedUnshieldFHERC20Wrapper
+} from "../interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
 
 /// @title AlphaEngineConfidentialAssetRegistry
 /// @notice Append-only registry for canonical underlying/FHERC20 wrapper pairs.
@@ -61,6 +66,12 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
             revert WrapperUnderlyingMismatch(wrapper, underlying, wrapperUnderlying);
         }
         _readWrapperRate(wrapper);
+        (bool success, bytes memory claimId) = wrapper.staticcall(
+            abi.encodeCall(
+                IAlphaEngineEncryptedUnshieldFHERC20Wrapper.latestUnshieldClaimId, (address(0))
+            )
+        );
+        if (!success || claimId.length != 32) revert InvalidWrapper(wrapper);
 
         _registerWrapper(underlying, wrapper);
     }

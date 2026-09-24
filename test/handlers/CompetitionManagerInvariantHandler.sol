@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {AlphaEngineCompetitionStrategyManager} from
-    "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
+import {externalEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    AlphaEngineCompetitionStrategyManager
+} from "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 
 contract CompetitionManagerInvariantHandler is MockCoFheTest {
@@ -39,14 +40,18 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
             return;
         }
 
-        InEuint128 memory encryptedMarket = createInEuint128(market, trader);
-        InEuint128[] memory components = new InEuint128[](2);
-        components[0] = createInEuint128(component, trader);
-        components[1] = createInEuint128(component ^ 1, trader);
+        externalEuint128 encryptedMarket = createExternalEuint128(market, trader);
+        externalEuint128[] memory components = new externalEuint128[](2);
+        components[0] = createExternalEuint128(component, trader);
+        components[1] = createExternalEuint128(component ^ 1, trader);
 
         vm.prank(trader);
         bytes32 submissionId = MANAGER.submitCompetitionStrategy(
-            COMPETITION_ID, encryptedMarket, keccak256("1h"), components
+            COMPETITION_ID,
+            keccak256("1h"),
+            encryptedMarket,
+            components,
+            _strategyProof(address(MANAGER), encryptedMarket, components)
         );
         _submissionIds.push(submissionId);
         successfulSubmissions[trader] += 1;
@@ -67,7 +72,8 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
             MANAGER.getCompetition(COMPETITION_ID);
         if (
             state.status != AlphaEngineCompetitionStrategyManager.SubmissionStatus.Submitted
-                || competition.status != AlphaEngineCompetitionStrategyManager.CompetitionStatus.Active
+                || competition.status
+                    != AlphaEngineCompetitionStrategyManager.CompetitionStatus.Active
                 || block.timestamp >= competition.submissionDeadline
         ) {
             return;
@@ -110,11 +116,15 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
             ) {
                 uint32 score = uint32(trackedEvaluatedCount) + 1;
                 AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission memory scores =
-                AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission({
-                    realSisterScore: createInEuint32(score, address(this)),
-                    perturbationP25Score: createInEuint32(score + 1, address(this)),
-                    stressP25Score: createInEuint32(score + 2, address(this))
-                });
+                    _withScoreProof(
+                        address(MANAGER),
+                        AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission({
+                            realSisterScore: createExternalEuint32(score, address(this)),
+                            perturbationP25Score: createExternalEuint32(score + 1, address(this)),
+                            stressP25Score: createExternalEuint32(score + 2, address(this)),
+                            inputProof: ""
+                        })
+                    );
                 MANAGER.recordEvaluation(
                     submissionId,
                     scores,

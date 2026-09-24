@@ -1,5 +1,15 @@
 # AlphaEngine Strategy Manager, Confidential Swap, and FundVault Plan
 
+## CoFHE 0.2 migration amendment (2026-09-25)
+
+The owner authorized upgrading CoFHE to v0.2.0 and FHERC20 to v0.4.0 before
+separate rate-limit remediation. [The migration contract](cofhe-v020-migration.md)
+supersedes this plan's old `InEuint*` encoding and temporary encrypted-unshield
+bridge. It preserves the market/component widths, all three scores, lifecycle,
+hash domains and custody ownership. It adds batch proofs, shared token boundary
+handles, distinct claim IDs and required library linking. No rate limits or
+reveal cursor are introduced in this commit.
+
 ## 1. Summary and deliverable status
 
 The recommended architecture uses independent contracts for competition, capital deployment, confidential swaps, and custody:
@@ -147,7 +157,7 @@ The legacy combined proxy and escrow must not be upgraded into any new component
 | `AlphaEngineConfidentialAssetGateway` | Non-upgradeable/stateless | User deposit/shield and ordinary request/claim convenience surface |
 | `AlphaEngineConfidentialSwapController` | Fresh transparent proxy | Bound confidential swap submission, execution, refund, nonce, operator, and pause lifecycle |
 | `AlphaEngineConfidentialSwapEscrow` | Fresh transparent proxy | FHERC20 lock, unshield, settlement, refund, and custody accounting |
-| `AlphaEngineFHERC20ERC20Wrapper` | Existing non-upgradeable pattern | Temporary encrypted-amount unshield bridge |
+| `AlphaEngineFHERC20ERC20Wrapper` | Existing non-upgradeable pattern | Official shared-handle unshield plus constant-time claim ID lookup |
 | `AlphaEngineV4SwapExecutor` | Fresh non-upgradeable deployment | Bounded Uniswap v4 exact-input execution |
 
 ### Second pass
@@ -640,13 +650,13 @@ retains no remainder.
 
 For competition and capital submissions:
 
-1. Internalize every `InEuint128` using `FHE.asEuint128`.
+1. Internalize `[market, ...components]` external uint128 handles with one `FHE.asEuint128s` batch proof bound to this manager.
 2. Reject zero/uninitialized resulting handles.
 3. Call `FHE.allowThis` for every handle.
 4. Grant access to the manager’s `fheOperator` snapshot.
 5. Store and emit only canonical `bytes32` handles.
 6. Store `operatorAtSubmission`.
-7. Internalize evaluator-provided `InEuint32` scores.
+7. Internalize the three evaluator-provided external uint32 scores with one `FHE.asEuint32s` batch proof.
 8. Grant score-handle access to the contract and submitting trader.
 9. Assert permissions directly against the Fhenix task manager in tests.
 
