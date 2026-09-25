@@ -2,19 +2,52 @@
 
 ## Fhenix decrypt-pressure amendment (2026-09-25)
 
-Following the CoFHE migration, the owner directed remediation of reviewer
-findings 2 and 3 before score-reveal changes. Fresh swap submissions now use a
-global trailing-minute cap and a time-refilled burst budget, initially
-120/minute, two/second and 24 burst, plus one active intent per trader. Limits
-are tunable by delayed governance while paused; execution and refund retain
-their original liveness, with a proven zero result refundable before expiry to
-release the active trader slot. The canonical wrapper applies a public-amount minimum
-and one pending claim per account/wrapper to both ordinary unshield overloads,
-with the registry-bound swap escrow exempt from the account gate because the
-controller admission budget owns its decrypt pressure. This amendment does not
-change the three-score reveal contract or promise a lower bound on encrypted
-swap input: CoFHE input proofs do not attest a plaintext range. The rate values
-remain testnet settings until CoFHE backlog and completion latency are measured.
+The owner approved completing findings 2–4 together, with one consolidated
+validation pass after implementation. New swaps retain the global trailing-minute
+cap and time-refilled burst budget (120/minute, two/second, burst 24), plus one
+active intent per trader. The controller masks below-minimum encrypted inputs to
+zero before escrow locking. The registry configures explicit, nonzero swap and
+partial-withdrawal minimums per wrapper in confidential base units; precision
+alone never determines economic policy. Configuration changes affect future
+requests. Existing locks and claims retain their original terminal paths.
+
+Ordinary withdrawals across all registered wrappers share a separate token
+bucket, initially one/second with burst eight. Both unshield overloads enforce
+one pending claim per source account/wrapper. The encrypted overload masks a
+below-minimum request to zero before burning; the plaintext overload rejects it
+before FHE work. Verified zero completion imposes a fixed five-minute source
+cooldown, including permissionless and batch claims. Swap zero refunds impose
+the same cooldown on the recorded trader, never the shared escrow. Admission
+budgets do not gate existing claims, execution or refunds. The trusted escrow
+uses the controller's budget and encrypted minimum, and is exempt from ordinary
+wrapper admission/pending/cooldown checks.
+
+A caller-only `unshieldAll(recipient)` uses the balance at request time to allow
+a complete exit, including dust. It bypasses only the partial-withdrawal minimum,
+uses the ordinary pending/admission gates, and starts a five-minute cooldown at
+request time. Later deposits are excluded from that claim. Verified zero
+completion restarts the cooldown. This full-exit path remains available before
+amount policy configuration; otherwise unconfigured minimums fail closed.
+
+Wrappers bind an explicit registry constructor argument. External registration
+checks that binding; it does not certify arbitrary external bytecode. Deployment
+must use reviewed implementations. Registry policy administration belongs to
+its timelock owner in production; Ownable alone adds no transaction delay.
+
+Score reveal preserves all three components, now authorizing up to eight
+submissions (24 handles) per call, advancing a per-competition cursor exactly
+once and enforcing five seconds between calls across the entire manager.
+Qualification remains independent of decryption readiness. A full 256-entry
+competition needs 32 batches, with 155 seconds from first to last authorization,
+plus external decryption/publication latency. Existing handles may be retried by
+the publisher without repeating manager authorization.
+
+These are provisional admission settings, not measured CoFHE capacity. Minimum
+masking does not eliminate the first zero-result decryption. Inherited FHERC20
+transfers/shielding/disclosure and holders' direct CoFHE ACL permissions are
+outside these workflow bounds; no universal network DPS guarantee is claimed.
+See [the remediation contract](fhenix-decrypt-pressure-remediation.md) for units,
+consumer migration, custody rules and validation requirements.
 
 ## CoFHE 0.2 migration amendment (2026-09-25)
 
@@ -775,7 +808,7 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Finalization is impossible until every active submission is evaluated.
 - Qualification publication is impossible before finalization or above the qualification cutoff.
 - Score-decryption requests are impossible before finalization, process all
-  three score components together, and are bounded to 32 submissions per call.
+  three score components together, and are bounded to eight submissions per call, once per rank and paced across competitions.
 - No token or arbitrary-call surface exists.
 
 ### Capital Manager

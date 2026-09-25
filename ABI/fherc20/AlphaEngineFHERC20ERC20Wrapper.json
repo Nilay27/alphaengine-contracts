@@ -22,9 +22,27 @@
           "name": "contractURI_",
           "type": "string",
           "internalType": "string"
+        },
+        {
+          "name": "registry_",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "UNSHIELD_COOLDOWN",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -984,6 +1002,44 @@
     },
     {
       "type": "function",
+      "name": "unshieldAll",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "sharedEuint64"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unshieldCooldownUntil",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "availableAt",
+          "type": "uint40",
+          "internalType": "uint40"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "wrapperRegistry",
       "inputs": [],
       "outputs": [
@@ -1116,6 +1172,31 @@
     },
     {
       "type": "event",
+      "name": "FullBalanceUnshieldRequested",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "recipient",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "claimId",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "OperatorSet",
       "inputs": [
         {
@@ -1160,6 +1241,25 @@
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "UnshieldCooldownStarted",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "availableAt",
+          "type": "uint40",
+          "indexed": false,
+          "internalType": "uint40"
         }
       ],
       "anonymous": false
@@ -1297,6 +1397,17 @@
     },
     {
       "type": "error",
+      "name": "InvalidWrapperRegistry",
+      "inputs": [
+        {
+          "name": "registry",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "PendingUnshieldClaim",
       "inputs": [
         {
@@ -1369,6 +1480,27 @@
           "internalType": "uint64"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "UnshieldCooldownActive",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "nextAvailableAt",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "UnshieldMinimumNotConfigured",
+      "inputs": []
     },
     {
       "type": "error",

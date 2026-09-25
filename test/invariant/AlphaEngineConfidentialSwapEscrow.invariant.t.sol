@@ -59,6 +59,8 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
             registry.createWrapper(address(inputUnderlying), "Encrypted iUSDC", "eiUSDC", "");
         outputWrapper =
             registry.createWrapper(address(outputUnderlying), "Encrypted iUSDT", "eiUSDT", "");
+        registry.setWrapperMinimums(inputWrapper, 1, 1000);
+        registry.setWrapperMinimums(outputWrapper, 1, 1000);
         vm.stopPrank();
 
         handler = new ConfidentialSwapEscrowInvariantHandler(

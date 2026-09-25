@@ -127,7 +127,9 @@ Implemented replacement contracts through Stage 8:
   scheduling, confidential submissions, evaluation/ranking, finalization, and
   qualification publication. After finalization, a dedicated score-revealer
   role can request asynchronous CoFHE decryption of all three evaluation-score
-  handles in bounded rank-order batches. The manager stores no duplicate
+  handles in rank-order batches of at most eight submissions, with a five-second
+  interval across competitions and a forward-only revealed-through cursor.
+  Qualification does not wait for public scores. The manager stores no duplicate
   plaintext score state; its public getter reads verified results from the
   CoFHE task manager and returns an independent readiness flag for each score.
 - `AlphaEngineCapitalStrategyManager` accepts a fresh confidential intent only
@@ -147,12 +149,19 @@ Implemented replacement contracts through Stage 8:
   deposit/shield and request/claim-unshield convenience calls. Exact balance
   deltas reject fee-on-transfer behavior, approvals reset to zero, and the
   gateway retains no underlying token after a successful call.
-- The canonical wrapper enforces a minimum plaintext unshield amount and one
-  pending claim per source account across plaintext and encrypted-handle
-  unshield calls. A verified single or batch claim releases the gate. The
-  configured swap escrow is exempt from the per-source pending gate because
-  it holds multiple traders' locks; the controller's admission budget governs
-  its creation of new decryptable swap claims.
+- The registry owns explicit per-wrapper swap and partial-unshield minimums in
+  confidential base units and a separate ordinary-withdrawal budget, initially
+  one request per second with burst eight across all wrappers. Unconfigured
+  minimums block new swaps and partial exits.
+- The wrapper rejects below-minimum plaintext amounts and masks below-minimum
+  encrypted amounts to zero before burning. One pending claim per source and
+  wrapper spans both overloads. Verified zero completion starts a five-minute
+  source cooldown; single and batch claims remain available during limits.
+- Caller-only `unshieldAll` snapshots the entire encrypted balance, including
+  dust, independently of the partial minimum. It shares the admission/pending
+  gates and starts a five-minute cooldown on admission. Later deposits remain
+  outside that claim. The explicitly registry-bound escrow is exempt from
+  ordinary withdrawal gates because controller admission covers its traders.
 - `AlphaEngineConfidentialSwapEscrow` is a fresh, initially paused transparent
   proxy domain. It owns only temporary FHERC20 locks, immediate encrypted
   unshield requests, exact settlement/refund accounting, and controller/registry
@@ -182,8 +191,13 @@ Implemented replacement contracts through Stage 8:
   one active intent per trader and the global rolling 60-second budget plus
   token-bucket burst budget. Initial limits are 120/minute, two/second refill
   and a 24-request burst. Delayed governance may tune limits while paused;
-  settlement/refund never consumes admission budget. The encrypted amount's
-  plaintext minimum cannot be established from the current input proof.
+  settlement/refund never consumes admission budget. Encrypted `gte`/`select`
+  masks requests below the input wrapper's minimum to zero before escrow transfer.
+  The canonical actual transfer still resolves to zero for insufficient balance.
+  Verified zero refunds start a five-minute cooldown on the recorded trader.
+  These controls bound protocol claim creation; inherited disclosure and direct
+  holder ACL grants remain outside this admission budget. See the
+  [remediation contract](fhenix-decrypt-pressure-remediation.md).
 - Controller state is marked terminal before escrow interaction and rolls back
   atomically if settlement fails. Refund remains permissionless after expiry or
   while either the controller or recorded escrow is paused. The controller

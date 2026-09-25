@@ -74,8 +74,10 @@ Competition evaluations contain three encrypted score components:
 
 During competition, scores are available only to the contract and their
 trader. After finalization, `SCORE_REVEALER_ROLE` may call
-`requestCompetitionScoreReveal` in rank-order batches of at most 32
-submissions. It grants `FHE.allowPublic` on each score; a decrypting client
+`requestCompetitionScoreReveal` in rank-order batches of at most eight
+submissions. Start at `scoreRevealedThrough(competitionId) + 1`; each rank can
+be authorized once. Calls across all competitions share a five-second interval
+(`nextScoreRevealAt`). It grants `FHE.allowPublic` on each score; a decrypting client
 obtains and publishes the signed result asynchronously, and
 `getPublicEvaluationScores` returns a separate readiness flag for every score.
 No aggregate score is stored.
@@ -89,7 +91,7 @@ Capital scores have no public-reveal path.
 | Components per submission | 1 to 16 |
 | Active submissions per competition | 256 |
 | Active submission per trader/competition | One; cancellation allows a new nonce |
-| Score-reveal request | 32 submissions / 96 publicly decryptable handles maximum |
+| Score-reveal request | 8 submissions / 24 handles maximum; once per rank; five-second global interval |
 | Capital authorization window | 1 hour maximum |
 | Qualification | Versioned, expiring and revocable |
 | Capital execution | Exact approved manager, vault, executor, calls, limits, evidence, nonce and expiry |

@@ -14,6 +14,12 @@ import {
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 
+import {FHE} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "src/interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+
 contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
     bytes32 internal constant ROUTE_KEY = keccak256("INVARIANT_EXACT_INPUT");
 
@@ -51,6 +57,8 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
     uint256 public rejectedExecutionDataMutations;
     uint256 public rejectedMinimumOutputMutations;
     uint256 public rejectedReplays;
+    uint256 public rejectedCooldowns;
+    mapping(address => uint40) public expectedCooldownUntil;
 
     constructor(
         AlphaEngineConfidentialSwapController controller,
@@ -108,6 +116,9 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
         CONTROLLER.refundSwapIntent(snapshot.intentId, snapshot.inputAmount, "");
         snapshot.expectedStatus = IAlphaEngineConfidentialSwapController.SwapIntentStatus.Refunded;
         successfulRefunds += 1;
+        if (snapshot.inputAmount == 0) {
+            expectedCooldownUntil[snapshot.trader] = uint40(block.timestamp + 5 minutes);
+        }
     }
 
     function rejectExecutionDataMutation(uint256 seed) external {
@@ -195,7 +206,7 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
 
     function _submit(address trader, uint64 rawInput, uint256 rawOutput, bytes32 rawSalt) private {
         if (CONTROLLER.activeSwapIntentOf(trader) != bytes32(0)) return;
-        uint64 inputAmount = uint64(bound(rawInput, 1, 75e6));
+        uint64 inputAmount = rawInput;
         uint256 outputAmount = bound(rawOutput, 1, 150e6);
         bytes32 salt = rawSalt == bytes32(0) ? bytes32(uint256(1)) : rawSalt;
         bytes memory executionData = abi.encode(outputAmount);
@@ -218,11 +229,48 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
             });
         submission.inputProof = _inputProof(address(CONTROLLER), submission.encryptedInputAmount);
 
+        if (block.timestamp < expectedCooldownUntil[trader]) {
+            uint256 count = CONTROLLER.submittedSwapIntentCount();
+            vm.prank(trader);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineConfidentialSwapController.SwapCooldownActive.selector,
+                    trader,
+                    expectedCooldownUntil[trader]
+                )
+            );
+            CONTROLLER.submitSwapIntent(submission);
+            assertEq(CONTROLLER.submittedSwapIntentCount(), count);
+            assertEq(CONTROLLER.traderNonces(trader), traderNonce);
+            rejectedCooldowns += 1;
+            return;
+        }
+        uint256 balance = mockStorage(
+            uint256(
+                FHE.unwrap(
+                    AlphaEngineFHERC20ERC20Wrapper(INPUT_WRAPPER).confidentialBalanceOf(trader)
+                )
+            )
+        );
+        uint64 minimum = IAlphaEngineConfidentialAssetRegistry(ESCROW.assetRegistry())
+            .minimumSwapInput(INPUT_WRAPPER);
+        uint64 expectedAmount = inputAmount >= minimum && inputAmount <= balance ? inputAmount : 0;
         vm.prank(trader);
         bytes32 actualIntentId = CONTROLLER.submitSwapIntent(submission);
         assertEq(actualIntentId, intentId);
         IAlphaEngineConfidentialSwapController.SwapIntentRecord memory record =
             CONTROLLER.getSwapIntent(intentId);
+        assertEq(mockStorage(uint256(record.lockedAmountHandle)), expectedAmount);
+        assertEq(
+            mockStorage(
+                uint256(
+                    FHE.unwrap(
+                        AlphaEngineFHERC20ERC20Wrapper(INPUT_WRAPPER).confidentialBalanceOf(trader)
+                    )
+                )
+            ),
+            balance - expectedAmount
+        );
         _snapshots.push(
             IntentSnapshot({
                 intentId: intentId,

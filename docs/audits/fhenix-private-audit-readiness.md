@@ -45,9 +45,12 @@ they execute no FHE operations.
 - Foundry uses a repository-owned Task Manager compatibility harness. A real
   production-network permission/decryption test remains a release gate.
 - Previous ciphertext access cannot be revoked when an FHE operator rotates.
-- Competition public score decryption is asynchronous and intentionally bounded
-  to 96 publicly decryptable handles per request. Pacing and replay controls
-  remain a later remediation.
+- Competition public score decryption remains asynchronous: 24 handles per
+  request, five seconds globally between requests and once-per-rank authorization.
+  Initial swap and ordinary withdrawal budgets are provisional. Local tests do
+  not establish network throughput; inherited holder disclosure remains outside
+  these protocol admission budgets. See the
+  [remediation contract](../engineering/fhenix-decrypt-pressure-remediation.md).
 - Stage 17 pinned Pendle market enter/hold/exit fork integration is pending.
 - Consolidated X-Ray, Solidity Auditor, remediation, final fuzzing and
   independent external audit are not complete.

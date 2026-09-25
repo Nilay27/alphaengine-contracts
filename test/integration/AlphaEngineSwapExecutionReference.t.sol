@@ -393,6 +393,8 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
             .createWrapper(address(fixture.inputUnderlying), "Encrypted Input", "eINPUT", "");
         fixture.outputWrapper = fixture.registry
             .createWrapper(address(fixture.outputUnderlying), "Encrypted Output", "eOUTPUT", "");
+        fixture.registry.setWrapperMinimums(fixture.inputWrapper, 1, 1);
+        fixture.registry.setWrapperMinimums(fixture.outputWrapper, 1, 1);
         vm.stopPrank();
 
         AlphaEngineConfidentialSwapEscrow escrowImplementation =

@@ -33,16 +33,80 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
     );
     error InvalidSwapEscrow(address escrow);
     error ActiveSwapLocksPresent(uint256 count);
+    error WrapperRegistryMismatch(address wrapper, address expected, address actual);
+    error WrapperNotRegistered(address wrapper);
+    error InvalidWrapperMinimums(uint64 swapMinimum, uint64 unshieldMinimum);
+    error InvalidUnshieldRateLimits(uint16 perSecond, uint16 burst);
+    error UnshieldRateLimitExceeded(uint256 nextAvailableAt);
 
     event ConfidentialWrapperRegistered(address indexed underlying, address indexed wrapper);
     event TrustedSwapEscrowUpdated(address indexed previousEscrow, address indexed newEscrow);
+    event WrapperMinimumsUpdated(
+        address indexed wrapper, uint64 swapMinimum, uint64 unshieldMinimum
+    );
+    event UnshieldRateLimitsUpdated(uint16 perSecond, uint16 burst);
+    event UnshieldAdmissionConsumed(address indexed wrapper, uint16 remainingTokens);
 
     address public override trustedSwapEscrow;
 
     mapping(address underlying => address wrapper) private _wrappersByUnderlying;
     mapping(address wrapper => address underlying) private _underlyingByWrapper;
+    mapping(address wrapper => uint64 minimum) public override minimumSwapInput;
+    mapping(address wrapper => uint64 minimum) public override minimumUnshieldAmount;
 
-    constructor(address initialOwner) Ownable(_validatedOwner(initialOwner)) {}
+    // Independent of the swap budget: shared by ordinary exits from all registered wrappers.
+    uint16 public unshieldRequestsPerSecond = 1;
+    uint16 public unshieldBurst = 8;
+    uint16 public availableUnshieldTokens = 8;
+    uint40 public unshieldTokensUpdatedAt;
+
+    constructor(address initialOwner) Ownable(_validatedOwner(initialOwner)) {
+        unshieldTokensUpdatedAt = uint40(block.timestamp);
+    }
+
+    /// @notice Amounts use each wrapper's confidential base units, never underlying base units.
+    /// @dev Zero/unconfigured policies prohibit new swaps and ordinary partial exits.
+    function setWrapperMinimums(address wrapper, uint64 swapMinimum, uint64 unshieldMinimum)
+        external
+        onlyOwner
+    {
+        if (_underlyingByWrapper[wrapper] == address(0)) revert WrapperNotRegistered(wrapper);
+        if (swapMinimum == 0 || unshieldMinimum == 0) {
+            revert InvalidWrapperMinimums(swapMinimum, unshieldMinimum);
+        }
+        minimumSwapInput[wrapper] = swapMinimum;
+        minimumUnshieldAmount[wrapper] = unshieldMinimum;
+        emit WrapperMinimumsUpdated(wrapper, swapMinimum, unshieldMinimum);
+    }
+
+    function setUnshieldRateLimits(uint16 perSecond, uint16 burst) external onlyOwner {
+        if (perSecond == 0 || perSecond > 16 || burst < perSecond || burst > 128) {
+            revert InvalidUnshieldRateLimits(perSecond, burst);
+        }
+        uint256 tokens = _unshieldTokens();
+        availableUnshieldTokens = uint16(tokens > burst ? burst : tokens);
+        unshieldTokensUpdatedAt = uint40(block.timestamp);
+        unshieldRequestsPerSecond = perSecond;
+        unshieldBurst = burst;
+        emit UnshieldRateLimitsUpdated(perSecond, burst);
+    }
+
+    function consumeUnshieldAdmission() external override {
+        if (_underlyingByWrapper[msg.sender] == address(0)) {
+            revert WrapperNotRegistered(msg.sender);
+        }
+        uint256 tokens = _unshieldTokens();
+        if (tokens == 0) revert UnshieldRateLimitExceeded(block.timestamp + 1);
+        availableUnshieldTokens = uint16(tokens - 1);
+        unshieldTokensUpdatedAt = uint40(block.timestamp);
+        emit UnshieldAdmissionConsumed(msg.sender, uint16(tokens - 1));
+    }
+
+    function _unshieldTokens() private view returns (uint256) {
+        uint256 tokens = uint256(availableUnshieldTokens)
+            + (block.timestamp - unshieldTokensUpdatedAt) * unshieldRequestsPerSecond;
+        return tokens > unshieldBurst ? unshieldBurst : tokens;
+    }
 
     function setTrustedSwapEscrow(address newEscrow) external onlyOwner {
         address previousEscrow = trustedSwapEscrow;
@@ -74,7 +138,9 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
         _validateUnregisteredUnderlying(underlying);
 
         wrapper = address(
-            new AlphaEngineFHERC20ERC20Wrapper(IERC20(underlying), name, symbol, contractUri)
+            new AlphaEngineFHERC20ERC20Wrapper(
+                IERC20(underlying), name, symbol, contractUri, address(this)
+            )
         );
         _registerWrapper(underlying, wrapper);
     }
@@ -101,6 +167,14 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
             )
         );
         if (!success || claimId.length != 32) revert InvalidWrapper(wrapper);
+        (success, claimId) = wrapper.staticcall(
+            abi.encodeCall(IAlphaEngineEncryptedUnshieldFHERC20Wrapper.wrapperRegistry, ())
+        );
+        if (!success || claimId.length != 32) revert InvalidWrapper(wrapper);
+        address binding = abi.decode(claimId, (address));
+        if (binding != address(this)) {
+            revert WrapperRegistryMismatch(wrapper, address(this), binding);
+        }
 
         _registerWrapper(underlying, wrapper);
     }

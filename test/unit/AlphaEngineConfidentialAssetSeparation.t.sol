@@ -46,6 +46,86 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
         underlying = new MockERC20("USD Coin", "USDC", 6);
     }
 
+    function test_registrationRejectsWrongRegistryBinding() public {
+        AlphaEngineConfidentialAssetRegistry other = new AlphaEngineConfidentialAssetRegistry(owner);
+        AlphaEngineFHERC20ERC20Wrapper wrapper =
+            new AlphaEngineFHERC20ERC20Wrapper(underlying, "Encrypted", "ENC", "", address(other));
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.WrapperRegistryMismatch.selector,
+                address(wrapper),
+                address(registry),
+                address(other)
+            )
+        );
+        registry.registerWrapper(address(underlying), address(wrapper));
+        assertEq(registry.wrapperForUnderlying(address(underlying)), address(0));
+    }
+
+    function test_wrapperPolicyRequiresExplicitNonzeroValuesAndOwner() public {
+        vm.prank(owner);
+        address wrapper = registry.createWrapper(address(underlying), "Encrypted", "ENC", "");
+        assertEq(registry.minimumSwapInput(wrapper), 0);
+        assertEq(registry.minimumUnshieldAmount(wrapper), 0);
+        vm.prank(outsider);
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", outsider));
+        registry.setWrapperMinimums(wrapper, 1e6, 1000);
+        vm.startPrank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.InvalidWrapperMinimums.selector, 0, 1000
+            )
+        );
+        registry.setWrapperMinimums(wrapper, 0, 1000);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.InvalidWrapperMinimums.selector, 1, 0
+            )
+        );
+        registry.setWrapperMinimums(wrapper, 1, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.WrapperNotRegistered.selector, outsider
+            )
+        );
+        registry.setWrapperMinimums(outsider, 1, 1);
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit AlphaEngineConfidentialAssetRegistry.WrapperMinimumsUpdated(wrapper, 1e6, 1000);
+        registry.setWrapperMinimums(wrapper, 1e6, 1000);
+        vm.stopPrank();
+        assertEq(registry.minimumSwapInput(wrapper), 1e6);
+        assertEq(AlphaEngineFHERC20ERC20Wrapper(wrapper).minimumUnshieldAmount(), 1000);
+    }
+
+    function test_unshieldBudgetRejectsUnregisteredCallersAndInvalidConfiguration() public {
+        vm.prank(outsider);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.WrapperNotRegistered.selector, outsider
+            )
+        );
+        registry.consumeUnshieldAdmission();
+        vm.prank(outsider);
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", outsider));
+        registry.setUnshieldRateLimits(1, 1);
+        vm.startPrank(owner);
+        uint16[4] memory rates = [uint16(0), 17, 2, 1];
+        uint16[4] memory bursts = [uint16(1), 17, 1, 129];
+        for (uint256 i; i < rates.length; ++i) {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineConfidentialAssetRegistry.InvalidUnshieldRateLimits.selector,
+                    rates[i],
+                    bursts[i]
+                )
+            );
+            registry.setUnshieldRateLimits(rates[i], bursts[i]);
+        }
+        vm.stopPrank();
+        assertEq(registry.availableUnshieldTokens(), 8);
+    }
+
     function test_constructorSetsOwnerAndRejectsZeroOwner() public {
         assertEq(registry.owner(), owner);
 
@@ -132,8 +212,9 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
     }
 
     function test_registerExistingWrapperValidatesBijectionSurfaceAndRate() public {
-        AlphaEngineFHERC20ERC20Wrapper wrapper =
-            new AlphaEngineFHERC20ERC20Wrapper(underlying, "Encrypted USDC", "eUSDC", "");
+        AlphaEngineFHERC20ERC20Wrapper wrapper = new AlphaEngineFHERC20ERC20Wrapper(
+            underlying, "Encrypted USDC", "eUSDC", "", address(registry)
+        );
 
         vm.prank(owner);
         registry.registerWrapper(address(underlying), address(wrapper));
@@ -216,6 +297,8 @@ contract AlphaEngineConfidentialAssetGatewayTest is MockCoFheTest {
         underlying = new MockERC20("USD Coin", "USDC", 6);
         vm.prank(owner);
         wrapper = registry.createWrapper(address(underlying), "Encrypted USDC", "eUSDC", "");
+        vm.prank(owner);
+        registry.setWrapperMinimums(wrapper, 1, 1000);
         gateway = new AlphaEngineConfidentialAssetGateway(registry);
     }
 
@@ -421,6 +504,8 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
             registry.createWrapper(address(inputUnderlying), "Encrypted USDC", "eUSDC", "");
         outputWrapper =
             registry.createWrapper(address(outputUnderlying), "Encrypted USDT", "eUSDT", "");
+        registry.setWrapperMinimums(inputWrapper, 1, 1000);
+        registry.setWrapperMinimums(outputWrapper, 1, 1000);
         vm.stopPrank();
 
         controller = new Stage7SwapControllerHarness();

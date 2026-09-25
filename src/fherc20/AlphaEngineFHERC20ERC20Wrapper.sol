@@ -27,9 +27,18 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
     error InvalidUnderlying(address underlying);
     error UnshieldAmountBelowMinimum(uint64 supplied, uint64 minimum);
     error PendingUnshieldClaim(address account, bytes32 claimId);
+    error InvalidWrapperRegistry(address registry);
+    error UnshieldMinimumNotConfigured();
+    error UnshieldCooldownActive(address account, uint256 nextAvailableAt);
 
-    uint64 public immutable minimumUnshieldAmount;
+    uint256 public constant UNSHIELD_COOLDOWN = 5 minutes;
     address public immutable wrapperRegistry;
+    mapping(address account => uint40 availableAt) public unshieldCooldownUntil;
+
+    event UnshieldCooldownStarted(address indexed account, uint40 availableAt);
+    event FullBalanceUnshieldRequested(
+        address indexed account, address indexed recipient, bytes32 claimId
+    );
 
     /// @notice Latest unique claim ID created for a recipient. Read atomically after unshield.
     mapping(address recipient => bytes32 claimId) public latestUnshieldClaimId;
@@ -40,7 +49,8 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
         IERC20 underlying_,
         string memory name_,
         string memory symbol_,
-        string memory contractURI_
+        string memory contractURI_,
+        address registry_
     )
         FHERC20(name_, symbol_, _cappedDecimals(underlying_), contractURI_)
         FHERC20ERC20Wrapper(underlying_)
@@ -51,41 +61,88 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
         if (address(underlying_).code.length == 0) {
             revert InvalidUnderlying(address(underlying_));
         }
-        wrapperRegistry = msg.sender;
-        uint8 precision = decimals();
-        minimumUnshieldAmount = precision > 3 ? uint64(10 ** (precision - 3)) : 1;
+        if (registry_ == address(0) || registry_.code.length == 0) {
+            revert InvalidWrapperRegistry(registry_);
+        }
+        wrapperRegistry = registry_;
+    }
+
+    function minimumUnshieldAmount() public view returns (uint64) {
+        return
+            IAlphaEngineConfidentialAssetRegistry(wrapperRegistry)
+                .minimumUnshieldAmount(address(this));
     }
 
     function unshield(address from, address to, uint64 amount)
         public
         override
+        nonReentrant
         returns (sharedEuint64)
     {
-        if (amount < minimumUnshieldAmount) {
-            revert UnshieldAmountBelowMinimum(amount, minimumUnshieldAmount);
+        uint64 minimum = _configuredMinimum();
+        if (amount < minimum) {
+            revert UnshieldAmountBelowMinimum(amount, minimum);
         }
-        return super.unshield(from, to, amount);
+        bool trustedEscrow = _admitUnshield(from, to);
+        // Plaintext minimum is already checked; avoid a redundant encrypted comparison.
+        return FHE.shareEuint64(
+            _burnAndCreateClaim(from, to, FHE.asEuint64(amount), trustedEscrow), msg.sender
+        );
+    }
+
+    /// @notice Withdraw the caller's entire balance at request time, including dust.
+    /// @dev Uses the same pending/admission gates and spaces full exits by at least five minutes.
+    ///      Deposits or transfers received later are not part of this request.
+    function unshieldAll(address to) external nonReentrant returns (sharedEuint64) {
+        bool trustedEscrow = _admitUnshield(msg.sender, to);
+        _startCooldown(msg.sender);
+        euint64 burned =
+            _burnAndCreateClaim(msg.sender, to, confidentialBalanceOf(msg.sender), trustedEscrow);
+        emit FullBalanceUnshieldRequested(msg.sender, to, latestUnshieldClaimId[to]);
+        return FHE.shareEuint64(burned, msg.sender);
     }
 
     /// @dev Upstream unshield returns only a shared ciphertext. Retain the official claim ID
     ///      here so callers can obtain it in O(1), without enumerating every pending claim.
-    ///      Both inherited, non-reentrant unshield overloads use this hook.
+    ///      The inherited encrypted overload authenticates its share before this hook.
     function _unshield(address from, address to, euint64 amount)
         internal
         virtual
         override
         returns (euint64 unshieldAmount)
     {
+        bool trustedEscrow = _admitUnshield(from, to);
+        if (!trustedEscrow) {
+            amount = FHE.select(
+                FHE.gte(amount, FHE.asEuint64(_configuredMinimum())), amount, FHE.asEuint64(0)
+            );
+        }
+        return _burnAndCreateClaim(from, to, amount, trustedEscrow);
+    }
+
+    function _admitUnshield(address from, address to) private returns (bool trustedEscrow) {
         if (to == address(0)) {
             revert FHERC20InvalidReceiver(to);
         }
         if (from != msg.sender && !isOperator(from, msg.sender)) {
             revert FHERC20UnauthorizedSpender(from, msg.sender);
         }
-        bool trustedEscrow = _isTrustedSwapEscrow(from);
-        if (!trustedEscrow && pendingUnshieldClaimId[from] != bytes32(0)) {
-            revert PendingUnshieldClaim(from, pendingUnshieldClaimId[from]);
+        trustedEscrow = _isTrustedSwapEscrow(from);
+        if (!trustedEscrow) {
+            if (pendingUnshieldClaimId[from] != bytes32(0)) {
+                revert PendingUnshieldClaim(from, pendingUnshieldClaimId[from]);
+            }
+            if (block.timestamp < unshieldCooldownUntil[from]) {
+                revert UnshieldCooldownActive(from, unshieldCooldownUntil[from]);
+            }
+            IAlphaEngineConfidentialAssetRegistry(wrapperRegistry).consumeUnshieldAdmission();
         }
+    }
+
+    function _burnAndCreateClaim(address from, address to, euint64 amount, bool trustedEscrow)
+        private
+        returns (euint64 unshieldAmount)
+    {
         unshieldAmount = _burn(from, amount);
         FHE.allowPublic(unshieldAmount);
         bytes32 claimId = _createClaim(to, unshieldAmount);
@@ -106,7 +163,7 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
         ERC20ConfidentialLib.Claim memory claim = _handleClaim(id, decryptedAmount, decryptionProof);
         uint256 underlyingAmount = uint256(claim.decryptedAmount) * rate();
         if (underlyingAmount != 0) IERC20(underlying()).safeTransfer(claim.to, underlyingAmount);
-        _clearPendingClaim(id);
+        _clearPendingClaim(id, claim.decryptedAmount);
         emit ClaimedUnshielded(claim.to, id, FHE.wrapEuint64(claim.ctHash), claim.decryptedAmount);
     }
 
@@ -123,27 +180,36 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
             if (underlyingAmount != 0) {
                 IERC20(underlying()).safeTransfer(claims[i].to, underlyingAmount);
             }
-            _clearPendingClaim(ids[i]);
+            _clearPendingClaim(ids[i], claims[i].decryptedAmount);
             emit ClaimedUnshielded(
                 claims[i].to, ids[i], FHE.wrapEuint64(claims[i].ctHash), claims[i].decryptedAmount
             );
         }
     }
 
-    function _clearPendingClaim(bytes32 id) private {
+    function _clearPendingClaim(bytes32 id, uint64 actualAmount) private {
         address source = _claimSource[id];
         if (source != address(0)) {
             delete pendingUnshieldClaimId[source];
             delete _claimSource[id];
+            if (actualAmount == 0) _startCooldown(source);
         }
+    }
+
+    function _startCooldown(address account) private {
+        uint40 availableAt = uint40(block.timestamp + UNSHIELD_COOLDOWN);
+        unshieldCooldownUntil[account] = availableAt;
+        emit UnshieldCooldownStarted(account, availableAt);
+    }
+
+    function _configuredMinimum() private view returns (uint64 minimum) {
+        minimum = minimumUnshieldAmount();
+        if (minimum == 0) revert UnshieldMinimumNotConfigured();
     }
 
     function _isTrustedSwapEscrow(address from) private view returns (bool) {
         if (from != msg.sender || from.code.length == 0) return false;
-        (bool success, bytes memory encodedEscrow) = wrapperRegistry.staticcall(
-            abi.encodeCall(IAlphaEngineConfidentialAssetRegistry.trustedSwapEscrow, ())
-        );
-        return success && encodedEscrow.length == 32 && abi.decode(encodedEscrow, (address)) == from;
+        return IAlphaEngineConfidentialAssetRegistry(wrapperRegistry).trustedSwapEscrow() == from;
     }
 
     function _cappedDecimals(IERC20 token) private view returns (uint8) {

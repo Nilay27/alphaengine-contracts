@@ -79,6 +79,10 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         assertEq(competition.activeSubmissionCount, handler.trackedActiveSubmissionCount());
         assertEq(competition.evaluatedCount, handler.trackedEvaluatedCount());
         assertEq(competition.publishedQualificationCount, handler.trackedPublishedCount());
+        assertEq(manager.scoreRevealedThrough(competitionId), handler.trackedRevealedThrough());
+        if (handler.successfulRevealBatches() != 0) {
+            assertEq(manager.nextScoreRevealAt(), uint256(handler.lastRevealAt()) + 5);
+        }
         assertLe(competition.activeSubmissionCount, manager.MAX_ACTIVE_SUBMISSIONS());
         assertLe(competition.evaluatedCount, competition.activeSubmissionCount);
         assertLe(competition.publishedQualificationCount, competition.qualificationSlots);
@@ -174,6 +178,8 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
             uint256 stressRequests =
                 taskManager.publicAllowCount(uint256(evaluation.stressP25ScoreHandle));
 
+            assertLe(realSisterRequests, 1);
+            assertEq(realSisterRequests, state.rank <= handler.trackedRevealedThrough() ? 1 : 0);
             assertEq(realSisterRequests, perturbationRequests);
             assertEq(realSisterRequests, stressRequests);
             if (realSisterRequests > 0) {

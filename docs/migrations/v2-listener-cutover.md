@@ -22,6 +22,31 @@ swap payload still binds the returned handles; its identifier/hash domain is unc
 Fresh wrappers are mandatory. Preserve existing deployment evidence and drain
 all old-wrapper claims/locks before cutover. See [migration notes](../engineering/cofhe-v020-migration.md).
 
+## Decrypt-pressure revision
+
+Regenerate consumers from the updated ABI set before cutover. Each new wrapper
+pins an explicit registry constructor argument; external registration rejects a
+mismatched binding. After creation/registration, the owner must call
+`setWrapperMinimums` with separate positive swap and partial-exit thresholds in
+confidential units. Unconfigured assets reject those new requests. Production
+registry ownership must sit behind a timelock; configure and record per-asset
+policies and the ordinary withdrawal budget before activation.
+
+Index `WrapperMinimumsUpdated`, `UnshieldRateLimitsUpdated`,
+`UnshieldAdmissionConsumed`, `UnshieldCooldownStarted`, `SwapCooldownStarted`
+and `FullBalanceUnshieldRequested`. Reconcile source/trader identity and cooldown
+getters; a third-party claimant or recipient is not necessarily the source.
+`unshieldAll(recipient)` is a direct caller-owned wrapper action; its event gives
+the unique claim ID. A cleared zero claim does not permit immediate retry.
+Clients should surface typed limit errors and their next-available timestamps.
+
+For score authorization, read `scoreRevealedThrough(id)` and `nextScoreRevealAt`,
+then request ranks from cursor + 1 in batches of 1–8. The five-second interval
+spans competitions. Publication retries use the already authorized handles;
+never replay or rewind rank authorization. Qualification need not wait for
+public score readiness. See the
+[remediation contract](../engineering/fhenix-decrypt-pressure-remediation.md).
+
 ## Required listener behavior
 
 1. Allowlist the exact chain, manifest schema, contract address, and ABI family before decoding a log. Unknown addresses or schema versions fail closed.

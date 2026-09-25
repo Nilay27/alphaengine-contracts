@@ -62,6 +62,8 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         outputWrapper = registry.createWrapper(
             address(outputUnderlying), "Encrypted Invariant Output", "eIOUT", ""
         );
+        registry.setWrapperMinimums(inputWrapper, 1000, 1000);
+        registry.setWrapperMinimums(outputWrapper, 1, 1000);
         vm.stopPrank();
 
         controller = _deployController();
@@ -102,9 +104,15 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         handler.rejectTerminalReplay(0);
         handler.submitAsB(30e6, 45e6, bytes32(uint256(2)));
         handler.refundExpiredActive(0);
+        handler.submitAsA(999, 1, bytes32(uint256(3)));
+        handler.refundExpiredActive(0);
+        handler.submitAsA(1000, 1, bytes32(uint256(4)));
     }
 
     function invariant_nonceEqualsSuccessfulSubmissionsPerTrader() public view {
+        assertEq(controller.swapCooldownUntil(traderA), handler.expectedCooldownUntil(traderA));
+        assertEq(controller.swapCooldownUntil(traderB), handler.expectedCooldownUntil(traderB));
+        assertGt(handler.rejectedCooldowns(), 0);
         assertEq(controller.traderNonces(traderA), handler.successfulSubmissions(traderA));
         assertEq(controller.traderNonces(traderB), handler.successfulSubmissions(traderB));
     }

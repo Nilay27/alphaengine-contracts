@@ -35,7 +35,8 @@ contract AlphaEngineCompetitionStrategyManager is
     uint48 public constant DEFAULT_ADMIN_DELAY = 48 hours;
     uint256 public constant MAX_COMPONENT_COUNT = 16;
     uint16 public constant MAX_ACTIVE_SUBMISSIONS = 256;
-    uint16 public constant MAX_SCORE_REVEAL_BATCH = 32;
+    uint16 public constant MAX_SCORE_REVEAL_BATCH = 8;
+    uint256 public constant SCORE_REVEAL_INTERVAL = 5 seconds;
 
     bytes32 public constant COMPETITION_CREATOR_ROLE = keccak256("COMPETITION_CREATOR_ROLE");
     bytes32 public constant COMPETITION_CANCELLER_ROLE = keccak256("COMPETITION_CANCELLER_ROLE");
@@ -149,6 +150,8 @@ contract AlphaEngineCompetitionStrategyManager is
     error ZeroInitializationAddress(bytes32 field);
     error InvalidQualificationRegistry(address registry);
     error ZeroFheOperator();
+    error ScoreRevealCursorMismatch(bytes32 competitionId, uint16 supplied, uint16 expected);
+    error ScoreRevealNotAvailable(uint256 nextAvailableAt);
     error ZeroRulesHash();
     error ZeroTimeframeKey();
     error ZeroEvidenceHash();
@@ -270,8 +273,11 @@ contract AlphaEngineCompetitionStrategyManager is
     mapping(bytes32 competitionId => mapping(uint16 rank => bytes32 submissionId)) private
         _submissionByRank;
 
-    /// @dev Nine repository-owned storage slots above plus this gap reserve 50 slots.
-    uint256[41] private __gap;
+    mapping(bytes32 competitionId => uint16 rank) public scoreRevealedThrough;
+    uint40 public nextScoreRevealAt;
+
+    /// @dev Eleven repository-owned storage slots above plus this gap reserve 50 slots.
+    uint256[39] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -594,12 +600,19 @@ contract AlphaEngineCompetitionStrategyManager is
         if (maxSubmissions == 0 || maxSubmissions > MAX_SCORE_REVEAL_BATCH) {
             revert InvalidScoreRevealBatchSize(maxSubmissions, MAX_SCORE_REVEAL_BATCH);
         }
+        uint16 expectedRank = scoreRevealedThrough[competitionId] + 1;
+        if (startRank != expectedRank) {
+            revert ScoreRevealCursorMismatch(competitionId, startRank, expectedRank);
+        }
+        if (block.timestamp < nextScoreRevealAt) revert ScoreRevealNotAvailable(nextScoreRevealAt);
 
         uint16 endRankExclusive = startRank + maxSubmissions;
         uint16 competitionEndRankExclusive = competition.activeSubmissionCount + 1;
         if (endRankExclusive > competitionEndRankExclusive) {
             endRankExclusive = competitionEndRankExclusive;
         }
+        scoreRevealedThrough[competitionId] = endRankExclusive - 1;
+        nextScoreRevealAt = uint40(block.timestamp + SCORE_REVEAL_INTERVAL);
 
         for (uint16 rank = startRank; rank < endRankExclusive; ++rank) {
             bytes32 submissionId = _submissionByRank[competitionId][rank];

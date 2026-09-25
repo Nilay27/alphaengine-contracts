@@ -14,11 +14,13 @@ independent external security audits.
 ## Dependency migration following review of `0595ef4`
 
 The dependency/API blocker was addressed in the first commit using released
-CoFHE v0.2.0 and FHERC20 v0.4.0. The subsequent swap/unshield change bounds
-new swap decrypt requests and ordinary unshield claims. Score-reveal pacing
-and replay controls remain open. See the
-[migration contract](docs/engineering/cofhe-v020-migration.md) for consumer and
-deployment requirements.
+CoFHE v0.2.0 and FHERC20 v0.4.0. The complete remediation adds per-wrapper
+minimums, verified-zero cooldowns, independent swap/withdrawal admission budgets,
+a full-balance dust exit and paced, once-per-rank score authorization. See the
+[migration contract](docs/engineering/cofhe-v020-migration.md) and
+[remediation contract](docs/engineering/fhenix-decrypt-pressure-remediation.md)
+for consumer, configuration and fresh-deployment requirements. Live network
+capacity and real CoFHE integration remain release gates.
 
 ## Product in one diagram
 
@@ -69,10 +71,10 @@ or FundVault lifecycle.
 |---|---|---|
 | Competition submission with `n` components | `1 + n` × `externalEuint128`, `1 <= n <= 16` | One batch verification over `1 + n` inputs; contract and operator ACL grants for each handle; no encrypted arithmetic |
 | Competition evaluation | 3 × `externalEuint32` | One batch verification over 3 inputs; contract and trader ACL grants; no encrypted arithmetic |
-| Public score reveal after finalization | 3 × `euint32` per submission | 3 public ACL grants per submission; at most 32 submissions, therefore 96 handles made publicly decryptable per call |
+| Public score reveal after finalization | 3 × `euint32` per submission | 3 public ACL grants per submission; at most 8 submissions, therefore 24 handles made publicly decryptable per call; forward cursor and global five-second interval |
 | Capital-intent submission | `1 + n` × `externalEuint128`, `1 <= n <= 16` | Same input verification and ACL pattern as competition; no encrypted arithmetic |
 | Capital evaluation | 3 × `externalEuint32` | Same verification and ACL pattern as competition evaluation; no public-decrypt path |
-| Confidential-swap submission | 1 × `externalEuint64` | 1 batch-of-one verification plus contract and recorded escrow ACL grants |
+| Confidential-swap submission | 1 × `externalEuint64` | 1 batch-of-one verification; `gte`/`select` minimum masking and trivial constants; contract and recorded escrow ACL grants on the effective input |
 | Vault deposit, accounting, Merkle proof, risk check, execution | None | No FHE operations |
 
 `FHE.asEuint128s(inputs, proof)`, `FHE.asEuint32s(inputs, proof)`, and
@@ -115,9 +117,11 @@ balance arithmetic.
 |---|---|
 | Encrypted components per strategy submission | 16 |
 | Active submissions per competition | 256 |
-| Public score-reveal batch | 32 submissions / 96 publicly decryptable handles |
+| Public score-reveal batch | 8 submissions / 24 handles; five seconds globally between batches; once per rank |
 | New swap intents | Initially 120 per trailing minute, two tokens refilled per second, 24-request burst, one active per trader |
-| Ordinary unshield | Minimum 0.001 token at six-decimal encrypted precision; one pending claim per source account and wrapper |
+| Ordinary unshield | Explicit per-wrapper partial minimum; one pending/source/wrapper; five-minute cooldown after verified zero; shared budget initially 1/s, burst 8 |
+| Full-balance unshield | Caller-only dust exception; same pending/budget gates; five-minute cooldown from admission |
+| Zero swap refund | Verified zero starts five-minute recorded-trader cooldown |
 | Capital execution authorization | Maximum 1 hour |
 | FundVault calls per batch | 16 |
 | Asset limits per vault execution | 16 |
@@ -126,8 +130,18 @@ balance arithmetic.
 Competition and capital submission frequency remains product-dependent. The
 swap budget is global to this controller and configurable by delayed governance
 only while paused. Its initial values are provisional; production CoFHE task
-capacity and completion latency remain to be measured. The wrapper's encrypted
-input cannot be proven above a plaintext minimum with the current input proof.
+capacity and completion latency remain to be measured. Encrypted comparison and
+selection enforce minimum spend policy without revealing an eligibility bit;
+they cannot reject zero/insufficient-balance requests before the first decrypt.
+Ordinary encrypted partial unshield adds the same `gte`/`select` masking.
+All three scores remain: a full competition authorizes 768 handles once across
+32 batches, taking at least 155 seconds from first to last batch.
+
+These budgets cover AlphaEngine claim creation and manager score authorization.
+Inherited shielding, confidential transfers, `requestDiscloseEncryptedAmount`
+and holder calls to Task Manager `allowGlobal` remain part of the wider FHE load
+inventory. They are not bounded by these admission controls. Repeated public ACL
+grants alone do not establish repeated network computation for a cached result.
 
 ## Permissions and decryption
 

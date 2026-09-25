@@ -1,5 +1,17 @@
 # Development Log
 
+## 2026-09-25 — Complete Fhenix decrypt-pressure lifecycle
+
+- Implemented the owner-approved [remediation contract](engineering/fhenix-decrypt-pressure-remediation.md): explicit per-wrapper minimums, encrypted minimum masking, verified-zero five-minute cooldowns, independent aggregate ordinary-unshield admission, and a paced caller-only full-balance exit.
+- Preserved swap limits, one active intent, one pending ordinary claim, canonical actual-transfer/burn handles, third-party preclaim reconciliation and terminal custody paths. Plaintext unshield avoids redundant encrypted comparison. Config changes affect future requests, never existing claims or swaps.
+- Bound external wrappers to an explicit registry and validated registration wiring. Amount policies must be configured explicitly; no token-value assumptions derive from decimals. Registry ownership requires the production timelock.
+- Added one-time rank cursors and manager-wide pacing: eight submissions / 24 scores every five seconds. Retained all three scores and independent qualification; off-chain publishers retry already-authorized handles without replaying the manager range.
+- Documented inherited disclosure and direct CoFHE ACL permissions as outside workflow admission guarantees. No live capacity or network-wide DPS claim is made.
+- Added amount/cooldown/claim/policy/pagination regressions and an independent two-asset withdrawal invariant model. Foundry v1.7.1 passed the complete suite: 345 tests, including 40 invariant properties at 64 runs × depth 32 (81,920 aggregate calls, zero handler reverts), integration and deployment tests. Validation ran after the complete implementation; the first run exposed one test timestamp assertion, corrected with Foundry's timestamp reader before the successful second run.
+- Coverage passed using the existing `--ir-minimum --skip DeployAlphaEngineV2` configuration: 336 coverage tests, 93.42% total lines, 93.11% statements, 73.65% branches and 99.28% functions. The nine deployment tests passed in the normal suite. Coverage used separate temporary output/cache paths to preserve the normal build artifacts.
+- Regenerated four ABIs, two storage layouts and listener selectors/topics. Independently verified every existing storage field/type and the unchanged reserved end slot (50) for both affected proxies. ABI/layout/hash-vector/runtime-size CI checks, formatting and repository hygiene passed. The largest changed runtime is the asset registry at 21,263 bytes, below the 23,000-byte repository limit. Live CoFHE throughput and SDK/listener cutover remain release gates.
+
+
 ## 2026-09-25 — Fhenix decrypt-pressure findings 2 and 3
 
 - Added one active swap intent per trader and a global, timestamp-based swap

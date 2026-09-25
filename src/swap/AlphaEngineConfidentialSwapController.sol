@@ -41,6 +41,7 @@ contract AlphaEngineConfidentialSwapController is
     uint16 public constant DEFAULT_SWAP_INTENTS_PER_SECOND = 2;
     uint16 public constant DEFAULT_SWAP_BURST = 24;
     uint256 public constant SWAP_INTENT_WINDOW = 60 seconds;
+    uint256 public constant ZERO_SWAP_COOLDOWN = 5 minutes;
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant SWAP_OPERATOR_ROLE = keccak256("SWAP_OPERATOR_ROLE");
 
@@ -68,6 +69,8 @@ contract AlphaEngineConfidentialSwapController is
     error DeadlineNotInFuture(uint40 deadline, uint256 currentTimestamp);
     error TraderNonceExhausted(address trader);
     error ActiveSwapIntentExists(address trader, bytes32 intentId);
+    error SwapCooldownActive(address trader, uint256 nextAvailableAt);
+    error SwapMinimumNotConfigured(address wrapper);
     error SwapIntentRateLimitExceeded(uint256 nextAvailableAt);
     error SwapIntentBurstLimitExceeded(uint256 nextAvailableAt);
     error InvalidSwapIntentRateLimit(uint16 perMinute, uint16 perSecond, uint16 burst);
@@ -87,6 +90,7 @@ contract AlphaEngineConfidentialSwapController is
         address newExecutor
     );
     event SwapIntentRateLimitUpdated(uint16 perMinute, uint16 perSecond, uint16 burst);
+    event SwapCooldownStarted(address indexed trader, uint40 availableAt);
     event ConfidentialSwapSubmitted(
         bytes32 indexed intentId,
         address indexed trader,
@@ -138,9 +142,10 @@ contract AlphaEngineConfidentialSwapController is
     uint16 public swapBurst;
     uint16 public availableSwapTokens;
     uint40 public swapTokensUpdatedAt;
+    mapping(address trader => uint40 availableAt) public swapCooldownUntil;
 
-    /// @dev Eight repository-owned storage slots plus this gap reserve 50 slots.
-    uint256[42] private __gap;
+    /// @dev Nine repository-owned storage slots plus this gap reserve 50 slots.
+    uint256[41] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -237,6 +242,9 @@ contract AlphaEngineConfidentialSwapController is
         if (activeIntentId != bytes32(0)) {
             revert ActiveSwapIntentExists(msg.sender, activeIntentId);
         }
+        if (block.timestamp < swapCooldownUntil[msg.sender]) {
+            revert SwapCooldownActive(msg.sender, swapCooldownUntil[msg.sender]);
+        }
         uint256 count = submittedSwapIntentCount;
         uint256 limit = maxSwapIntentsPerWindow;
         if (limit == 0 || swapIntentsPerSecond == 0 || swapBurst == 0) {
@@ -267,12 +275,19 @@ contract AlphaEngineConfidentialSwapController is
         euint64 internalizedInputAmount =
             FHE.asEuint64(submission.encryptedInputAmount, submission.inputProof);
         FHE.allowThis(internalizedInputAmount);
-        FHE.allow(internalizedInputAmount, escrow);
+        uint64 minimum = IAlphaEngineConfidentialAssetRegistry(
+                IAlphaEngineConfidentialSwapEscrow(escrow).assetRegistry()
+            ).minimumSwapInput(submission.inputWrapper);
+        euint64 effectiveInput = FHE.select(
+            FHE.gte(internalizedInputAmount, FHE.asEuint64(minimum)),
+            internalizedInputAmount,
+            FHE.asEuint64(0)
+        );
+        FHE.allowThis(effectiveInput);
+        FHE.allow(effectiveInput, escrow);
 
         euint64 lockedAmount = IAlphaEngineConfidentialSwapEscrow(escrow)
-            .lockForSwapIntent(
-                intentId, msg.sender, submission.inputWrapper, internalizedInputAmount
-            );
+            .lockForSwapIntent(intentId, msg.sender, submission.inputWrapper, effectiveInput);
         IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory intentLock =
             IAlphaEngineConfidentialSwapEscrow(escrow).getSwapIntentLock(intentId);
         if (
@@ -428,6 +443,12 @@ contract AlphaEngineConfidentialSwapController is
         delete activeSwapIntentOf[record.trader];
         refundedShieldedHandle = IAlphaEngineConfidentialSwapEscrow(record.escrow)
             .refundSwapIntent(intentId, decryptedInputAmount, decryptionProof);
+        // Escrow has now verified the proof, or reconciled the exact verified preclaim.
+        if (decryptedInputAmount == 0) {
+            uint40 availableAt = uint40(block.timestamp + ZERO_SWAP_COOLDOWN);
+            swapCooldownUntil[record.trader] = availableAt;
+            emit SwapCooldownStarted(record.trader, availableAt);
+        }
 
         emit ConfidentialSwapRefunded(
             intentId,
@@ -504,6 +525,12 @@ contract AlphaEngineConfidentialSwapController is
         address registry = IAlphaEngineConfidentialSwapEscrow(escrow).assetRegistry();
         _requireRegisteredWrapper(registry, submission.inputWrapper);
         _requireRegisteredWrapper(registry, submission.outputWrapper);
+        if (
+            IAlphaEngineConfidentialAssetRegistry(registry)
+                    .minimumSwapInput(submission.inputWrapper) == 0
+        ) {
+            revert SwapMinimumNotConfigured(submission.inputWrapper);
+        }
     }
 
     function _requireRegisteredWrapper(address registry, address wrapper) private view {

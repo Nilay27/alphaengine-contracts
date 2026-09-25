@@ -23,6 +23,7 @@ contract MockCoFheTaskManager is ITaskManager {
     error InvalidSigner(address actual, address expected);
     address public verifierSigner;
     uint256 public batchVerificationCount;
+    uint256 public taskCreationCount;
     uint256 public lastBatchSize;
 
     function setVerifierSigner(address signer) external {
@@ -74,6 +75,7 @@ contract MockCoFheTaskManager is ITaskManager {
         uint256[] memory encryptedInputs,
         uint256[] memory extraInputs
     ) external returns (uint256) {
+        taskCreationCount += 1;
         uint256 value;
 
         if (funcId == FunctionId.trivialEncrypt) {

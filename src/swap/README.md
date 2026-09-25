@@ -73,13 +73,20 @@ active for each trader. Delayed governance may tune these limits while paused;
 they do not prevent settlement or refund. On Arbitrum, several blocks may share
 a timestamp, so those blocks spend the same burst allowance.
 
-The wrapper separately requires a minimum public unshield amount of 0.001
-token at six-decimal encrypted precision and keeps at most one pending claim
-per source account. Its encrypted-handle unshield overload uses the same
-pending gate. The registry-bound swap escrow is exempt because it holds locks
-for multiple traders; only the configured controller can direct that escrow
-to create swap claims. An encrypted input proof does not establish a plaintext
-minimum, so a swap may still resolve to zero and must remain refundable.
+The registry supplies explicit minimums per input wrapper in confidential units.
+The controller masks below-minimum encrypted requests to zero before transfer;
+insufficient balance also produces zero. Verified zero refund starts a five-minute
+cooldown on the recorded trader. The first invalid request still needs decryption.
+
+Ordinary partial unshield has a separate per-wrapper minimum, one pending/source/
+wrapper, a five-minute verified-zero cooldown and a registry-wide budget initially
+1/s with burst eight. Plaintext amounts below minimum reject; encrypted amounts
+are masked to zero. Caller-only `unshieldAll` permits dust recovery with the same
+pending/budget gates and a cooldown from admission. The explicitly registry-bound
+swap escrow is exempt because controller admission governs its separate traders.
+Claims and refunds remain available during admission limits. See the
+[complete policy](../../docs/engineering/fhenix-decrypt-pressure-remediation.md),
+including the inherited disclosure boundary and deployment configuration.
 
 ## Refund flow
 

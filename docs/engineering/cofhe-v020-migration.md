@@ -1,5 +1,9 @@
 # CoFHE v0.2.0 / FHERC20 v0.4.0 migration
 
+> This records the first dependency-migration commit. Subsequent minimums,
+> cooldowns, admission budgets and score pacing supersede its deferred-work
+> descriptions; see [complete remediation](fhenix-decrypt-pressure-remediation.md).
+
 Scope: first remediation commit for Fhenix's review of `0595ef4`. The owner
 authorized the dependency/API migration before the separate decrypt-pressure
 and rate-limiter changes. No external deployment is authorized by this change.

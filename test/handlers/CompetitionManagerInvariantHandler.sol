@@ -18,6 +18,10 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
     uint16 public trackedActiveSubmissionCount;
     uint16 public trackedEvaluatedCount;
     uint16 public trackedPublishedCount;
+    uint16 public trackedRevealedThrough;
+    uint40 public lastRevealAt;
+    uint256 public successfulRevealBatches;
+    uint256 public rejectedRevealAttempts;
 
     constructor(AlphaEngineCompetitionStrategyManager manager, bytes32 competitionId) {
         MANAGER = manager;
@@ -181,9 +185,45 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
             return;
         }
 
-        uint16 startRank = uint16((uint256(startSeed) % competition.activeSubmissionCount) + 1);
+        uint16 startRank = trackedRevealedThrough + 1;
         uint16 count = uint16((uint256(countSeed) % MANAGER.MAX_SCORE_REVEAL_BATCH()) + 1);
-        MANAGER.requestCompetitionScoreReveal(COMPETITION_ID, startRank, count);
+        if (trackedRevealedThrough == competition.activeSubmissionCount) {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
+                    COMPETITION_ID,
+                    1,
+                    startRank
+                )
+            );
+            MANAGER.requestCompetitionScoreReveal(COMPETITION_ID, 1, count);
+            rejectedRevealAttempts += 1;
+            return;
+        }
+        if (block.timestamp < MANAGER.nextScoreRevealAt()) {
+            if (startSeed % 2 == 0) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        AlphaEngineCompetitionStrategyManager.ScoreRevealNotAvailable.selector,
+                        MANAGER.nextScoreRevealAt()
+                    )
+                );
+                MANAGER.requestCompetitionScoreReveal(COMPETITION_ID, startRank, count);
+                rejectedRevealAttempts += 1;
+                return;
+            }
+            vm.warp(MANAGER.nextScoreRevealAt());
+        }
+        if (successfulRevealBatches != 0) assertGe(block.timestamp, uint256(lastRevealAt) + 5);
+        uint16 expectedCount = competition.activeSubmissionCount - trackedRevealedThrough;
+        if (expectedCount > count) expectedCount = count;
+        (uint16 next, uint16 processed) =
+            MANAGER.requestCompetitionScoreReveal(COMPETITION_ID, startRank, count);
+        assertEq(processed, expectedCount);
+        assertEq(next, startRank + expectedCount);
+        trackedRevealedThrough += expectedCount;
+        lastRevealAt = uint40(block.timestamp);
+        successfulRevealBatches += 1;
     }
 
     function submissionCount() external view returns (uint256) {

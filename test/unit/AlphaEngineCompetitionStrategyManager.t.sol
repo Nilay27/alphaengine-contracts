@@ -586,6 +586,151 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         manager.finalizeCompetition(competitionId);
     }
 
+    function test_scoreRevealPacingIsGlobalAndQualificationDoesNotWait() public {
+        bytes32 firstCompetition = _createCompetition(1);
+        bytes32 secondCompetition = _createCompetition(1);
+        bytes32 first = _submit(firstCompetition, trader, 1, 10);
+        bytes32 second = _submit(secondCompetition, secondTrader, 2, 20);
+        _beginEvaluation(firstCompetition);
+        _beginEvaluation(secondCompetition);
+        _evaluate(first, 1, 100);
+        _evaluate(second, 1, 200);
+        vm.startPrank(finalizer);
+        manager.finalizeCompetition(firstCompetition);
+        manager.finalizeCompetition(secondCompetition);
+        vm.stopPrank();
+        vm.prank(qualifier);
+        manager.publishTraderQualification(second);
+        assertTrue(manager.getSubmissionState(second).qualificationPublished);
+        assertEq(manager.scoreRevealedThrough(secondCompetition), 0);
+        vm.prank(scoreRevealer);
+        manager.requestCompetitionScoreReveal(firstCompetition, 1, 1);
+        uint40 available = manager.nextScoreRevealAt();
+        assertEq(available, block.timestamp + 5 seconds);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
+                firstCompetition,
+                1,
+                2
+            )
+        );
+        manager.requestCompetitionScoreReveal(firstCompetition, 1, 1);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealNotAvailable.selector, available
+            )
+        );
+        manager.requestCompetitionScoreReveal(secondCompetition, 1, 1);
+        assertEq(manager.scoreRevealedThrough(secondCompetition), 0);
+        vm.warp(available - 1);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealNotAvailable.selector, available
+            )
+        );
+        manager.requestCompetitionScoreReveal(secondCompetition, 1, 1);
+        vm.warp(available);
+        vm.prank(scoreRevealer);
+        manager.requestCompetitionScoreReveal(secondCompetition, 1, 1);
+        assertEq(manager.scoreRevealedThrough(secondCompetition), 1);
+    }
+
+    function test_fullCompetitionRevealsEachScoreOnceIn32PacedBatches() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32[] memory submissions = new bytes32[](256);
+        for (uint16 i; i < 256; ++i) {
+            submissions[i] = _submit(
+                competitionId, address(uint160(0x7000 + i)), uint128(i + 1), uint128(i + 10)
+            );
+        }
+        _beginEvaluation(competitionId);
+        for (uint16 i; i < 256; ++i) {
+            _evaluate(submissions[i], i + 1, uint32(i + 100));
+        }
+        vm.prank(finalizer);
+        manager.finalizeCompetition(competitionId);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
+                competitionId,
+                2,
+                1
+            )
+        );
+        manager.requestCompetitionScoreReveal(competitionId, 2, 8);
+        uint256 firstAt = vm.getBlockTimestamp();
+        for (uint16 start = 1; start <= 256; start += 8) {
+            if (block.timestamp < manager.nextScoreRevealAt()) {
+                vm.warp(manager.nextScoreRevealAt());
+            }
+            vm.prank(scoreRevealer);
+            (uint16 next, uint16 count) =
+                manager.requestCompetitionScoreReveal(competitionId, start, 8);
+            assertEq(next, start + 8);
+            assertEq(count, 8);
+            assertEq(manager.scoreRevealedThrough(competitionId), next - 1);
+        }
+        assertEq(vm.getBlockTimestamp() - firstAt, 155);
+        for (uint16 i; i < 256; ++i) {
+            AlphaEngineCompetitionStrategyManager.EvaluationRecord memory evaluation =
+                manager.getEvaluation(submissions[i]);
+            assertEq(taskManager.publicAllowCount(uint256(evaluation.realSisterScoreHandle)), 1);
+            assertEq(
+                taskManager.publicAllowCount(uint256(evaluation.perturbationP25ScoreHandle)), 1
+            );
+            assertEq(taskManager.publicAllowCount(uint256(evaluation.stressP25ScoreHandle)), 1);
+        }
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
+                competitionId,
+                1,
+                257
+            )
+        );
+        manager.requestCompetitionScoreReveal(competitionId, 1, 8);
+    }
+
+    function test_failedRevealRollsBackCursorPacingAndEarlierGrants() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 submission = _submit(competitionId, trader, 1, 10);
+        _beginEvaluation(competitionId);
+        _evaluate(submission, 1, 100);
+        vm.prank(finalizer);
+        manager.finalizeCompetition(competitionId);
+        AlphaEngineCompetitionStrategyManager.EvaluationRecord memory evaluation =
+            manager.getEvaluation(submission);
+        bytes memory failure = abi.encodeWithSignature(
+            "SenderNotAllowed(uint256,address)",
+            uint256(evaluation.stressP25ScoreHandle),
+            address(manager)
+        );
+        vm.mockCallRevert(
+            address(taskManager),
+            abi.encodeWithSelector(
+                taskManager.allowGlobal.selector, uint256(evaluation.stressP25ScoreHandle)
+            ),
+            failure
+        );
+        vm.prank(scoreRevealer);
+        vm.expectRevert(failure);
+        manager.requestCompetitionScoreReveal(competitionId, 1, 1);
+        assertEq(manager.scoreRevealedThrough(competitionId), 0);
+        assertEq(manager.nextScoreRevealAt(), 0);
+        assertEq(taskManager.publicAllowCount(uint256(evaluation.realSisterScoreHandle)), 0);
+        assertEq(taskManager.publicAllowCount(uint256(evaluation.perturbationP25ScoreHandle)), 0);
+        vm.clearMockedCalls();
+        vm.prank(scoreRevealer);
+        manager.requestCompetitionScoreReveal(competitionId, 1, 1);
+        assertEq(manager.scoreRevealedThrough(competitionId), 1);
+    }
+
     function test_scoreRevealRequestsAsyncDecryptionsAndExposesPublishedResults() public {
         bytes32 competitionId = _createCompetition(1);
         bytes32 submissionId = _submit(competitionId, trader, 1, 10);
@@ -609,7 +754,7 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         );
         vm.prank(scoreRevealer);
         (uint16 nextRank, uint16 requestedCount) =
-            manager.requestCompetitionScoreReveal(competitionId, 1, 32);
+            manager.requestCompetitionScoreReveal(competitionId, 1, 8);
 
         assertEq(nextRank, 2);
         assertEq(requestedCount, 1);
@@ -733,17 +878,17 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 0, 32
+                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 0, 8
             )
         );
         manager.requestCompetitionScoreReveal(competitionId, 1, 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 33, 32
+                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 9, 8
             )
         );
-        manager.requestCompetitionScoreReveal(competitionId, 1, 33);
+        manager.requestCompetitionScoreReveal(competitionId, 1, 9);
         vm.stopPrank();
 
         bytes32 secondCompetitionId = _createCompetition(1);
@@ -801,9 +946,10 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
             0
         );
 
+        vm.warp(manager.nextScoreRevealAt());
         vm.prank(scoreRevealer);
         (nextRank, requestedCount) =
-            manager.requestCompetitionScoreReveal(competitionId, nextRank, 32);
+            manager.requestCompetitionScoreReveal(competitionId, nextRank, 8);
         assertEq(nextRank, 3);
         assertEq(requestedCount, 1);
         assertEq(

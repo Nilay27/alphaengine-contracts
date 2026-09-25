@@ -77,12 +77,21 @@ deferring those broad commands does not reduce focused test depth.
 
 ### Implemented Stage 8 bound-swap suites
 
-The Fhenix decrypt-pressure regression adds controller tests for one active
-intent per trader, terminal release, a paused-governance rate update, rolling
-minute exhaustion and refill, plus wrapper tests for plaintext minimum,
-pending-claim rejection through the encrypted overload, claim reopening and
-zero-burn cleanup when the underlying rejects `transfer(0)`. Controller and
-escrow invariant fixtures bind the registry's trusted escrow explicitly.
+Fhenix decrypt-pressure tests cover rolling/burst swap budgets, one active
+intent per trader, encrypted minimum masking, zero/dust/exact/above-balance
+inputs, verified zero cooldown, forged-proof rollback, third-party preclaims,
+external wrapper binding and concurrent traders. Wrapper tests cover both
+partial overloads, per-asset minimums, cross-wrapper admission exhaustion/refill,
+single/batch zero cleanup, source/recipient identity, caller-only full-balance
+dust exits, later deposits and prospective configuration changes. The new
+`AlphaEngineUnshieldAdmission` invariant suite independently models two assets,
+four accounts per asset, balances, pending burns, payouts, cooldowns and bucket credit;
+invalid actions assert exact errors rather than swallowing reverts.
+
+Competition tests cover cursor replay/skip rejection, cross-competition pacing,
+all 256 ranks in 32 batches, qualification independent of public readiness and
+atomic rollback of cursor, pacing and ACL grants. Stateful handlers independently
+track effective swap amounts/cooldowns and score cursor/pacing progress.
 
 - Controller unit/fuzz tests cover fresh paused initialization, separated
   admin/pauser/operator authority, atomic reciprocal escrow/executor
