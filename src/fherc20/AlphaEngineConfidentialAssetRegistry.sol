@@ -13,6 +13,9 @@ import {
 import {
     IAlphaEngineEncryptedUnshieldFHERC20Wrapper
 } from "../interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "../interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 
 /// @title AlphaEngineConfidentialAssetRegistry
 /// @notice Append-only registry for canonical underlying/FHERC20 wrapper pairs.
@@ -28,13 +31,39 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
     error WrapperUnderlyingMismatch(
         address wrapper, address expectedUnderlying, address actualUnderlying
     );
+    error InvalidSwapEscrow(address escrow);
+    error ActiveSwapLocksPresent(uint256 count);
 
     event ConfidentialWrapperRegistered(address indexed underlying, address indexed wrapper);
+    event TrustedSwapEscrowUpdated(address indexed previousEscrow, address indexed newEscrow);
+
+    address public override trustedSwapEscrow;
 
     mapping(address underlying => address wrapper) private _wrappersByUnderlying;
     mapping(address wrapper => address underlying) private _underlyingByWrapper;
 
     constructor(address initialOwner) Ownable(_validatedOwner(initialOwner)) {}
+
+    function setTrustedSwapEscrow(address newEscrow) external onlyOwner {
+        address previousEscrow = trustedSwapEscrow;
+        if (previousEscrow != address(0)) {
+            uint256 activeLocks =
+                IAlphaEngineConfidentialSwapEscrow(previousEscrow).liveSwapLockCount();
+            if (activeLocks != 0) revert ActiveSwapLocksPresent(activeLocks);
+        }
+        if (newEscrow == address(0) || newEscrow.code.length == 0) {
+            revert InvalidSwapEscrow(newEscrow);
+        }
+        (bool success, bytes memory encodedRegistry) = newEscrow.staticcall(
+            abi.encodeCall(IAlphaEngineConfidentialSwapEscrow.assetRegistry, ())
+        );
+        if (
+            !success || encodedRegistry.length != 32
+                || abi.decode(encodedRegistry, (address)) != address(this)
+        ) revert InvalidSwapEscrow(newEscrow);
+        trustedSwapEscrow = newEscrow;
+        emit TrustedSwapEscrowUpdated(previousEscrow, newEscrow);
+    }
 
     function createWrapper(
         address underlying,

@@ -194,6 +194,7 @@ contract ConfidentialSwapControllerInvariantHandler is MockCoFheTest {
     }
 
     function _submit(address trader, uint64 rawInput, uint256 rawOutput, bytes32 rawSalt) private {
+        if (CONTROLLER.activeSwapIntentOf(trader) != bytes32(0)) return;
         uint64 inputAmount = uint64(bound(rawInput, 1, 75e6));
         uint256 outputAmount = bound(rawOutput, 1, 150e6);
         bytes32 salt = rawSalt == bytes32(0) ? bytes32(uint256(1)) : rawSalt;

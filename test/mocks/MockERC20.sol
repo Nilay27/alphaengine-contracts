@@ -60,3 +60,16 @@ contract MockStickyAllowanceERC20 is MockERC20 {
         return super.approve(spender, value);
     }
 }
+
+contract MockZeroTransferRevertingERC20 is MockERC20 {
+    error ZeroTransfer();
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_)
+        MockERC20(name_, symbol_, decimals_)
+    {}
+
+    function _update(address from, address to, uint256 value) internal override {
+        if (from != address(0) && to != address(0) && value == 0) revert ZeroTransfer();
+        super._update(from, to, value);
+    }
+}

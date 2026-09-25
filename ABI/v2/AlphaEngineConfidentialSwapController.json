@@ -33,12 +33,77 @@
     },
     {
       "inputs": [],
+      "name": "DEFAULT_SWAP_BURST",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEFAULT_SWAP_INTENTS_PER_SECOND",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "DEFAULT_SWAP_INTENTS_PER_WINDOW",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MAX_CONFIGURABLE_SWAP_INTENTS_PER_WINDOW",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "PAUSER_ROLE",
       "outputs": [
         {
           "internalType": "bytes32",
           "name": "",
           "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SWAP_INTENT_WINDOW",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -62,6 +127,38 @@
       "name": "acceptDefaultAdminTransfer",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        }
+      ],
+      "name": "activeSwapIntentOf",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "availableSwapTokens",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -446,6 +543,19 @@
     },
     {
       "inputs": [],
+      "name": "maxSwapIntentsPerWindow",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "owner",
       "outputs": [
         {
@@ -606,6 +716,29 @@
     {
       "inputs": [
         {
+          "internalType": "uint16",
+          "name": "perMinute",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "perSecond",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "burst",
+          "type": "uint16"
+        }
+      ],
+      "name": "setSwapRateLimits",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "components": [
             {
               "internalType": "address",
@@ -665,6 +798,19 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "submittedSwapIntentCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "bytes4",
@@ -678,6 +824,19 @@
           "internalType": "bool",
           "name": "",
           "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "swapBurst",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
         }
       ],
       "stateMutability": "view",
@@ -704,6 +863,32 @@
           "internalType": "address",
           "name": "",
           "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "swapIntentsPerSecond",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "swapTokensUpdatedAt",
+      "outputs": [
+        {
+          "internalType": "uint40",
+          "name": "",
+          "type": "uint40"
         }
       ],
       "stateMutability": "view",
@@ -1118,6 +1303,31 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "uint16",
+          "name": "perMinute",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "perSecond",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "burst",
+          "type": "uint16"
+        }
+      ],
+      "name": "SwapIntentRateLimitUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
           "internalType": "address",
           "name": "account",
           "type": "address"
@@ -1172,6 +1382,22 @@
         }
       ],
       "name": "AccessControlUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "intentId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ActiveSwapIntentExists",
       "type": "error"
     },
     {
@@ -1310,6 +1536,27 @@
     {
       "inputs": [
         {
+          "internalType": "uint16",
+          "name": "perMinute",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "perSecond",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "burst",
+          "type": "uint16"
+        }
+      ],
+      "name": "InvalidSwapIntentRateLimit",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes32",
           "name": "intentId",
           "type": "bytes32"
@@ -1389,6 +1636,17 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "nextAvailableAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "SwapIntentBurstLimitExceeded",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes32",
           "name": "intentId",
           "type": "bytes32"
@@ -1416,6 +1674,17 @@
         }
       ],
       "name": "SwapIntentNotFound",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "nextAvailableAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "SwapIntentRateLimitExceeded",
       "type": "error"
     },
     {

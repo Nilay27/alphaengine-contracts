@@ -37,7 +37,8 @@ import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentia
 /// @title DeployAlphaEngineV2
 /// @notice Deploys the first-pass AlphaEngine v2 contracts in a paused, unfunded state.
 /// @dev No public network deployment is performed by repository validation. Operational role
-///      grants and reciprocal swap configuration are emitted as explicit delayed-admin actions.
+///      grants, reciprocal swap configuration, and registry escrow trust are emitted as
+///      explicit governance actions for their respective owners.
 contract DeployAlphaEngineV2 is Script {
     uint256 public constant SCHEMA_VERSION = 2;
     string public constant BASELINE_GIT_SHA = "49d96e8a80d6903d1d30affc6f836bcc0ac13800";
@@ -209,8 +210,8 @@ contract DeployAlphaEngineV2 is Script {
         pure
         returns (address[] memory targets, bytes[] memory data)
     {
-        targets = new address[](10);
-        data = new bytes[](10);
+        targets = new address[](11);
+        data = new bytes[](11);
         uint256 index;
 
         targets[index] = deployment.qualificationRegistryProxy;
@@ -254,9 +255,13 @@ contract DeployAlphaEngineV2 is Script {
             abi.encodeCall(IAccessControl.grantRole, (REVOCER_ROLE, config.roles.capitalRevoker));
 
         targets[index] = deployment.swapControllerProxy;
-        data[index] = abi.encodeCall(
+        data[index++] = abi.encodeCall(
             AlphaEngineConfidentialSwapController.setSwapConfiguration,
             (deployment.swapEscrowProxy, deployment.swapExecutor)
+        );
+        targets[index] = deployment.assetRegistry;
+        data[index] = abi.encodeCall(
+            AlphaEngineConfidentialAssetRegistry.setTrustedSwapEscrow, (deployment.swapEscrowProxy)
         );
     }
 

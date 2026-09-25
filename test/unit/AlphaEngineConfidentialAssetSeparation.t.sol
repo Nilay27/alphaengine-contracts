@@ -53,6 +53,24 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
         new AlphaEngineConfidentialAssetRegistry(address(0));
     }
 
+    function test_trustedSwapEscrowRejectsMissingOrInvalidSurface() public {
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.InvalidSwapEscrow.selector, outsider
+            )
+        );
+        registry.setTrustedSwapEscrow(outsider);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.InvalidSwapEscrow.selector, address(underlying)
+            )
+        );
+        registry.setTrustedSwapEscrow(address(underlying));
+    }
+
     function test_createWrapperStoresImmutableBijectionAndMetadata() public {
         address expectedWrapper = vm.computeCreateAddress(address(registry), 1);
         vm.expectEmit(true, true, true, true, address(registry));
@@ -417,6 +435,9 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         );
         escrow = AlphaEngineConfidentialSwapEscrow(address(proxy));
         controller.setEscrow(escrow);
+
+        vm.prank(admin);
+        registry.setTrustedSwapEscrow(address(escrow));
 
         vm.prank(admin);
         escrow.unpause();

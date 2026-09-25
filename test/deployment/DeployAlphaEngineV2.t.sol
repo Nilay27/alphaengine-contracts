@@ -97,14 +97,14 @@ contract DeployAlphaEngineV2Test is Test {
         (address[] memory targets, bytes[] memory data) =
             deployer.buildAdminActions(deployment, config);
 
-        assertEq(targets.length, 10);
-        assertEq(data.length, 10);
+        assertEq(targets.length, 11);
+        assertEq(data.length, 11);
         assertEq(
             deployer.adminActionsHash(deployment, config), keccak256(abi.encode(targets, data))
         );
 
         for (uint256 i; i < targets.length; ++i) {
-            vm.prank(defaultAdmin);
+            vm.prank(i == 10 ? config.roles.assetRegistryOwner : defaultAdmin);
             (bool success, bytes memory returnData) = targets[i].call(data[i]);
             if (!success) _bubble(returnData);
         }

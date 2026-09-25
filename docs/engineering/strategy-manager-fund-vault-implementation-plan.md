@@ -1,5 +1,21 @@
 # AlphaEngine Strategy Manager, Confidential Swap, and FundVault Plan
 
+## Fhenix decrypt-pressure amendment (2026-09-25)
+
+Following the CoFHE migration, the owner directed remediation of reviewer
+findings 2 and 3 before score-reveal changes. Fresh swap submissions now use a
+global trailing-minute cap and a time-refilled burst budget, initially
+120/minute, two/second and 24 burst, plus one active intent per trader. Limits
+are tunable by delayed governance while paused; execution and refund retain
+their original liveness, with a proven zero result refundable before expiry to
+release the active trader slot. The canonical wrapper applies a public-amount minimum
+and one pending claim per account/wrapper to both ordinary unshield overloads,
+with the registry-bound swap escrow exempt from the account gate because the
+controller admission budget owns its decrypt pressure. This amendment does not
+change the three-score reveal contract or promise a lower bound on encrypted
+swap input: CoFHE input proofs do not attest a plaintext range. The rate values
+remain testnet settings until CoFHE backlog and completion latency are measured.
+
 ## CoFHE 0.2 migration amendment (2026-09-25)
 
 The owner authorized upgrading CoFHE to v0.2.0 and FHERC20 to v0.4.0 before
@@ -1272,12 +1288,11 @@ them:
    the guarded gateway. Add a regression test proving that fee-on-transfer,
    rebasing, or otherwise non-exact-transfer assets cannot undercollateralize a
    wrapper.
-2. **Zero-value claim compatibility.** The inherited wrapper claim path may
-   call the underlying ERC20 with `transfer(..., 0)`. Decide whether the
-   AlphaEngine wrapper should skip the transfer after a verified zero claim or
-   reject ERC20s that do not accept zero transfers. Add an end-to-end test that
-   an initialized encrypted-zero swap lock remains refundable for a
-   zero-transfer-reverting token.
+2. **Zero-value claim compatibility.** The AlphaEngine wrapper now skips the
+   underlying `transfer(..., 0)` after a verified zero claim, with a focused
+   wrapper regression for a zero-transfer-reverting token. Stage 18 still
+   needs an end-to-end swap test showing that an initialized encrypted-zero
+   lock remains refundable with that token.
 3. **Uniswap v4 signed amount domain.** A sufficiently high wrapper rate and
    confidential amount can produce an underlying exact-input amount outside
    the PoolManager `int128` delta domain. Add an explicit supported-decimal or

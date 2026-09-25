@@ -70,6 +70,8 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         vm.prank(admin);
         controller.setSwapConfiguration(address(escrow), address(executor));
         vm.prank(admin);
+        registry.setTrustedSwapEscrow(address(escrow));
+        vm.prank(admin);
         escrow.unpause();
         vm.prank(admin);
         controller.unpause();
@@ -162,6 +164,7 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             if (controllerStatus == IAlphaEngineConfidentialSwapController.SwapIntentStatus.Active)
             {
                 expectedLiveLocks += 1;
+                assertEq(controller.activeSwapIntentOf(snapshot.trader), snapshot.intentId);
                 assertEq(
                     uint8(escrowStatus),
                     uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.UnshieldRequested)
@@ -169,11 +172,13 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             } else if (
                 controllerStatus == IAlphaEngineConfidentialSwapController.SwapIntentStatus.Executed
             ) {
+                assertNotEq(controller.activeSwapIntentOf(snapshot.trader), snapshot.intentId);
                 assertEq(
                     uint8(escrowStatus),
                     uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Consumed)
                 );
             } else {
+                assertNotEq(controller.activeSwapIntentOf(snapshot.trader), snapshot.intentId);
                 assertEq(
                     uint8(escrowStatus),
                     uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Refunded)
@@ -181,6 +186,11 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             }
         }
         assertEq(escrow.liveSwapLockCount(), expectedLiveLocks);
+        assertLe(expectedLiveLocks, 2);
+        assertEq(
+            controller.submittedSwapIntentCount(),
+            uint256(handler.successfulSubmissions(traderA)) + handler.successfulSubmissions(traderB)
+        );
     }
 
     function invariant_controllerNeverHoldsTokens() public view {

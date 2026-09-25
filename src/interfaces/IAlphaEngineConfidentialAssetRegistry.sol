@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 /// @title IAlphaEngineConfidentialAssetRegistry
 /// @notice Read surface for the append-only underlying/FHERC20 wrapper registry.
 interface IAlphaEngineConfidentialAssetRegistry {
+    function trustedSwapEscrow() external view returns (address);
     function wrapperForUnderlying(address underlying) external view returns (address wrapper);
 
     function underlyingForWrapper(address wrapper) external view returns (address underlying);

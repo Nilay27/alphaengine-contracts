@@ -140,11 +140,19 @@ Implemented replacement contracts through Stage 8:
   combined controller's storage.
 - `AlphaEngineConfidentialAssetRegistry` is an append-only, non-upgradeable
   wrapper/underlying registry. It may create or validate a wrapper, but cannot
-  hold user balances or participate in settlement.
+  hold user balances or participate in settlement. Its owner binds one trusted
+  swap escrow for the wrapper's narrow swap-unshield exception, and cannot
+  rotate it while live swap locks remain.
 - `AlphaEngineConfidentialAssetGateway` pins one registry and exposes ordinary
   deposit/shield and request/claim-unshield convenience calls. Exact balance
   deltas reject fee-on-transfer behavior, approvals reset to zero, and the
   gateway retains no underlying token after a successful call.
+- The canonical wrapper enforces a minimum plaintext unshield amount and one
+  pending claim per source account across plaintext and encrypted-handle
+  unshield calls. A verified single or batch claim releases the gate. The
+  configured swap escrow is exempt from the per-source pending gate because
+  it holds multiple traders' locks; the controller's admission budget governs
+  its creation of new decryptable swap claims.
 - `AlphaEngineConfidentialSwapEscrow` is a fresh, initially paused transparent
   proxy domain. It owns only temporary FHERC20 locks, immediate encrypted
   unshield requests, exact settlement/refund accounting, and controller/registry
@@ -155,7 +163,8 @@ Implemented replacement contracts through Stage 8:
   divisibility, wrapper reserve deltas, and zeroed wrapper approvals.
 - Privacy-preserving insufficient-balance transfers can return initialized
   encrypted zero. The escrow therefore permits a verified zero-value refund to
-  terminate the record without executing or re-shielding zero.
+  terminate the record without executing or re-shielding zero. The controller
+  permits this verified zero refund before expiry to release the active slot.
 - Wrapper claims are permissionless but pay the claim's fixed recipient. If a
   claim is executed before the controller's settlement/refund transaction, the
   escrow verifies the exact claim and consumes the already-received underlying
@@ -169,6 +178,12 @@ Implemented replacement contracts through Stage 8:
   deadline, canonical locked handle, and unshield-request handle. The operator
   reveals but cannot substitute execution calldata, output wrapper, executor,
   or minimum output.
+- Before input proof verification and escrow unshield, submissions must satisfy
+  one active intent per trader and the global rolling 60-second budget plus
+  token-bucket burst budget. Initial limits are 120/minute, two/second refill
+  and a 24-request burst. Delayed governance may tune limits while paused;
+  settlement/refund never consumes admission budget. The encrypted amount's
+  plaintext minimum cannot be established from the current input proof.
 - Controller state is marked terminal before escrow interaction and rolls back
   atomically if settlement fails. Refund remains permissionless after expiry or
   while either the controller or recorded escrow is paused. The controller

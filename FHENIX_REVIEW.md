@@ -13,9 +13,10 @@ independent external security audits.
 
 ## Dependency migration following review of `0595ef4`
 
-This revision addresses the dependency/API blocker only. It uses released
-CoFHE v0.2.0 and FHERC20 v0.4.0. Swap/unshield rate limits and score-reveal pacing
-and replay controls remain open for the next commits. See the
+The dependency/API blocker was addressed in the first commit using released
+CoFHE v0.2.0 and FHERC20 v0.4.0. The subsequent swap/unshield change bounds
+new swap decrypt requests and ordinary unshield claims. Score-reveal pacing
+and replay controls remain open. See the
 [migration contract](docs/engineering/cofhe-v020-migration.md) for consumer and
 deployment requirements.
 
@@ -115,15 +116,18 @@ balance arithmetic.
 | Encrypted components per strategy submission | 16 |
 | Active submissions per competition | 256 |
 | Public score-reveal batch | 32 submissions / 96 publicly decryptable handles |
+| New swap intents | Initially 120 per trailing minute, two tokens refilled per second, 24-request burst, one active per trader |
+| Ordinary unshield | Minimum 0.001 token at six-decimal encrypted precision; one pending claim per source account and wrapper |
 | Capital execution authorization | Maximum 1 hour |
 | FundVault calls per batch | 16 |
 | Asset limits per vault execution | 16 |
 | Nonzero policy-root activation delay | Minimum 48 hours |
 
-Submission and swap frequency is product-dependent. Role checks and the bounds
-above limit work per call, but there is no global on-chain rate limiter for
-user submissions. Expected production traffic and Fhenix-side task capacity
-should therefore be confirmed during admission review.
+Competition and capital submission frequency remains product-dependent. The
+swap budget is global to this controller and configurable by delayed governance
+only while paused. Its initial values are provisional; production CoFHE task
+capacity and completion latency remain to be measured. The wrapper's encrypted
+input cannot be proven above a plaintext minimum with the current input proof.
 
 ## Permissions and decryption
 

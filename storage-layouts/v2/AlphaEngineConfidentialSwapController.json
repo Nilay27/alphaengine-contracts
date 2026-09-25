@@ -30,9 +30,65 @@
     },
     {
       "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
-      "label": "__gap",
+      "label": "activeSwapIntentOf",
       "offset": 0,
       "slot": "4",
+      "type": "t_mapping(t_address,t_bytes32)"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "_recentSwapIntentTimes",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_mapping(t_uint256,t_uint40)"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "submittedSwapIntentCount",
+      "offset": 0,
+      "slot": "6",
+      "type": "t_uint256"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "maxSwapIntentsPerWindow",
+      "offset": 0,
+      "slot": "7",
+      "type": "t_uint16"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "swapIntentsPerSecond",
+      "offset": 2,
+      "slot": "7",
+      "type": "t_uint16"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "swapBurst",
+      "offset": 4,
+      "slot": "7",
+      "type": "t_uint16"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "availableSwapTokens",
+      "offset": 6,
+      "slot": "7",
+      "type": "t_uint16"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "swapTokensUpdatedAt",
+      "offset": 8,
+      "slot": "7",
+      "type": "t_uint40"
+    },
+    {
+      "contract": "src/swap/AlphaEngineConfidentialSwapController.sol:AlphaEngineConfidentialSwapController",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "8",
       "type": "t_array(t_uint256)_storage"
     }
   ],
@@ -45,8 +101,8 @@
     "t_array(t_uint256)_storage": {
       "base": "t_uint256",
       "encoding": "inplace",
-      "label": "uint256[46]",
-      "numberOfBytes": "1472"
+      "label": "uint256[42]",
+      "numberOfBytes": "1344"
     },
     "t_bytes32": {
       "encoding": "inplace",
@@ -57,6 +113,13 @@
       "encoding": "inplace",
       "label": "enum IAlphaEngineConfidentialSwapController.SwapIntentStatus",
       "numberOfBytes": "1"
+    },
+    "t_mapping(t_address,t_bytes32)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bytes32)",
+      "numberOfBytes": "32",
+      "value": "t_bytes32"
     },
     "t_mapping(t_address,t_uint64)": {
       "encoding": "mapping",
@@ -71,6 +134,13 @@
       "label": "mapping(bytes32 => struct IAlphaEngineConfidentialSwapController.SwapIntentRecord)",
       "numberOfBytes": "32",
       "value": "t_struct(SwapIntentRecord)_storage"
+    },
+    "t_mapping(t_uint256,t_uint40)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => uint40)",
+      "numberOfBytes": "32",
+      "value": "t_uint40"
     },
     "t_struct(SwapIntentRecord)_storage": {
       "encoding": "inplace",
@@ -183,6 +253,11 @@
         }
       ],
       "numberOfBytes": "384"
+    },
+    "t_uint16": {
+      "encoding": "inplace",
+      "label": "uint16",
+      "numberOfBytes": "2"
     },
     "t_uint256": {
       "encoding": "inplace",

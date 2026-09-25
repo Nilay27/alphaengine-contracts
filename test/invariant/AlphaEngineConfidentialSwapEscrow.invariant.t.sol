@@ -78,6 +78,9 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         handler.bindEscrow(escrow);
 
         vm.prank(admin);
+        registry.setTrustedSwapEscrow(address(escrow));
+
+        vm.prank(admin);
         escrow.unpause();
 
         _fundAndAuthorize(userA);

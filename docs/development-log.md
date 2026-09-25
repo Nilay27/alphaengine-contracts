@@ -1,5 +1,39 @@
 # Development Log
 
+## 2026-09-25 — Fhenix decrypt-pressure findings 2 and 3
+
+- Added one active swap intent per trader and a global, timestamp-based swap
+  admission budget before proof verification or unshield. The initial budget is
+  2 tokens/second, a 24-token burst, and 120 successful submissions per
+  trailing minute. Delayed governance can tune all three only while the
+  controller is paused, within fixed contract bounds. Settlement and refunds
+  remain available after the admission budget is exhausted. A proven zero
+  result may refund before expiry so it releases the trader's active slot.
+- The canonical AlphaEngine wrapper now requires at least 0.001 token
+  where its encrypted precision has at least three decimals (otherwise one
+  smallest unit) on plaintext unshield, and permits one pending claim per
+  account/wrapper across both public unshield overloads. Either single or
+  batch claim clears the gate; a verified zero claim skips an underlying
+  `transfer(0)` so cleanup remains reachable.
+- The registry owner explicitly binds the trusted swap escrow. Its own
+  encrypted-handle unshields use the controller's global admission budget;
+  ordinary accounts retain the wrapper pending gate. The deployment action
+  bundle includes that binding. The registry refuses rotation with live locks.
+- Deploy a fresh controller/wrapper set after draining old live intents and
+  claims. An in-place controller upgrade with live intents cannot reconstruct
+  the new active-by-trader mapping from existing storage and is unsupported.
+- CoFHE input proofs authenticate ciphertexts but do not attest a plaintext
+  lower bound. The encrypted swap amount and public encrypted-handle unshield
+  therefore cannot be proven above the wrapper minimum at submission. The
+  swap caps limit decrypt pressure; they do not promise every admitted burn is
+  nonzero. The initial numerical budget is provisional pending live-network
+  backlog and completion-time measurements. Fhenix score-reveal finding 4 is
+  still open.
+- CI-pinned Foundry v1.7.1 passed the full unit, fuzz, invariant, integration,
+  and deployment suite (323 tests), the generated ABI/layout/size gate, format
+  and repository hygiene checks. Coverage passed with 93.03% total line
+  coverage; live CoFHE throughput remains unmeasured.
+
 ## 2026-09-25 — CoFHE dependency migration (Fhenix finding 1)
 
 - Upgraded pinned CoFHE to v0.2.0 and FHERC20 to v0.4.0, with regular

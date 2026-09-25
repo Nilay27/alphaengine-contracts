@@ -37,7 +37,9 @@ all old-wrapper claims/locks before cutover. See [migration notes](../engineerin
 ## Cutover checklist
 
 - Verify runtime code hashes, proxy implementation/admin slots, roles, reciprocal swap links, and paused state against the manifest.
-- Execute the manifest-bound delayed admin action bundle and verify its `adminActionsHash` before unpausing any domain.
+- Execute the manifest-bound governance action bundle and verify its `adminActionsHash` before unpausing any domain.
+- The final bundle action binds the trusted swap escrow in the asset registry; it must be executed by `assetRegistryOwner` after the default-admin controller configuration actions.
+- Drain and pause any old swap controller before moving submissions to the fresh controller and wrappers. An in-place upgrade with live intents would leave the new active-by-trader mapping unpopulated and is unsupported.
 - Unpause qualification/competition, capital, escrow, and swap controller independently; capital execution stays disabled until an audited vault execution manager is configured.
 - Stop new legacy submissions, but retain the legacy refund/rescue path until all recorded live locks are resolved.
 - Preserve `deployments/arbitrum-sepolia-latest.json`, legacy ABIs, layouts, deployment addresses, and the final indexed block as historical evidence.

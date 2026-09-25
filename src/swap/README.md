@@ -66,12 +66,28 @@ At submission, the user commits to:
 The current escrow and executor are recorded in the intent. The swap operator
 may reveal and execute only those committed values before expiry.
 
+New submissions are admitted through a global decrypt budget before the FHE
+input is verified: at most 120 per trailing minute, with two tokens refilled
+per second and a 24-request burst allowance initially. Only one intent may be
+active for each trader. Delayed governance may tune these limits while paused;
+they do not prevent settlement or refund. On Arbitrum, several blocks may share
+a timestamp, so those blocks spend the same burst allowance.
+
+The wrapper separately requires a minimum public unshield amount of 0.001
+token at six-decimal encrypted precision and keeps at most one pending claim
+per source account. Its encrypted-handle unshield overload uses the same
+pending gate. The registry-bound swap escrow is exempt because it holds locks
+for multiple traders; only the configured controller can direct that escrow
+to create swap claims. An encrypted input proof does not establish a plaintext
+minimum, so a swap may still resolve to zero and must remain refundable.
+
 ## Refund flow
 
-Refund is permissionless after expiry or while the recorded controller/escrow
-is paused. Escrow verifies and claims the unshielded input, then reshields it to
-the original trader. A valid encrypted-zero transfer is terminally cleaned up
-instead of creating an uncloseable live lock.
+Refund is permissionless after expiry, while the recorded controller/escrow
+is paused, or before expiry with a verified zero result. Escrow verifies and
+claims the unshielded input, then reshields any nonzero amount to the original
+trader. A valid encrypted-zero transfer can therefore release the trader's
+active slot as soon as its zero result is published.
 
 ```mermaid
 flowchart LR

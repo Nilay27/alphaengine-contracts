@@ -77,6 +77,13 @@ deferring those broad commands does not reduce focused test depth.
 
 ### Implemented Stage 8 bound-swap suites
 
+The Fhenix decrypt-pressure regression adds controller tests for one active
+intent per trader, terminal release, a paused-governance rate update, rolling
+minute exhaustion and refill, plus wrapper tests for plaintext minimum,
+pending-claim rejection through the encrypted overload, claim reopening and
+zero-burn cleanup when the underlying rejects `transfer(0)`. Controller and
+escrow invariant fixtures bind the registry's trusted escrow explicitly.
+
 - Controller unit/fuzz tests cover fresh paused initialization, separated
   admin/pauser/operator authority, atomic reciprocal escrow/executor
   configuration, registered input/output wrappers, deterministic identifiers,
