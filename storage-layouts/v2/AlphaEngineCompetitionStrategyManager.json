@@ -1,15 +1,15 @@
 {
   "storage": [
     {
-      "astId": 99892,
+      "astId": 65467,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "qualificationRegistry",
       "offset": 0,
       "slot": "0",
-      "type": "t_contract(IAlphaEngineTraderQualificationRegistry)95214"
+      "type": "t_contract(IAlphaEngineTraderQualificationRegistry)64712"
     },
     {
-      "astId": 99894,
+      "astId": 65469,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "fheOperator",
       "offset": 0,
@@ -17,7 +17,7 @@
       "type": "t_address"
     },
     {
-      "astId": 99896,
+      "astId": 65471,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "competitionNonce",
       "offset": 20,
@@ -25,23 +25,23 @@
       "type": "t_uint64"
     },
     {
-      "astId": 99901,
+      "astId": 65476,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "_competitions",
       "offset": 0,
       "slot": "2",
-      "type": "t_mapping(t_bytes32,t_struct(CompetitionRecord)99468_storage)"
+      "type": "t_mapping(t_bytes32,t_struct(CompetitionRecord)65100_storage)"
     },
     {
-      "astId": 99906,
+      "astId": 65481,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "_submissions",
       "offset": 0,
       "slot": "3",
-      "type": "t_mapping(t_bytes32,t_struct(SubmissionRecord)99496_storage)"
+      "type": "t_mapping(t_bytes32,t_struct(SubmissionRecord)65128_storage)"
     },
     {
-      "astId": 99911,
+      "astId": 65486,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "_submissionComponents",
       "offset": 0,
@@ -49,15 +49,15 @@
       "type": "t_mapping(t_bytes32,t_array(t_bytes32)dyn_storage)"
     },
     {
-      "astId": 99916,
+      "astId": 65491,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "_evaluations",
       "offset": 0,
       "slot": "5",
-      "type": "t_mapping(t_bytes32,t_struct(EvaluationRecord)99546_storage)"
+      "type": "t_mapping(t_bytes32,t_struct(EvaluationRecord)65176_storage)"
     },
     {
-      "astId": 99920,
+      "astId": 65495,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "traderNonces",
       "offset": 0,
@@ -65,7 +65,7 @@
       "type": "t_mapping(t_address,t_uint64)"
     },
     {
-      "astId": 99926,
+      "astId": 65501,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "_activeSubmissionByTrader",
       "offset": 0,
@@ -73,7 +73,7 @@
       "type": "t_mapping(t_bytes32,t_mapping(t_address,t_bytes32))"
     },
     {
-      "astId": 99932,
+      "astId": 65507,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "_submissionByRank",
       "offset": 0,
@@ -97,7 +97,7 @@
       "type": "t_uint40"
     },
     {
-      "astId": 99943,
+      "astId": 65512,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "__gap",
       "offset": 0,
@@ -133,17 +133,17 @@
       "label": "bytes32",
       "numberOfBytes": "32"
     },
-    "t_contract(IAlphaEngineTraderQualificationRegistry)95214": {
+    "t_contract(IAlphaEngineTraderQualificationRegistry)64712": {
       "encoding": "inplace",
       "label": "contract IAlphaEngineTraderQualificationRegistry",
       "numberOfBytes": "20"
     },
-    "t_enum(CompetitionStatus)99421": {
+    "t_enum(CompetitionStatus)65053": {
       "encoding": "inplace",
       "label": "enum AlphaEngineCompetitionStrategyManager.CompetitionStatus",
       "numberOfBytes": "1"
     },
-    "t_enum(SubmissionStatus)99426": {
+    "t_enum(SubmissionStatus)65058": {
       "encoding": "inplace",
       "label": "enum AlphaEngineCompetitionStrategyManager.SubmissionStatus",
       "numberOfBytes": "1"
@@ -183,26 +183,26 @@
       "numberOfBytes": "32",
       "value": "t_mapping(t_uint16,t_bytes32)"
     },
-    "t_mapping(t_bytes32,t_struct(CompetitionRecord)99468_storage)": {
+    "t_mapping(t_bytes32,t_struct(CompetitionRecord)65100_storage)": {
       "encoding": "mapping",
       "key": "t_bytes32",
       "label": "mapping(bytes32 => struct AlphaEngineCompetitionStrategyManager.CompetitionRecord)",
       "numberOfBytes": "32",
-      "value": "t_struct(CompetitionRecord)99468_storage"
+      "value": "t_struct(CompetitionRecord)65100_storage"
     },
-    "t_mapping(t_bytes32,t_struct(EvaluationRecord)99546_storage)": {
+    "t_mapping(t_bytes32,t_struct(EvaluationRecord)65176_storage)": {
       "encoding": "mapping",
       "key": "t_bytes32",
       "label": "mapping(bytes32 => struct AlphaEngineCompetitionStrategyManager.EvaluationRecord)",
       "numberOfBytes": "32",
-      "value": "t_struct(EvaluationRecord)99546_storage"
+      "value": "t_struct(EvaluationRecord)65176_storage"
     },
-    "t_mapping(t_bytes32,t_struct(SubmissionRecord)99496_storage)": {
+    "t_mapping(t_bytes32,t_struct(SubmissionRecord)65128_storage)": {
       "encoding": "mapping",
       "key": "t_bytes32",
       "label": "mapping(bytes32 => struct AlphaEngineCompetitionStrategyManager.SubmissionRecord)",
       "numberOfBytes": "32",
-      "value": "t_struct(SubmissionRecord)99496_storage"
+      "value": "t_struct(SubmissionRecord)65128_storage"
     },
     "t_mapping(t_bytes32,t_uint16)": {
       "encoding": "mapping",
@@ -218,12 +218,12 @@
       "numberOfBytes": "32",
       "value": "t_bytes32"
     },
-    "t_struct(CompetitionRecord)99468_storage": {
+    "t_struct(CompetitionRecord)65100_storage": {
       "encoding": "inplace",
       "label": "struct AlphaEngineCompetitionStrategyManager.CompetitionRecord",
       "members": [
         {
-          "astId": 99448,
+          "astId": 65080,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "rulesHash",
           "offset": 0,
@@ -231,7 +231,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99450,
+          "astId": 65082,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "submissionDeadline",
           "offset": 0,
@@ -239,7 +239,7 @@
           "type": "t_uint40"
         },
         {
-          "astId": 99452,
+          "astId": 65084,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "evaluationDeadline",
           "offset": 5,
@@ -247,7 +247,7 @@
           "type": "t_uint40"
         },
         {
-          "astId": 99454,
+          "astId": 65086,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "qualificationValidUntil",
           "offset": 10,
@@ -255,7 +255,7 @@
           "type": "t_uint40"
         },
         {
-          "astId": 99456,
+          "astId": 65088,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "competitionNonce",
           "offset": 15,
@@ -263,7 +263,7 @@
           "type": "t_uint64"
         },
         {
-          "astId": 99458,
+          "astId": 65090,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "qualificationSlots",
           "offset": 23,
@@ -271,7 +271,7 @@
           "type": "t_uint16"
         },
         {
-          "astId": 99460,
+          "astId": 65092,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "activeSubmissionCount",
           "offset": 25,
@@ -279,7 +279,7 @@
           "type": "t_uint16"
         },
         {
-          "astId": 99462,
+          "astId": 65094,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "evaluatedCount",
           "offset": 27,
@@ -287,7 +287,7 @@
           "type": "t_uint16"
         },
         {
-          "astId": 99464,
+          "astId": 65096,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "publishedQualificationCount",
           "offset": 29,
@@ -295,22 +295,22 @@
           "type": "t_uint16"
         },
         {
-          "astId": 99467,
+          "astId": 65099,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "status",
           "offset": 31,
           "slot": "1",
-          "type": "t_enum(CompetitionStatus)99421"
+          "type": "t_enum(CompetitionStatus)65053"
         }
       ],
       "numberOfBytes": "64"
     },
-    "t_struct(EvaluationRecord)99546_storage": {
+    "t_struct(EvaluationRecord)65176_storage": {
       "encoding": "inplace",
       "label": "struct AlphaEngineCompetitionStrategyManager.EvaluationRecord",
       "members": [
         {
-          "astId": 99539,
+          "astId": 65169,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "realSisterScoreHandle",
           "offset": 0,
@@ -318,7 +318,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99541,
+          "astId": 65171,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "perturbationP25ScoreHandle",
           "offset": 0,
@@ -326,7 +326,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99543,
+          "astId": 65173,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "stressP25ScoreHandle",
           "offset": 0,
@@ -334,7 +334,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99545,
+          "astId": 65175,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "evidenceHash",
           "offset": 0,
@@ -344,12 +344,12 @@
       ],
       "numberOfBytes": "128"
     },
-    "t_struct(SubmissionRecord)99496_storage": {
+    "t_struct(SubmissionRecord)65128_storage": {
       "encoding": "inplace",
       "label": "struct AlphaEngineCompetitionStrategyManager.SubmissionRecord",
       "members": [
         {
-          "astId": 99470,
+          "astId": 65102,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "trader",
           "offset": 0,
@@ -357,7 +357,7 @@
           "type": "t_address"
         },
         {
-          "astId": 99472,
+          "astId": 65104,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "operatorAtSubmission",
           "offset": 0,
@@ -365,7 +365,7 @@
           "type": "t_address"
         },
         {
-          "astId": 99474,
+          "astId": 65106,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "competitionId",
           "offset": 0,
@@ -373,7 +373,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99476,
+          "astId": 65108,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "marketIdHandle",
           "offset": 0,
@@ -381,7 +381,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99478,
+          "astId": 65110,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "timeframeKey",
           "offset": 0,
@@ -389,7 +389,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99480,
+          "astId": 65112,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "payloadHash",
           "offset": 0,
@@ -397,7 +397,7 @@
           "type": "t_bytes32"
         },
         {
-          "astId": 99482,
+          "astId": 65114,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "evaluationDeadline",
           "offset": 0,
@@ -405,7 +405,7 @@
           "type": "t_uint40"
         },
         {
-          "astId": 99484,
+          "astId": 65116,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "createdAt",
           "offset": 5,
@@ -413,7 +413,7 @@
           "type": "t_uint40"
         },
         {
-          "astId": 99486,
+          "astId": 65118,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "traderNonce",
           "offset": 10,
@@ -421,7 +421,7 @@
           "type": "t_uint64"
         },
         {
-          "astId": 99488,
+          "astId": 65120,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "rank",
           "offset": 18,
@@ -429,7 +429,7 @@
           "type": "t_uint16"
         },
         {
-          "astId": 99490,
+          "astId": 65122,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "componentCount",
           "offset": 20,
@@ -437,15 +437,15 @@
           "type": "t_uint8"
         },
         {
-          "astId": 99493,
+          "astId": 65125,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "status",
           "offset": 21,
           "slot": "6",
-          "type": "t_enum(SubmissionStatus)99426"
+          "type": "t_enum(SubmissionStatus)65058"
         },
         {
-          "astId": 99495,
+          "astId": 65127,
           "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
           "label": "qualificationPublished",
           "offset": 22,

@@ -460,9 +460,8 @@ contract AlphaEngineFundVaultExecutionTest is Test {
         pure
         returns (address[] memory targets, uint256[] memory values, bytes[] memory targetData)
     {
-        return _singleRawCall(
-            address(target), abi.encodeCall(MockFundVaultCallTarget.add, (amount))
-        );
+        return
+            _singleRawCall(address(target), abi.encodeCall(MockFundVaultCallTarget.add, (amount)));
     }
 
     function _singleRawCall(address target, bytes memory data)

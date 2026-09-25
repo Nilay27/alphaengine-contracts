@@ -233,8 +233,7 @@ contract AlphaEngineManageRootGeneratorTest is Test {
         definitions[1] = definitions[0];
         bytes32 duplicateLeaf = generator.generatePolicy(
             _metadata(), _definitions(1, keccak256("duplicate"))
-        )
-        .leafHashes[0];
+        ).leafHashes[0];
         vm.expectRevert(
             abi.encodeWithSelector(
                 GenerateAlphaEngineManageRoot.DuplicatePolicyLeaf.selector, duplicateLeaf
@@ -242,8 +241,9 @@ contract AlphaEngineManageRootGeneratorTest is Test {
         );
         generator.generatePolicy(_metadata(), definitions);
 
-        definitions = new GenerateAlphaEngineManageRoot
-            .LabeledManageLeafV1[](generator.MAX_POLICY_LEAVES() + 1);
+        definitions = new GenerateAlphaEngineManageRoot.LabeledManageLeafV1[](
+            generator.MAX_POLICY_LEAVES() + 1
+        );
         vm.expectRevert(
             abi.encodeWithSelector(
                 GenerateAlphaEngineManageRoot.TooManyPolicyLeaves.selector,
@@ -348,13 +348,13 @@ contract AlphaEngineManageRootGeneratorTest is Test {
         returns (GenerateAlphaEngineManageRoot.PolicyMetadata memory)
     {
         return GenerateAlphaEngineManageRoot.PolicyMetadata({
-                chainId: CHAIN_ID,
-                vaultExecutionManager: EXECUTION_MANAGER,
-                fundVault: FUND_VAULT,
-                executor: EXECUTOR,
-                policyVersion: 1,
-                referenceOnly: false
-            });
+            chainId: CHAIN_ID,
+            vaultExecutionManager: EXECUTION_MANAGER,
+            fundVault: FUND_VAULT,
+            executor: EXECUTOR,
+            policyVersion: 1,
+            referenceOnly: false
+        });
     }
 
     function _definitions(uint256 count, bytes32 seed)

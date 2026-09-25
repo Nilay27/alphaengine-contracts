@@ -74,9 +74,11 @@ they execute no FHE operations.
 
 ## Reproduce
 
+PR CI runs `forge fmt --check` on changed Solidity files, leaving unrelated
+baseline formatting out of the review. The release workflow retains its full check.
+
 ```bash
 git submodule update --init --recursive
-forge fmt --check
 forge build --offline
 forge test --offline
 python3 script/reference/alphaengine_listener_surface.py --check

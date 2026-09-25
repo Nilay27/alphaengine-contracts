@@ -2,15 +2,12 @@
 pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {
-    AccessControlDefaultAdminRulesUpgradeable
-} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {
-    PausableUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {
-    IAlphaEngineTraderQualificationRegistry
-} from "../interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {AccessControlDefaultAdminRulesUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {PausableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {IAlphaEngineTraderQualificationRegistry} from
+    "../interfaces/IAlphaEngineTraderQualificationRegistry.sol";
 
 /// @title AlphaEngineTraderQualificationRegistry
 /// @notice Stores versioned, expiring trader qualifications issued by competition managers.

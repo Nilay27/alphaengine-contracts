@@ -5,9 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-import {
-    AlphaEngineERC20DecoderAndSanitizer
-} from "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
+import {AlphaEngineERC20DecoderAndSanitizer} from
+    "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
 import {IAlphaEngineFundVault} from "src/interfaces/IAlphaEngineFundVault.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineManageLeafHashLib} from "src/libraries/AlphaEngineManageLeafHashLib.sol";
@@ -248,7 +247,9 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
 
         inputs = new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](1);
         inputs[0] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: STRANGER, maxSpendPerExecution: 1, maxSpendPer24Hours: 1
+            asset: STRANGER,
+            maxSpendPerExecution: 1,
+            maxSpendPer24Hours: 1
         });
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -258,7 +259,9 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
         executionManager.setTraderAssetRiskLimits(TRADER, inputs);
 
         inputs[0] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetOut), maxSpendPerExecution: 2, maxSpendPer24Hours: 1
+            asset: address(assetOut),
+            maxSpendPerExecution: 2,
+            maxSpendPer24Hours: 1
         });
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -268,7 +271,9 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
         executionManager.setTraderAssetRiskLimits(TRADER, inputs);
 
         inputs[0] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetIn), maxSpendPerExecution: 200e6, maxSpendPer24Hours: 300e6
+            asset: address(assetIn),
+            maxSpendPerExecution: 200e6,
+            maxSpendPer24Hours: 300e6
         });
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -281,10 +286,14 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
 
         inputs = new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](2);
         inputs[0] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetOut), maxSpendPerExecution: 1, maxSpendPer24Hours: 1
+            asset: address(assetOut),
+            maxSpendPerExecution: 1,
+            maxSpendPer24Hours: 1
         });
         inputs[1] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetIn), maxSpendPerExecution: 1, maxSpendPer24Hours: 1
+            asset: address(assetIn),
+            maxSpendPerExecution: 1,
+            maxSpendPer24Hours: 1
         });
         if (address(assetOut) < address(assetIn)) {
             inputs[0].asset = address(assetIn);
@@ -297,7 +306,9 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
 
         inputs = new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](1);
         inputs[0] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetIn), maxSpendPerExecution: 0, maxSpendPer24Hours: 0
+            asset: address(assetIn),
+            maxSpendPerExecution: 0,
+            maxSpendPer24Hours: 0
         });
         executionManager.setTraderAssetRiskLimits(TRADER, inputs);
         (uint256 perExecution, uint256 perDay) =
@@ -368,7 +379,9 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1[] memory outputOnly =
             new AlphaEngineExecutionHashLib.AssetDeltaLimitV1[](1);
         outputOnly[0] = AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-            asset: address(assetOut), maxSpend: 0, minReceive: 90e18
+            asset: address(assetOut),
+            maxSpend: 0,
+            minReceive: 90e18
         });
         authorization = _authorization(keccak256("approval-unbound"), 2, calls, outputOnly);
         capitalManager.approve(authorization);
@@ -969,13 +982,17 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
 
         limits = new AlphaEngineExecutionHashLib.AssetDeltaLimitV1[](2);
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1 memory inputLimit =
-            AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-                asset: address(assetIn), maxSpend: maxSpend, minReceive: 0
-            });
+        AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
+            asset: address(assetIn),
+            maxSpend: maxSpend,
+            minReceive: 0
+        });
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1 memory outputLimit =
-            AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-                asset: address(assetOut), maxSpend: 0, minReceive: minReceive
-            });
+        AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
+            asset: address(assetOut),
+            maxSpend: 0,
+            minReceive: minReceive
+        });
         if (address(assetIn) < address(assetOut)) {
             limits[0] = inputLimit;
             limits[1] = outputLimit;
@@ -1026,10 +1043,12 @@ contract AlphaEngineVaultExecutionManagerTest is Test {
         uint256 maxPerExecution,
         uint256 maxPer24Hours
     ) private {
-        AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[] memory
-            inputs = new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](1);
+        AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[] memory inputs =
+            new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](1);
         inputs[0] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: asset, maxSpendPerExecution: maxPerExecution, maxSpendPer24Hours: maxPer24Hours
+            asset: asset,
+            maxSpendPerExecution: maxPerExecution,
+            maxSpendPer24Hours: maxPer24Hours
         });
         executionManager.setTraderAssetRiskLimits(trader, inputs);
     }

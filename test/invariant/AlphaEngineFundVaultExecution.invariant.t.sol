@@ -6,9 +6,8 @@ import {Test} from "forge-std/Test.sol";
 
 import {IAlphaEngineFundVault} from "src/interfaces/IAlphaEngineFundVault.sol";
 import {AlphaEngineFundVault} from "src/vault/AlphaEngineFundVault.sol";
-import {
-    FundVaultExecutionInvariantHandler
-} from "test/handlers/FundVaultExecutionInvariantHandler.sol";
+import {FundVaultExecutionInvariantHandler} from
+    "test/handlers/FundVaultExecutionInvariantHandler.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {MockFundVaultCallTarget, MockRecoveryVault} from "test/mocks/MockFundVaultExecution.sol";
 

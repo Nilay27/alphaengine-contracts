@@ -22,7 +22,7 @@
       "label": "_swapIntents",
       "offset": 0,
       "slot": "2",
-      "type": "t_mapping(t_bytes32,t_struct(SwapIntentRecord)94775_storage)"
+      "type": "t_mapping(t_bytes32,t_struct(SwapIntentRecord)_storage)"
     },
     {
       "astId": 103094,
@@ -130,7 +130,7 @@
       "label": "bytes32",
       "numberOfBytes": "32"
     },
-    "t_enum(SwapIntentStatus)94725": {
+    "t_enum(SwapIntentStatus)": {
       "encoding": "inplace",
       "label": "enum IAlphaEngineConfidentialSwapController.SwapIntentStatus",
       "numberOfBytes": "1"
@@ -156,12 +156,12 @@
       "numberOfBytes": "32",
       "value": "t_uint64"
     },
-    "t_mapping(t_bytes32,t_struct(SwapIntentRecord)94775_storage)": {
+    "t_mapping(t_bytes32,t_struct(SwapIntentRecord)_storage)": {
       "encoding": "mapping",
       "key": "t_bytes32",
       "label": "mapping(bytes32 => struct IAlphaEngineConfidentialSwapController.SwapIntentRecord)",
       "numberOfBytes": "32",
-      "value": "t_struct(SwapIntentRecord)94775_storage"
+      "value": "t_struct(SwapIntentRecord)_storage"
     },
     "t_mapping(t_uint256,t_uint40)": {
       "encoding": "mapping",
@@ -170,7 +170,7 @@
       "numberOfBytes": "32",
       "value": "t_uint40"
     },
-    "t_struct(SwapIntentRecord)94775_storage": {
+    "t_struct(SwapIntentRecord)_storage": {
       "encoding": "inplace",
       "label": "struct IAlphaEngineConfidentialSwapController.SwapIntentRecord",
       "members": [
@@ -292,7 +292,7 @@
           "label": "status",
           "offset": 18,
           "slot": "11",
-          "type": "t_enum(SwapIntentStatus)94725"
+          "type": "t_enum(SwapIntentStatus)"
         }
       ],
       "numberOfBytes": "384"

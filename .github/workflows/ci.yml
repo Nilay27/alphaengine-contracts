@@ -40,8 +40,22 @@ jobs:
         shell: bash
         run: bash script/ci/check-repository-hygiene.sh
 
-      - name: Check formatting
-        run: forge fmt --check
+      - name: Check formatting of changed Solidity files
+        shell: bash
+        env:
+          FORMAT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          # Leave unrelated baseline formatting out of functional reviews.
+          if [[ -z "$FORMAT_BASE" || "$FORMAT_BASE" =~ ^0+$ ]]; then
+            forge fmt --check
+          else
+            git rev-parse --verify "${FORMAT_BASE}^{commit}" >/dev/null
+            mapfile -d '' -t files < <(git diff --name-only --diff-filter=ACMR -z "$FORMAT_BASE" HEAD -- '*.sol' ':!lib/**')
+            if (( ${#files[@]} )); then
+              forge fmt --check "${files[@]}"
+            fi
+          fi
 
       - name: Build and enforce EIP-170
         run: forge build --sizes

@@ -227,10 +227,13 @@ contract AlphaEnginePendleV4PtDecoderAndSanitizer is IAlphaEngineDecoderAndSanit
     {
         bool invalid = approximation.guessMax == 0
             || approximation.guessMin > approximation.guessMax
-            || (approximation.guessOffchain != 0
-                && (approximation.guessOffchain < approximation.guessMin
-                    || approximation.guessOffchain > approximation.guessMax))
-            || approximation.maxIteration == 0 || approximation.maxIteration > MAX_APPROX_ITERATIONS
+            || (
+                approximation.guessOffchain != 0
+                    && (
+                        approximation.guessOffchain < approximation.guessMin
+                            || approximation.guessOffchain > approximation.guessMax
+                    )
+            ) || approximation.maxIteration == 0 || approximation.maxIteration > MAX_APPROX_ITERATIONS
             || approximation.eps == 0 || approximation.eps > MAX_APPROX_EPS;
         if (invalid) {
             revert InvalidApproximation(

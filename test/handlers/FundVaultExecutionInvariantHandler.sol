@@ -50,8 +50,9 @@ contract FundVaultExecutionInvariantHandler {
         targetData[0] = abi.encodeCall(MockFundVaultCallTarget.add, (first));
         targetData[1] = abi.encodeCall(MockFundVaultCallTarget.fail, (failureValue));
 
-        (bool success, bytes memory revertData) = address(VAULT)
-            .call(abi.encodeCall(IAlphaEngineFundVault.executeBatch, (targets, values, targetData)));
+        (bool success, bytes memory revertData) = address(VAULT).call(
+            abi.encodeCall(IAlphaEngineFundVault.executeBatch, (targets, values, targetData))
+        );
         if (
             success || _selector(revertData) != AlphaEngineFundVault.BatchCallFailed.selector
                 || TARGET.total() != totalBefore
@@ -68,8 +69,9 @@ contract FundVaultExecutionInvariantHandler {
         targets[0] = ACCOUNTING_MANAGER;
         targetData[0] = abi.encode(seed);
 
-        (bool success, bytes memory revertData) = address(VAULT)
-            .call(abi.encodeCall(IAlphaEngineFundVault.executeBatch, (targets, values, targetData)));
+        (bool success, bytes memory revertData) = address(VAULT).call(
+            abi.encodeCall(IAlphaEngineFundVault.executeBatch, (targets, values, targetData))
+        );
         if (success || _selector(revertData) != AlphaEngineFundVault.ProtectedBatchTarget.selector)
         {
             protectedTargetViolation = true;

@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {
-    TransparentUpgradeableProxy
-} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {
-    IAlphaEngineCapitalStrategyManager
-} from "src/interfaces/IAlphaEngineCapitalStrategyManager.sol";
-import {
-    IAlphaEngineTraderQualificationRegistry
-} from "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {IAlphaEngineCapitalStrategyManager} from
+    "src/interfaces/IAlphaEngineCapitalStrategyManager.sol";
+import {IAlphaEngineTraderQualificationRegistry} from
+    "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
-import {
-    AlphaEngineCapitalStrategyManager
-} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
-import {
-    AlphaEngineTraderQualificationRegistry
-} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {AlphaEngineCapitalStrategyManager} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
+import {AlphaEngineTraderQualificationRegistry} from
+    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
 import {CapitalManagerInvariantHandler} from "test/handlers/CapitalManagerInvariantHandler.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockFundVault, MockVaultExecutionManager} from "test/mocks/MockVaultExecutionManager.sol";
@@ -186,12 +180,12 @@ contract AlphaEngineCapitalStrategyManagerInvariantTest is StdInvariant, MockCoF
     function _deployManager() private returns (AlphaEngineCapitalStrategyManager deployed) {
         AlphaEngineCapitalStrategyManager implementation = new AlphaEngineCapitalStrategyManager();
         AlphaEngineCapitalStrategyManager.InitializationParams memory params =
-            AlphaEngineCapitalStrategyManager.InitializationParams({
-                initialDefaultAdmin: admin,
-                initialPauser: pauser,
-                initialFheOperator: operator,
-                qualificationRegistry: address(registry)
-            });
+        AlphaEngineCapitalStrategyManager.InitializationParams({
+            initialDefaultAdmin: admin,
+            initialPauser: pauser,
+            initialFheOperator: operator,
+            qualificationRegistry: address(registry)
+        });
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
             admin,

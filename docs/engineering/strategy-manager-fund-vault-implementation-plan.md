@@ -1,63 +1,16 @@
 # AlphaEngine Strategy Manager, Confidential Swap, and FundVault Plan
 
-## Fhenix decrypt-pressure amendment (2026-09-25)
+## Fhenix review amendments (2026-09-25)
 
-The owner approved completing findings 2–4 together, with one consolidated
-validation pass after implementation. New swaps retain the global trailing-minute
-cap and time-refilled burst budget (120/minute, two/second, burst 24), plus one
-active intent per trader. The controller masks below-minimum encrypted inputs to
-zero before escrow locking. The registry configures explicit, nonzero swap and
-partial-withdrawal minimums per wrapper in confidential base units; precision
-alone never determines economic policy. Configuration changes affect future
-requests. Existing locks and claims retain their original terminal paths.
-
-Ordinary withdrawals across all registered wrappers share a separate token
-bucket, initially one/second with burst eight. Both unshield overloads enforce
-one pending claim per source account/wrapper. The encrypted overload masks a
-below-minimum request to zero before burning; the plaintext overload rejects it
-before FHE work. Verified zero completion imposes a fixed five-minute source
-cooldown, including permissionless and batch claims. Swap zero refunds impose
-the same cooldown on the recorded trader, never the shared escrow. Admission
-budgets do not gate existing claims, execution or refunds. The trusted escrow
-uses the controller's budget and encrypted minimum, and is exempt from ordinary
-wrapper admission/pending/cooldown checks.
-
-A caller-only `unshieldAll(recipient)` uses the balance at request time to allow
-a complete exit, including dust. It bypasses only the partial-withdrawal minimum,
-uses the ordinary pending/admission gates, and starts a five-minute cooldown at
-request time. Later deposits are excluded from that claim. Verified zero
-completion restarts the cooldown. This full-exit path remains available before
-amount policy configuration; otherwise unconfigured minimums fail closed.
-
-Wrappers bind an explicit registry constructor argument. External registration
-checks that binding; it does not certify arbitrary external bytecode. Deployment
-must use reviewed implementations. Registry policy administration belongs to
-its timelock owner in production; Ownable alone adds no transaction delay.
-
-Score reveal preserves all three components, now authorizing up to eight
-submissions (24 handles) per call, advancing a per-competition cursor exactly
-once and enforcing five seconds between calls across the entire manager.
-Qualification remains independent of decryption readiness. A full 256-entry
-competition needs 32 batches, with 155 seconds from first to last authorization,
-plus external decryption/publication latency. Existing handles may be retried by
-the publisher without repeating manager authorization.
-
-These are provisional admission settings, not measured CoFHE capacity. Minimum
-masking does not eliminate the first zero-result decryption. Inherited FHERC20
-transfers/shielding/disclosure and holders' direct CoFHE ACL permissions are
-outside these workflow bounds; no universal network DPS guarantee is claimed.
-See [the remediation contract](fhenix-decrypt-pressure-remediation.md) for units,
-consumer migration, custody rules and validation requirements.
-
-## CoFHE 0.2 migration amendment (2026-09-25)
-
-The owner authorized upgrading CoFHE to v0.2.0 and FHERC20 to v0.4.0 before
-separate rate-limit remediation. [The migration contract](cofhe-v020-migration.md)
-supersedes this plan's old `InEuint*` encoding and temporary encrypted-unshield
-bridge. It preserves the market/component widths, all three scores, lifecycle,
-hash domains and custody ownership. It adds batch proofs, shared token boundary
-handles, distinct claim IDs and required library linking. No rate limits or
-reveal cursor are introduced in this commit.
+The owner approved the CoFHE 0.2 / FHERC20 0.4 migration and completing findings
+2–4. The [migration contract](cofhe-v020-migration.md) and
+[remediation contract](fhenix-decrypt-pressure-remediation.md) supersede older
+input, claim and reveal descriptions below and define the approved behavior.
+They cover batch proofs, shared handles, unique claim IDs, per-wrapper minimums,
+separate swap/withdrawal admission budgets, verified-zero cooldowns, caller-owned
+full-balance exits, and once-per-rank score authorization (8 submissions every
+5 seconds). Custody ownership, scoring components and qualification are preserved.
+Limits are provisional; inherited holder disclosure is outside workflow budgets.
 
 ## 1. Summary and deliverable status
 

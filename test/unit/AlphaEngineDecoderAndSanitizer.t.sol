@@ -5,15 +5,12 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
-import {
-    AlphaEngineERC20DecoderAndSanitizer
-} from "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
-import {
-    AlphaEngineERC4626DecoderAndSanitizer
-} from "src/decoders/AlphaEngineERC4626DecoderAndSanitizer.sol";
-import {
-    AlphaEnginePendleV4PtDecoderAndSanitizer
-} from "src/decoders/AlphaEnginePendleV4PtDecoderAndSanitizer.sol";
+import {AlphaEngineERC20DecoderAndSanitizer} from
+    "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
+import {AlphaEngineERC4626DecoderAndSanitizer} from
+    "src/decoders/AlphaEngineERC4626DecoderAndSanitizer.sol";
+import {AlphaEnginePendleV4PtDecoderAndSanitizer} from
+    "src/decoders/AlphaEnginePendleV4PtDecoderAndSanitizer.sol";
 import {IAlphaEngineDecoderAndSanitizer} from "src/interfaces/IAlphaEngineDecoderAndSanitizer.sol";
 import {IAlphaEnginePendleRouterV4} from "src/interfaces/IAlphaEnginePendleRouterV4.sol";
 
@@ -479,14 +476,15 @@ contract AlphaEngineDecoderAndSanitizerTest is Test {
         vm.expectPartialRevert(AlphaEnginePendleV4PtDecoderAndSanitizer.MalformedCalldata.selector);
         pendleDecoder.sanitize(_truncateOne(truncatedExit));
 
-        bytes memory oversized = bytes.concat(
-            _validTokenForPtData(1, 1), new bytes(pendleDecoder.MAX_CALLDATA_LENGTH())
-        );
+        bytes memory oversized =
+            bytes.concat(_validTokenForPtData(1, 1), new bytes(pendleDecoder.MAX_CALLDATA_LENGTH()));
         vm.expectPartialRevert(AlphaEnginePendleV4PtDecoderAndSanitizer.CalldataTooLarge.selector);
         pendleDecoder.sanitize(oversized);
     }
 
-    function _expectAggregatorRejected(IAlphaEnginePendleRouterV4.TokenInput memory input) private {
+    function _expectAggregatorRejected(IAlphaEnginePendleRouterV4.TokenInput memory input)
+        private
+    {
         vm.expectRevert(AlphaEnginePendleV4PtDecoderAndSanitizer.AggregatorNotPermitted.selector);
         pendleDecoder.sanitize(_tokenForPtData(1, 1, _validApproximation(), input, _emptyLimit()));
     }
@@ -567,7 +565,11 @@ contract AlphaEngineDecoderAndSanitizerTest is Test {
         returns (IAlphaEnginePendleRouterV4.ApproxParams memory approximation)
     {
         approximation = IAlphaEnginePendleRouterV4.ApproxParams({
-            guessMin: 0, guessMax: type(uint256).max, guessOffchain: 0, maxIteration: 256, eps: 1e14
+            guessMin: 0,
+            guessMax: type(uint256).max,
+            guessOffchain: 0,
+            maxIteration: 256,
+            eps: 1e14
         });
     }
 

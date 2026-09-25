@@ -1,87 +1,22 @@
 # Development Log
 
-## 2026-09-25 — Complete Fhenix decrypt-pressure lifecycle
+## 2026-09-25 — Fhenix review remediation
 
-- Implemented the owner-approved [remediation contract](engineering/fhenix-decrypt-pressure-remediation.md): explicit per-wrapper minimums, encrypted minimum masking, verified-zero five-minute cooldowns, independent aggregate ordinary-unshield admission, and a paced caller-only full-balance exit.
-- Preserved swap limits, one active intent, one pending ordinary claim, canonical actual-transfer/burn handles, third-party preclaim reconciliation and terminal custody paths. Plaintext unshield avoids redundant encrypted comparison. Config changes affect future requests, never existing claims or swaps.
-- Bound external wrappers to an explicit registry and validated registration wiring. Amount policies must be configured explicitly; no token-value assumptions derive from decimals. Registry ownership requires the production timelock.
-- Added one-time rank cursors and manager-wide pacing: eight submissions / 24 scores every five seconds. Retained all three scores and independent qualification; off-chain publishers retry already-authorized handles without replaying the manager range.
-- Documented inherited disclosure and direct CoFHE ACL permissions as outside workflow admission guarantees. No live capacity or network-wide DPS claim is made.
-- Added amount/cooldown/claim/policy/pagination regressions and an independent two-asset withdrawal invariant model. Foundry v1.7.1 passed the complete suite: 345 tests, including 40 invariant properties at 64 runs × depth 32 (81,920 aggregate calls, zero handler reverts), integration and deployment tests. Validation ran after the complete implementation; the first run exposed one test timestamp assertion, corrected with Foundry's timestamp reader before the successful second run.
-- Coverage passed using the existing `--ir-minimum --skip DeployAlphaEngineV2` configuration: 336 coverage tests, 93.42% total lines, 93.11% statements, 73.65% branches and 99.28% functions. The nine deployment tests passed in the normal suite. Coverage used separate temporary output/cache paths to preserve the normal build artifacts.
-- Regenerated four ABIs, two storage layouts and listener selectors/topics. Independently verified every existing storage field/type and the unchanged reserved end slot (50) for both affected proxies. ABI/layout/hash-vector/runtime-size CI checks, formatting and repository hygiene passed. The largest changed runtime is the asset registry at 21,263 bytes, below the 23,000-byte repository limit. Live CoFHE throughput and SDK/listener cutover remain release gates.
-
-
-## 2026-09-25 — Fhenix decrypt-pressure findings 2 and 3
-
-- Added one active swap intent per trader and a global, timestamp-based swap
-  admission budget before proof verification or unshield. The initial budget is
-  2 tokens/second, a 24-token burst, and 120 successful submissions per
-  trailing minute. Delayed governance can tune all three only while the
-  controller is paused, within fixed contract bounds. Settlement and refunds
-  remain available after the admission budget is exhausted. A proven zero
-  result may refund before expiry so it releases the trader's active slot.
-- The canonical AlphaEngine wrapper now requires at least 0.001 token
-  where its encrypted precision has at least three decimals (otherwise one
-  smallest unit) on plaintext unshield, and permits one pending claim per
-  account/wrapper across both public unshield overloads. Either single or
-  batch claim clears the gate; a verified zero claim skips an underlying
-  `transfer(0)` so cleanup remains reachable.
-- The registry owner explicitly binds the trusted swap escrow. Its own
-  encrypted-handle unshields use the controller's global admission budget;
-  ordinary accounts retain the wrapper pending gate. The deployment action
-  bundle includes that binding. The registry refuses rotation with live locks.
-- Deploy a fresh controller/wrapper set after draining old live intents and
-  claims. An in-place controller upgrade with live intents cannot reconstruct
-  the new active-by-trader mapping from existing storage and is unsupported.
-- CoFHE input proofs authenticate ciphertexts but do not attest a plaintext
-  lower bound. The encrypted swap amount and public encrypted-handle unshield
-  therefore cannot be proven above the wrapper minimum at submission. The
-  swap caps limit decrypt pressure; they do not promise every admitted burn is
-  nonzero. The initial numerical budget is provisional pending live-network
-  backlog and completion-time measurements. Fhenix score-reveal finding 4 is
-  still open.
-- CI-pinned Foundry v1.7.1 passed the full unit, fuzz, invariant, integration,
-  and deployment suite (323 tests), the generated ABI/layout/size gate, format
-  and repository hygiene checks. Coverage passed with 93.03% total line
-  coverage; live CoFHE throughput remains unmeasured.
-
-## 2026-09-25 — CoFHE dependency migration (Fhenix finding 1)
-
-- Upgraded pinned CoFHE to v0.2.0 and FHERC20 to v0.4.0, with regular
-  OpenZeppelin v5.2.0 for the dependency's transient reentrancy guard. Kept
-  AlphaEngine's upgradeable OpenZeppelin pin unchanged. Synchronized gitlinks
-  and `foundry.lock`; removed the stale lock entry for the absent CoFHE mock
-  submodule. Foundry remains the canonical runtime.
-- Migrated strategy/evaluation inputs to one consumer-bound batch proof and
-  swap inputs to external handles plus proof. Preserved strategy schemas,
-  canonical handle persistence, ACLs, hashes, scoring and qualification rules.
-- Replaced the removed score-decrypt task call with public ACL grants and the
-  existing published-result getter. Reveal batch size and repeatability remain
-  unchanged pending the separate decrypt-pressure remediation.
-- Integrated official shared-handle transfers, shielding and unshielding.
-  Captured upstream unique claim IDs separately from ciphertexts in gateway
-  returns/events and an appended escrow lock field. Preserved zero-value refund
-  cleanup, preclaim reconciliation, exact custody deltas and cross-asset dust.
-- Replaced the old bare-handle wrapper extension with the small claim-ID
-  discovery hook; its owner and removal trigger are recorded in the
-  [migration notes](engineering/cofhe-v020-migration.md). Deployment metadata
-  now identifies the required linked `ERC20ConfidentialLib` and its code hash.
-- Regenerated current ABIs, listener selectors/topics and the escrow layout.
-  Legacy manifests/ABIs/layouts remain historical evidence. OpenZeppelin's
-  inherited error ABI changes also propagate to the executor and public vault
-  artifacts; their application functions and events are unchanged.
-- Updated the local CoFHE harness for batch-signature binding and directed,
-  single-use transient shares. Added migration regressions for maximum-size
-  inputs, proof replay boundaries, share authentication, claim independence,
-  request-event/getter parity and linked-library deployment checks.
-- Used CI's pinned Foundry v1.7.1. Its formatter also normalizes existing
-  imports/line wrapping in otherwise unchanged Solidity files so the full
-  repository formatting gate passes.
-- Validation and limits are recorded in the
-  [migration validation report](releases/cofhe-v020-migration-validation.md).
-  This local first commit addresses library/API compatibility. Rate limits,
-  minimum amounts, pending-request gates and reveal pacing remain separate.
+- CoFHE 0.2 / FHERC20 0.4 migration: external inputs with batch proofs, shared
+  handles, distinct claim IDs, public score authorization and linked-library
+  deployment metadata. [Migration/adapter ownership](engineering/cofhe-v020-migration.md).
+- Completed minimums, swap/withdrawal budgets, verified-zero cooldowns, full-balance
+  dust exits and once-per-rank score pacing. [Policy and validation](engineering/fhenix-decrypt-pressure-remediation.md).
+  Custody, canonical handles, scoring and qualification are preserved.
+- Checkpoints passed 315, 323, then 345 tests; final coverage is 93.42% lines.
+  One new test's optimized timestamp assertion was corrected before the final
+  passing run. ABI/layout/hash/size/hygiene checks passed; existing proxy fields
+  and reserved end slots are preserved. Live CoFHE/consumer cutover remains pending.
+- Review cleanup restores 23 whitespace-only files to main, retains every test,
+  trims duplicate documentation and limits layout diffs to actual state changes.
+  CI formats changed Solidity files to avoid unrelated baseline churn; all other
+  validation gates remain in place. Cleanup revalidation passed all 345 tests,
+  artifact/layout/size checks and hygiene; coverage evidence remains `90297de`.
 
 ## 2026-09-01 — Fhenix reviewer documentation
 

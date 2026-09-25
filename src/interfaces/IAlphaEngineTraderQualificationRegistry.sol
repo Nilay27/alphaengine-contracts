@@ -16,7 +16,9 @@ interface IAlphaEngineTraderQualificationRegistry {
         bytes32 evidenceHash
     ) external returns (uint64 version);
 
-    function revokeTrader(address trader, bytes32 reasonHash) external returns (uint64 newVersion);
+    function revokeTrader(address trader, bytes32 reasonHash)
+        external
+        returns (uint64 newVersion);
 
     function existsQualification(address trader) external view returns (bool);
 

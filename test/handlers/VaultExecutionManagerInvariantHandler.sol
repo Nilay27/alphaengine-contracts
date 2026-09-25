@@ -4,12 +4,10 @@ pragma solidity 0.8.26;
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Vm} from "forge-std/Vm.sol";
 
-import {
-    AlphaEngineERC20DecoderAndSanitizer
-} from "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
-import {
-    IAlphaEngineVaultExecutionManager
-} from "src/interfaces/IAlphaEngineVaultExecutionManager.sol";
+import {AlphaEngineERC20DecoderAndSanitizer} from
+    "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
+import {IAlphaEngineVaultExecutionManager} from
+    "src/interfaces/IAlphaEngineVaultExecutionManager.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineManageLeafHashLib} from "src/libraries/AlphaEngineManageLeafHashLib.sol";
 import {AlphaEngineVaultExecutionManager} from "src/vault/AlphaEngineVaultExecutionManager.sol";
@@ -231,13 +229,12 @@ contract VaultExecutionManagerInvariantHandler {
         uint256 inputBefore = ASSET_IN.balanceOf(FUND_VAULT);
         uint256 outputBefore = ASSET_OUT.balanceOf(FUND_VAULT);
 
-        (bool success, bytes memory revertData) = address(MANAGER)
-            .call(
-                abi.encodeCall(
-                    IAlphaEngineVaultExecutionManager.executeCapitalIntent,
-                    (authorization, calls, limits, proofs)
-                )
-            );
+        (bool success, bytes memory revertData) = address(MANAGER).call(
+            abi.encodeCall(
+                IAlphaEngineVaultExecutionManager.executeCapitalIntent,
+                (authorization, calls, limits, proofs)
+            )
+        );
         bytes4 expectedSelector = block.timestamp >= lastSuccessfulDeadline
             ? AlphaEngineVaultExecutionManager.AuthorizationExpired.selector
             : AlphaEngineVaultExecutionManager.ExecutionCommitmentAlreadyConsumed.selector;
@@ -338,13 +335,12 @@ contract VaultExecutionManagerInvariantHandler {
         uint256 inputBefore = ASSET_IN.balanceOf(FUND_VAULT);
         uint256 outputBefore = ASSET_OUT.balanceOf(FUND_VAULT);
         uint256 spendBefore = MANAGER.currentWindowSpend(TRADER, address(ASSET_IN));
-        (bool success, bytes memory revertData) = address(MANAGER)
-            .call(
-                abi.encodeCall(
-                    IAlphaEngineVaultExecutionManager.executeCapitalIntent,
-                    (authorization, calls, limits, proofs)
-                )
-            );
+        (bool success, bytes memory revertData) = address(MANAGER).call(
+            abi.encodeCall(
+                IAlphaEngineVaultExecutionManager.executeCapitalIntent,
+                (authorization, calls, limits, proofs)
+            )
+        );
         if (
             success || _selector(revertData) != expectedSelector
                 || ASSET_IN.balanceOf(FUND_VAULT) != inputBefore
@@ -502,13 +498,17 @@ contract VaultExecutionManagerInvariantHandler {
     {
         limits = new AlphaEngineExecutionHashLib.AssetDeltaLimitV1[](2);
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1 memory inputLimit =
-            AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-                asset: assetIn, maxSpend: maxSpend, minReceive: 0
-            });
+        AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
+            asset: assetIn,
+            maxSpend: maxSpend,
+            minReceive: 0
+        });
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1 memory outputLimit =
-            AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-                asset: assetOut, maxSpend: 0, minReceive: minReceive
-            });
+        AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
+            asset: assetOut,
+            maxSpend: 0,
+            minReceive: minReceive
+        });
         if (assetIn < assetOut) {
             limits[0] = inputLimit;
             limits[1] = outputLimit;

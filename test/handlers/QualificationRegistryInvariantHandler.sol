@@ -2,12 +2,10 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {
-    IAlphaEngineTraderQualificationRegistry
-} from "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
-import {
-    AlphaEngineTraderQualificationRegistry
-} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {IAlphaEngineTraderQualificationRegistry} from
+    "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {AlphaEngineTraderQualificationRegistry} from
+    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
 
 contract QualificationRegistryInvariantHandler is Test {
     uint256 public constant TRADER_COUNT = 4;

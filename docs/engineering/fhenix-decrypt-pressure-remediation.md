@@ -1,127 +1,78 @@
 # Fhenix decrypt-pressure remediation
 
-Scope: complete findings 2–4 from review of `0595ef4`, following the CoFHE 0.2 /
-FHERC20 0.4 migration. No network deployment is included.
+Findings 2–4 from review of `0595ef4`, following the
+[CoFHE 0.2 / FHERC20 0.4 migration](cofhe-v020-migration.md).
 
-## Final behavior and ownership
+## Admission and completion
 
-| Flow | Admission | Amount rule | Completion |
-|---|---|---|---|
-| Swap/controller | Existing 120/trailing minute, refill 2/s, burst 24; one active/trader; reject during zero-result cooldown | Registry minimum per input wrapper; `gte` + `select` masks smaller requested amounts to zero before escrow transfer | Verified zero refund releases active slot and starts five-minute trader cooldown; valid settlement/refund unchanged |
-| Partial unshield/wrapper | One pending/source/wrapper; five-minute zero-result cooldown; registry-wide ordinary budget initially 1/s, burst 8 | Plaintext rejects below minimum; encrypted overload masks below minimum before burn | Single or batch claim verifies actual burn, pays nonzero underlying, clears pending; zero starts source cooldown |
-| Full unshield/wrapper | Same pending/cooldown/ordinary budget; caller-only full exits spaced at least five minutes | Entire encrypted balance at request time; explicit exception to partial minimum, including unconfigured policy | Existing claim pays even during cooldown; later deposits remain confidential; zero completion restarts cooldown |
-| Score reveal/competition manager | Role and finalization gate; global five-second interval; at most 8 submissions/call | All three existing scores, rank order | Per-competition revealed-through cursor advances atomically, with no repeated or skipped ranks; result readiness remains separate |
+| Flow | Controls |
+|---|---|
+| Swap/controller | 120/trailing minute, refill 2/s, burst 24; one active/trader; per-input-wrapper minimum; verified zero refund starts a five-minute trader cooldown |
+| Partial unshield/wrapper | One pending/source/wrapper across both overloads; registry-wide ordinary budget initially 1/s, burst 8; per-wrapper minimum; verified zero single/batch claim starts a five-minute source cooldown |
+| Full unshield/wrapper | Caller-only `unshieldAll(recipient)` snapshots the full encrypted balance, including dust; same pending/budget gates; five-minute cooldown from admission; verified zero completion restarts it |
+| Score reveal/manager | All three scores; at most 8 submissions/24 handles; five-second interval across competitions; forward-only per-competition cursor |
 
-Cooldown starts only after verified zero completion for ordinary requests and
-swaps. Full exits additionally start it on admission. It is fixed, never an
-escalating punishment or permanent ban. Above-balance burns remain all-or-nothing:
-zero is burned and the existing balance is retained. Requests from other accounts
-are independent; global admission bounds remain necessary against many accounts.
-No admission budget is charged again on claim, execution or refund.
+Plaintext partial withdrawals below minimum revert before FHE work. Encrypted
+partial withdrawals and swaps add `gte`/`select` plus trivial constants to mask
+below-minimum requests to zero before burn/transfer. No eligibility decrypt is
+added. Actual transfer/burn handles remain authoritative: insufficient balance
+resolves to zero without spending funds. The first invalid decrypt remains
+possible; cooldowns start only after verified zero completion (plus admission
+for full exits), and always apply to the recorded source/trader.
 
-Minimum masking adds a `gte` and a `select`, plus constant trivial encryptions,
-to each swap and ordinary encrypted unshield. Plaintext withdrawals avoid the
-redundant encrypted comparison. No additional eligibility decryption is added.
-The existing actual-transfer/burn ciphertext remains the authoritative value.
-Invalid requests can still consume their first decryption. A minimum is a valid
-spend policy, not proof that every admitted request will transfer funds.
+Claims, settlement and refunds never consume admission credit. Third-party claims
+remain supported. The registry holds no assets; the escrow retains swap custody.
+Only the registry's configured escrow calling to burn its own balance bypasses
+ordinary withdrawal gates, using controller admission instead. Full exits exclude
+later deposits and remain available before minimum configuration.
 
-The asset registry owns canonical wrapper identity, per-wrapper amount policy
-and the ordinary-withdrawal admission bucket. It holds no assets. The swap
-controller owns swap admission/cooldown and the escrow remains the custodian.
-The trusted escrow exemption requires the registry's configured escrow to call
-the wrapper and burn its own balance; ordinary callers/operators cannot select
-the exempt path.
+## Configuration and consumer contract
 
-## Units and configuration
+- Set positive `setWrapperMinimums(wrapper, swapMinimum, unshieldMinimum)` values
+  explicitly. Unconfigured policies block new swaps/partial exits. Values use
+  confidential base units: 1,000,000 means 1 token for a six-decimal wrapper,
+  including WETH. Select economic minimums per asset; no decimal-based defaults
+  or oracle. Policy changes never recheck existing claims/locks.
+- `setUnshieldRateLimits` accepts refill 1–16/s and burst from refill through 128.
+  It accrues at the old rate and clamps existing credit; updates do not refill
+  for free. Production registry ownership requires a timelock. Separate budgets
+  reserve withdrawal capacity but do not guarantee fairness against many accounts.
+- Wrappers require an explicit registry constructor argument; external registration
+  checks the binding, underlying, rate and claim-ID surface. Review external
+  bytecode separately. Full exits emit `FullBalanceUnshieldRequested` with the
+  unique claim ID; returned shares are transaction-scoped. Handle typed cooldown/
+  admission errors and their next-available timestamps.
+- Score calls require `startRank == scoreRevealedThrough(id) + 1`, batch 1–8 and
+  time at least `nextScoreRevealAt`. The cursor records authorization, not result
+  readiness. Publishers retry authorized handles independently. Full competition:
+  32 batches, 768 scores, at least 155 seconds first-to-last authorization plus
+  network latency. Qualification does not wait for public results.
+- New proxy state consumes declared gaps; existing fields/hash domains are
+  preserved. Use fresh v2 deployment and drain historical claims/locks; in-place
+  adoption with untracked active intents or historical reveal ranges is unsupported.
+  Regenerate SDK/listener consumers from the updated ABIs before cutover.
 
-Call `setWrapperMinimums(wrapper, swapMinimum, unshieldMinimum)` explicitly for
-each reviewed asset. Both values must be positive. There is no decimal-derived
-default. New swaps and partial exits reject unconfigured policies; full exits
-remain available for users already holding tokens. Minimum changes are
-prospective: effective amounts are determined at request time and completion
-never rechecks a newer minimum.
+## Scope and validation
 
-All minimums use confidential wrapper units. A six-decimal USDC wrapper maps
-1,000,000 units to 1 USDC. A six-decimal WETH wrapper also maps 1,000,000 units to
-1 WETH, converted to 10^18 underlying units using its rate. The two assets must
-have separately selected economic minimums. No price oracle is introduced.
+Inherited `requestDiscloseEncryptedAmount` and holders' direct Task Manager
+`allowGlobal` permissions remain available. These controls bound protocol claim
+creation and manager score authorization, not all shielding, transfers, private
+or public decrypts. Repeated ACL grants do not establish repeated computation of
+cached results. Rates are provisional; real CoFHE integration/throughput remains
+a deployment gate. The plaintext harness does not prove production signatures,
+ciphertext metadata parity, threshold-network capacity or completion latency.
 
-`setUnshieldRateLimits(perSecond, burst)` tunes the ordinary bucket: rate 1–16,
-burst at least the rate and at most 128. It accrues under the old policy before
-changing settings and clamps credit when shrinking the burst; changing policy
-does not refill the bucket for free. Production registry ownership must be a
-timelock. These settings reserve ordinary-exit capacity independently of swaps;
-they do not guarantee fair ordering against many competing withdrawal accounts.
+### Validation
 
-Score intervals use timestamps, not Arbitrum block counts. Reducing batches
-alone would not stop same-block bursts. At maximum competition size, 32 batches
-make 768 scores public exactly once per rank over at least 155 seconds from first
-to last authorization. Network completion can take longer. Qualification relies
-on finalized rank and need not wait for these scores.
-
-## Public disclosure boundary
-
-The inherited `requestDiscloseEncryptedAmount` remains available. Holders also
-have CoFHE ACL rights over their handles and can call Task Manager `allowGlobal`
-directly. Limiting a wrapper disclosure helper would not restrict that direct
-permission. These controls bound creation of AlphaEngine swap/withdrawal claims
-and manager-driven score authorization, not every FHE operation or decrypt a
-holder can initiate. Account for inherited shielding, confidential transfers,
-private decrypts and public disclosure in the live load assessment. Repeated ACL
-grants are not evidence that the network recomputes a cached plaintext each time.
-Publishers must deduplicate handles and retry publication independently of rank
-admission. Live throughput and service request controls remain release evidence.
-
-## Compatibility and deployment
-
-- Fresh wrappers require the explicit registry as the last constructor argument.
-  External registration verifies this binding in addition to existing underlying,
-  rate and claim-ID checks. This catches incompatible deployment wiring; owner
-  review of external wrapper bytecode remains mandatory.
-- The registry adds policy getters/setters and the wrapper-only budget call.
-  Set per-asset minimums after registration and before enabling swaps/partial exits.
-- `unshieldAll(address recipient)` is a direct caller-owned wrapper entry point.
-  Read `latestUnshieldClaimId(recipient)` from the same transaction or consume the
-  `FullBalanceUnshieldRequested(account,recipient,claimId)` event. Its return is
-  the official transaction-scoped share, not a permanent ciphertext handle.
-- Clients handle cooldown/rate-limit errors and their next-available timestamps.
-  Wallets must not assume a cleared pending request always permits immediate retry.
-- Score reveal retains its selector but requires `startRank ==
-  scoreRevealedThrough(competitionId) + 1`, batch size 1–8 and time at least
-  `nextScoreRevealAt`. A cursor records authorization, not result readiness.
-- Swap cooldown storage and competition cursor/pacing storage are appended into
-  existing gaps. Other existing fields and hash domains are preserved.
-- Use the already required fresh v2 deployment; drain historical swaps/claims.
-  In-place adoption with historical revealed ranges or active untracked intents
-  is unsupported. Do not reinterpret old wrapper storage or manifests.
-- Generated ABIs, layouts and listener selectors/topics are the consumer contract.
-  This change is confined to the contracts repository; SDK/listener cutover and
-  real CoFHE integration are required before deployment.
-
-## Validation
-
-Regression tests cover zero/dust/exact/above-balance amounts; both overloads;
-full-balance exits and later deposits; single/batch/third-party zero completion;
-forged result rollback; cross-wrapper budget exhaustion and refill; source versus
-recipient identity; shared-escrow concurrency; registry binding; prospective
-minimum changes; score replay/skip/cross-competition pacing; full 256-entry
-pagination; and cursor/ACL rollback on a failed grant.
-
-An independent two-asset unshield invariant model tracks balances, pending burns,
-payouts, cooldowns and bucket credit, including invalid requests with exact error
-assertions. Swap invariants cover masked amounts and cooldown rejection without
-excluding zero/above-balance requests. Competition invariants compare cursor and
-pacing against independent progress and require each ranked submission's three
-scores to be authorized at most once.
-
-Foundry v1.7.1 passed 345 tests, including 40 invariant properties (81,920
-aggregate handler calls with zero reverts). Coverage passed with 93.42% overall
-line coverage, using the existing minimal-IR deployment-script exclusion.
-ABI, listener-surface, storage-layout, hash-vector, runtime-size, formatting and
-repository-hygiene checks passed. Existing proxy fields and reserved end slots
-are unchanged; only the declared gaps shrink.
-
-Foundry's plaintext compatibility harness does not prove threshold-network
-capacity, real signature validity, ciphertext metadata parity or completion
-latency. Full validation details are recorded in the development log.
+- 345 tests, including 40 invariant properties / 81,920 calls / zero handler
+  reverts. Coverage at implementation commit `90297de`: 93.42% lines, 93.11% statements, 73.65% branches, 99.28%
+  functions; 336 coverage tests use the existing `--ir-minimum --skip
+  DeployAlphaEngineV2` workaround. Nine deployment tests pass in the normal suite.
+- Cases include amount boundaries, forged results, single/batch/preclaims,
+  source/recipient identity, shared escrow concurrency, registry binding,
+  cross-wrapper budgets, prospective policy changes, dust/later deposits,
+  cursor/replay/pacing rollback and full 256-submission pagination.
+- ABI/listener/layout/hash-vector/size/hygiene checks pass. Layout comparisons
+  ignore compiler AST IDs while retaining field order, types, slots and offsets.
+  PR formatting checks cover changed Solidity files. Tests and contract behavior
+  are preserved by the subsequent whitespace/documentation cleanup.
