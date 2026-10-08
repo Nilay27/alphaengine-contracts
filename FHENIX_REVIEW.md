@@ -22,6 +22,14 @@ a full-balance dust exit and paced, once-per-rank score authorization. See the
 for consumer, configuration and fresh-deployment requirements. Live network
 capacity and real CoFHE integration remain release gates.
 
+The October 8–9 deployment preparation subsequently pins CoFHE v1.0.0
+(`0f5ded4f2847ee227f9be0b07a392238f75b656c`) with the consumer API unchanged.
+Its address-book adaptation and no-broadcast validation are recorded in the
+[rehearsal log](docs/engineering/deployment-rehearsal-2026-10-08.md).
+The dependency table below preserves the 0.2.0 remediation checkpoint; it is
+not the new working-tree lock. Earlier review evidence does not automatically
+cover this dependency delta or establish live-network readiness.
+
 ## Product in one diagram
 
 ```mermaid

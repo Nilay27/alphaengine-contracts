@@ -6,6 +6,13 @@
 - Review commit: `0595ef4`; dependency migration is a separate remediation commit
 - Production claim: none; this is not a full external security audit
 
+October 8–9 preparation changes the working dependency to CoFHE v1.0.0,
+without broadcasting or changing the consumer ABI. Preserve the review SHAs
+above as historical evidence; do not claim those reviews cover this new
+dependency delta. See the
+[rehearsal log](../engineering/deployment-rehearsal-2026-10-08.md) for local
+validation and outstanding live-network/release checks.
+
 The reviewer entry point is
 [`FHENIX_REVIEW.md`](../../FHENIX_REVIEW.md). It contains the product map, exact
 FHE operation inventory, per-call bounds, permission/decryption flow,
