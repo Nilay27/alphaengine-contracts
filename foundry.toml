@@ -33,3 +33,6 @@ runs = 256
 runs = 64
 depth = 32
 fail_on_revert = true
+
+[rpc_endpoints]
+arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"

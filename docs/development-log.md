@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-10-09 — Configured Alchemy RPC alias
+
+- The user selects the existing `ARBITRUM_SEPOLIA_RPC_URL` in ignored `.env`
+  for the deployment command. Add the Foundry `arbitrum_sepolia` RPC alias,
+  which resolves that variable internally without putting the API key into
+  command text or requiring dotenv to be sourced as shell code.
+- Compiler settings and deployment scope are unchanged. The earlier public-RPC
+  rehearsal remains historical evidence; validate the Alchemy alias and repeat
+  the prepared command without broadcasting before handing it to the user.
+  Signing remains through the `alphaengine-deployer` keystore.
+
 ## 2026-10-08 — No-broadcast v2 deployment preparation
 
 - User instruction explicitly limits this step to script completion, environment
