@@ -55,7 +55,8 @@ Submission ABI and hashes are unchanged. Consume `CompetitionStrategySuperseded`
 and appended status `Superseded = 4`; retain attempt history, but evaluate only
 `activeSubmissionByTrader` after the deadline. Replace the old active-entry
 preflight with click-only `getSubmissionAllowance` and decode
-`SubmissionAllowanceExceeded`. Consumer updates are pending; nothing is deployed.
+`SubmissionAllowanceExceeded`. Consumer updates are pending; the [confirmed proxy upgrade](../../deployments/v2/arbitrum-sepolia-competition-upgrade-2026-10-10.json)
+is configured to 3/300 seconds and unpaused.
 Two new slots consume the storage gap. An existing proxy must be paused, upgraded,
 configured through `updateSubmissionLimits`, and held paused for a full configured
 window before admission resumes; old admission history is not reconstructed.

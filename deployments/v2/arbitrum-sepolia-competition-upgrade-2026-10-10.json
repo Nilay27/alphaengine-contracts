@@ -1,0 +1,57 @@
+{
+  "chainId": 421614,
+  "competitionManagerProxy": "0x9CBF3917Ff31E41393e5D992b3bdbf1fC9C80744",
+  "competitionManagerProxyAdmin": "0x4e3841A9e383850bD238377f3471205Ba21ded8c",
+  "compilerVersion": "0.8.26",
+  "consumerIntegration": "frontend-preflight-and-listener-supersession-updates-pending",
+  "foundryVersion": "1.8.5",
+  "implementation": "0xfc81Bf4d378dC526894Bc7A132064f204d922361",
+  "implementationVerification": "user-reported-etherscan-pass-verified",
+  "observedState": {
+    "implementation": "0xfc81bf4d378dc526894bc7a132064f204d922361",
+    "paused": false,
+    "submissionLimit": 3,
+    "submissionWindowSeconds": 300
+  },
+  "previousImplementation": "0x6b695e6bae7c39B70b31136844Ca674abe446842",
+  "priorDeploymentRecord": "arbitrum-sepolia-2026-10-09-4ffb31f-confirmed.json",
+  "receipts": {
+    "configureLimits": {
+      "blockHash": "0xadd2c2262ecb19bb6df277df513b56399b415887d960a52d14b6b534885128dd",
+      "blockNumber": 317481415,
+      "contractAddress": null,
+      "from": "0x0cd73a4e3d34d5488bc4e547fecedac86305db9d",
+      "to": "0x9cbf3917ff31e41393e5d992b3bdbf1fc9c80744",
+      "transactionHash": "0xf6c00246ea248b2ffb5a0a41e7727a5ff5ce0fd584fc8cc3902cc3a116bac753"
+    },
+    "implementationDeployment": {
+      "blockHash": "0x23784258841f9e8348f1f6850a711b635ce84b2698d73f3e4104d45b9eca8a1c",
+      "blockNumber": 317480323,
+      "contractAddress": "0xfc81bf4d378dc526894bc7a132064f204d922361",
+      "from": "0x0cd73a4e3d34d5488bc4e547fecedac86305db9d",
+      "to": null,
+      "transactionHash": "0xb75d74a6458b85124a884ca3406b92afff56f100dd100712152ac806ebe867d3"
+    },
+    "pause": {
+      "blockHash": "0xafb6d5fddda001991ea50f33822fad4f5dfcb4e50fa5f77d3e40ac1d38c3ae79",
+      "blockNumber": 317479581,
+      "contractAddress": null,
+      "from": "0x0cd73a4e3d34d5488bc4e547fecedac86305db9d",
+      "to": "0x9cbf3917ff31e41393e5d992b3bdbf1fc9c80744",
+      "transactionHash": "0x524cea7e21d5d77e8752b7e59abada9c0bb0170797a3c4401047d59be5657d88"
+    },
+    "upgrade": {
+      "blockHash": "0x5e762aea3e63f594eae31c08bb4f237215b6ac3af3e542383fad15b83dd93ee5",
+      "blockNumber": 317481160,
+      "contractAddress": null,
+      "from": "0x0cd73a4e3d34d5488bc4e547fecedac86305db9d",
+      "to": "0x4e3841a9e383850bd238377f3471205ba21ded8c",
+      "transactionHash": "0x793dc5f78c8ce1afe3a4dba2cd28120d7cc0f477752d4f90170a3cfd45d224e2"
+    }
+  },
+  "recordType": "competition-implementation-upgrade",
+  "runtimeCodeHash": "0x0a1fdbbe9c2384dd34b0ea647fb160d9b09f4b4aa9b63f77beaef0adb2165c76",
+  "sourceGitSha": "bc872d85bac8b9db384728ef4573196bf8af4fa4",
+  "sourceRuntimeMatchesDeployedBytecode": true,
+  "unpause": "live-state-confirmed-transaction-hash-not-yet-recorded"
+}

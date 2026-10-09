@@ -1,5 +1,11 @@
 # Development Log
 
+## 2026-10-10 — Competition proxy upgrade confirmed
+
+- Same proxy, new verified implementation; receipts and matching runtime are
+  recorded in [the upgrade record](../deployments/v2/arbitrum-sepolia-competition-upgrade-2026-10-10.json).
+- Live allowance is 3/300 seconds and the proxy is unpaused. FE/listener updates remain pending.
+
 ## 2026-10-09 — Standard Foundry installation
 
 - Installed and pinned CI to Foundry v1.8.5. Explicit `isolate = false` retains
