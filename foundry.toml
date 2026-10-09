@@ -7,6 +7,8 @@ evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 via_ir = true
+# CoFHE fixtures model sharing and receiving within one transaction.
+isolate = false
 extra_output = ["storageLayout"]
 fs_permissions = [{ access = "read-write", path = "./" }]
 no_match_coverage = "^(test/|script/|lib/)"

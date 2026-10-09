@@ -116,7 +116,7 @@ not be described as production-ready or externally audited.
 
 ## Build and verify
 
-Canonical CI Foundry release: `v1.7.1`.
+Canonical CI Foundry release: `v1.8.5`.
 
 ```bash
 git submodule update --init --recursive

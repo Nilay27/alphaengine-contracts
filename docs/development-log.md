@@ -1,5 +1,10 @@
 # Development Log
 
+## 2026-10-09 — Standard Foundry installation
+
+- Installed and pinned CI to Foundry v1.8.5. Explicit `isolate = false` retains
+  the CoFHE fixtures' previous transaction context; all 28 suites pass.
+
 ## 2026-10-09 — Rolling competition submissions
 
 - Allow 3 successes per wallet per rolling 5 minutes across encrypted markets;

@@ -4,7 +4,8 @@
 
 Foundry is the only framework in v1.
 
-CI is pinned to Foundry `v1.7.1`. The PR workflow runs the complete suite at
+CI is pinned to Foundry `v1.8.5`; `isolate = false` preserves the existing
+CoFHE fixtures' transaction context. The PR workflow runs the complete suite at
 the default fuzz/invariant profile; nightly and release-candidate workflows use
 at least 10,000 fuzz runs and 256 invariant runs at depth 128. GitHub Actions
 and the Foundry setup action are pinned by full commit SHA.

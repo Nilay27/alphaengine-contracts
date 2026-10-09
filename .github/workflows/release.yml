@@ -25,15 +25,15 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Install Foundry v1.7.1
+      - name: Install Foundry v1.8.5
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
         with:
-          version: v1.7.1
+          version: v1.8.5
 
       - name: Verify release toolchain
         run: |
           set -euo pipefail
-          forge --version | grep -F "Version: 1.7.1"
+          forge --version | grep -F "Version: 1.8.5"
           solc --version || true
 
       - name: Check repository and dependency hygiene
