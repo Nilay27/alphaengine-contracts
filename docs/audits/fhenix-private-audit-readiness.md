@@ -13,6 +13,11 @@ dependency delta. See the
 [rehearsal log](../engineering/deployment-rehearsal-2026-10-08.md) for local
 validation and outstanding live-network/release checks.
 
+The subsequent user-broadcast Arbitrum Sepolia deployment and local encrypted
+submission/operator-evaluation checkpoint are recorded in the
+[9 October deployment log](../engineering/deployment-arbitrum-sepolia-2026-10-09.md).
+These do not extend the historical review scope or establish mainnet readiness.
+
 The reviewer entry point is
 [`FHENIX_REVIEW.md`](../../FHENIX_REVIEW.md). It contains the product map, exact
 FHE operation inventory, per-call bounds, permission/decryption flow,

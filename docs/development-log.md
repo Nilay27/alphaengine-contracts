@@ -1,5 +1,46 @@
 # Development Log
 
+## 2026-10-09 — Local competition-v2 integration checkpoint
+
+- The recorded Competition Manager proxy has an active competition and a
+  receipt-confirmed encrypted submission. The operator decrypted the payload,
+  simulated/evaluated it and recorded score `50.19000420422378` through the
+  local app-bff; the database and leaderboard API returned the result.
+- See the [deployment record](engineering/deployment-arbitrum-sepolia-2026-10-09.md)
+  for competition/transaction identity and the preserved initial checkpoint.
+  Scoring is off-chain; on-chain evaluation, finalization/public reveal and
+  complete orphan rollback remain pending.
+- A second attempt exposed the existing one-active-submission-per-trader
+  competition restriction. Public markets, configurable cooldowns and repeated
+  attempts remain a discussion only; no Solidity behavior was changed.
+- Validation before publishing the deployment records: 347 Foundry tests across
+  28 suites passed; changed-Solidity formatting, ABI/storage/hash-vector and
+  runtime-size checks, dependency/repository hygiene and staged whitespace
+  checks passed. The local evidence reconciles 14 successful creation receipts
+  and all 19 recorded addresses; candidate/confirmed manifests and legacy
+  evidence retain their original provenance.
+
+## 2026-10-09 — User-broadcast Arbitrum Sepolia v2 deployment recorded
+
+- Reconciled 14 successful creation receipts against the script candidate,
+  recording all 19 addresses including five internally created ProxyAdmins.
+  Correct L2 deployment range: 317150657–317150728; the original candidate's
+  block is simulation context and remains preserved unchanged.
+- Added the [final deployment record](engineering/deployment-arbitrum-sepolia-2026-10-09.md)
+  and a separate receipt-reconciled manifest with transaction hashes and blocks.
+  Preserved the legacy manifest and earlier explorer snapshot.
+- User reports Foundry verified all eight submitted contracts. This does not
+  claim separate explorer verification of every proxy/admin or live bytecode,
+  role, pause-state or reciprocal-link reconciliation. No signing, broadcast,
+  admin activation, SDK upgrade, AWS or DNS operation was performed here.
+- At initial deployment capture, the dashboard/operator SDK pin was 0.5.1.
+  Upstream 0.7 breaks permit/ACP naming and encryption packet shape and requires
+  consuming-contract binding; 0.8 adds address-book TaskManager resolution.
+  The dashboard also still calls the retired submitStrategyIntent interface;
+  competition ABI/config/lifecycle and listener migration remain separate work.
+  See the deployment record for evidence and the bounded remaining tasks.
+
+
 ## 2026-10-09 — Configured Alchemy RPC alias
 
 - The user selects the existing `ARBITRUM_SEPOLIA_RPC_URL` in ignored `.env`

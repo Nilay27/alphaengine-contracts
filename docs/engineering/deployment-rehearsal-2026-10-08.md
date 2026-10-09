@@ -1,5 +1,9 @@
 # Arbitrum Sepolia v2 deployment rehearsal — 8 October 2026
 
+> Historical rehearsal checkpoint. The subsequent user-broadcast deployment is
+> recorded separately in [the 9 October final address log](deployment-arbitrum-sepolia-2026-10-09.md).
+> “Not deployed” below describes the rehearsal checkpoint only.
+
 ## Scope and actual deployment status
 
 This is a **simulation without broadcast**, using the existing

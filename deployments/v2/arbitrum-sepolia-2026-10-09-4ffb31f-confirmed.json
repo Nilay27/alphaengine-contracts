@@ -1,0 +1,360 @@
+{
+  "abiBundleHash": "0xaf02b8e359da14cad2af4cec595ddece6ae7b56b1b12e3d339ba81443d1c2891",
+  "adminActionsHash": "0x0247b0426a599e08062614bc9abbe046b5dd824297676d985b96e8b288ddab59",
+  "assetGateway": "0xa3c8E767eA23cE564AEe6b7D1e7Cd49f8887216f",
+  "assetGatewayCodeHash": "0x77dd60d50909f327cb681b5d766a4562107bdf7479e91dce1413773a8b1293f3",
+  "assetRegistry": "0x01CE620B64D29B1121172CB36f572ebFAf1Eea74",
+  "assetRegistryCodeHash": "0x70ef13a204b49450bc69fcaa985cf9cb3ad5367b567b06ad3a0d671957e76a8b",
+  "assetRegistryOwner": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "assetWrappersStatus": "not-deployed-pending-asset-selection",
+  "baselineGitSha": "49d96e8a80d6903d1d30affc6f836bcc0ac13800",
+  "capitalEvaluator": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "capitalFheOperator": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "capitalManagerImplementation": "0xa2304788Cb7a030d2EA443CEb36F4a8E4A7ff39a",
+  "capitalManagerImplementationCodeHash": "0x07be16dc0fe85d6414f793480868a6766d74823f10fde827f213775bb66b0934",
+  "capitalManagerProxy": "0x6571f70e9E312A07c851740A4e48a49Df7f714B5",
+  "capitalManagerProxyAdmin": "0x669e36D8ba474140A20907F6ee64355cF15D70f2",
+  "capitalRevoker": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "capitalStatus": "deployed-no-execution-manager-in-deployment-script-live-state-not-rechecked",
+  "chainId": 421614,
+  "cofheContractsVersion": "1.0.0",
+  "competitionCanceller": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "competitionCreator": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "competitionEvaluator": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "competitionFheOperator": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "competitionFinalizer": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "competitionManagerImplementation": "0x6b695e6bae7c39B70b31136844Ca674abe446842",
+  "competitionManagerImplementationCodeHash": "0x2392689e40138eb11868ebe360aacd7a672d8bc7b022ace71682751ae823c1a3",
+  "competitionManagerProxy": "0x9CBF3917Ff31E41393e5D992b3bdbf1fC9C80744",
+  "competitionManagerProxyAdmin": "0x4e3841A9e383850bD238377f3471205Ba21ded8c",
+  "competitionQualifier": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "compilerVersion": "0.8.26",
+  "confidentialContractsVersion": "0.4.0",
+  "confidentialTokenLibrary": "0x4BDF378C53F942c02Ba88FAb39903A7451602a36",
+  "confidentialTokenLibraryCodeHash": "0x4a068ecbaecfa6a5a2e39bcc2196380b4186658d62483becc4dacb72facfd222",
+  "contractApiRevision": "v2-cofhe-0.2",
+  "defaultAdmin": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "defaultAdminDelaySeconds": 172800,
+  "dependencyLockHash": "0xb1b22b09c70c63516aee4bd8a1df21e3680ab91b5db62c524b6e86aeb4e3eae6",
+  "deploymentBlock": 317150657,
+  "deploymentGitSha": "4ffb31f0d315efceb358e6332b618e5452017a54",
+  "deploymentTransactionHashesRecorded": true,
+  "evmVersion": "cancun",
+  "executionStatus": "deployed-receipts-reconciled-activation-pending",
+  "explorerVerificationStatus": "foundry-all-8-submitted-contracts-verified-user-reported",
+  "fhenixPackageRevision": "5138cb8644b19b24a75caf3f383a17457e823e16",
+  "foundryVersion": "1.7.1",
+  "fundVaultStatus": "not-deployed-out-of-scope",
+  "legacyManifestPath": "deployments/arbitrum-sepolia-latest.json",
+  "legacyManifestSha256": "e35253ff1c1aaa16e67cf6543942332031ac1691392bb578a07ca6fa2c5aa7e2",
+  "optimizerEnabled": true,
+  "optimizerRuns": 200,
+  "pauser": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "poolManager": "0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317",
+  "proxyAdminOwner": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "qualificationRegistryImplementation": "0x1CC758B72F21B45CfDe1378551445922877E09fa",
+  "qualificationRegistryImplementationCodeHash": "0x726551d765c3b4b0f28d3c24fd01ad8f9b0a9e3c778b4a9491a793ce5b4cc89f",
+  "qualificationRegistryProxy": "0x0C4f279C2fC2332CCdcF1842ff4D511A7C12d527",
+  "qualificationRegistryProxyAdmin": "0x3bD672410F2c86C49457794551228E94E3216aA8",
+  "qualificationRevoker": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "schemaVersion": 2,
+  "scoreRevealer": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "storageLayoutBundleHash": "0x455bbd0f20fdb01b7102f9e6297a21d0c4eb3de34680cedf2a26c06e2c5564b9",
+  "strategyStatus": "deployed-activation-pending-live-state-not-rechecked",
+  "swapControllerImplementation": "0x353198589Ca9F90c3BF4907D045F86381abb597B",
+  "swapControllerImplementationCodeHash": "0xa0f60173da88215a6e2fad2f8f383a5bf7be48b74d9b8f1c1d1fde789d41b0c2",
+  "swapControllerProxy": "0xf02E3684C6DCC24B95418B02A66496C6b8CA46FA",
+  "swapControllerProxyAdmin": "0x499CefDB9b7747F8Fd9978bA635B5092b1B59917",
+  "swapEscrowImplementation": "0x0Fb0DB9a20aF9159c1a458d2ce816636b8b6f0Cc",
+  "swapEscrowImplementationCodeHash": "0x5fb2dd9284bf1044e4cdfddf0a225e3828b3fef36aedfdb176df6058cb836bbd",
+  "swapEscrowProxy": "0xc270ADFfc60c78e98f746Fb9D9f3906E82754CBc",
+  "swapEscrowProxyAdmin": "0xE4E1BC2030B7e99C5a7acC9eC15C634AA8B3E35c",
+  "swapExecutor": "0x8C8af2a132D89DC5f747832De63fBA91708C9491",
+  "swapExecutorCodeHash": "0xfbdd665438e03d4e4e868fe768f8522a16faff116c8908d25caf9f04c82e8e33",
+  "swapExecutorOwner": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "swapOperator": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "swapStatus": "deployed-activation-pending-live-state-not-rechecked",
+  "testOnlyRoleCollapse": true,
+  "usdcVaultManagerStatus": "not-deployed-out-of-scope",
+  "vaultDecodersStatus": "not-deployed-out-of-scope",
+  "vaultExecutionManagerStatus": "not-deployed-out-of-scope",
+  "deploymentEndBlock": 317150728,
+  "verificationEvidence": {
+    "source": "user-provided Foundry completion output",
+    "message": "All (8) contracts were verified!",
+    "submittedContractCount": 8,
+    "all19AddressesIndependentlyVerified": false,
+    "earlierExplorerSnapshot": "arbitrum-sepolia-verification-status-2026-10-09.json"
+  },
+  "receiptEvidence": {
+    "source": "broadcast/DeployAlphaEngineV2.s.sol/421614/run-latest.json",
+    "sha256": "399769e5ab02de84e398b27b7a4cceddbb39372ce4aa07fea49165d6949ac076",
+    "receiptCount": 14,
+    "successfulReceiptCount": 14,
+    "liveRpcRecheckPerformed": false
+  },
+  "candidateManifestEvidence": {
+    "path": "deployments/v2/arbitrum-sepolia-2026-10-09-4ffb31f.json",
+    "sha256": "31ce7c6140aece9123eab3484a2d2ac675a71e0600b8faa299511d3eba113dbc",
+    "originalDeploymentBlockWasSimulationContext": true
+  },
+  "recordedAtUtc": "2026-10-08T19:36:07.944399+00:00",
+  "postDeploymentAdminActionsExecutedByDeploymentScript": false,
+  "onChainRolePauseAndProxySlotRecheckPerformed": false,
+  "codeHashProvenance": "inherited from script simulation; not independently reconciled against live runtime bytecode",
+  "deploymentTransactions": [
+    {
+      "contractName": "ERC20ConfidentialLib",
+      "address": "0x4bdf378c53f942c02ba88fab39903a7451602a36",
+      "transactionHash": "0xdf135fe42d7f6975e9009d91323c8478388045edbde36641030c969663c6d7a1",
+      "blockNumber": 317150657,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "AlphaEngineConfidentialAssetRegistry",
+      "address": "0x01ce620b64d29b1121172cb36f572ebfaf1eea74",
+      "transactionHash": "0xae901938280f3e972ebd568ae22752205e2b9d5dd44510872035edb7cf31d137",
+      "blockNumber": 317150664,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "AlphaEngineConfidentialAssetGateway",
+      "address": "0xa3c8e767ea23ce564aee6b7d1e7cd49f8887216f",
+      "transactionHash": "0x60967ebde404cf11fd1f3bbe7fc55af8ee000b9a7dfe9bd2c6975ae658c98373",
+      "blockNumber": 317150669,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "AlphaEngineTraderQualificationRegistry",
+      "address": "0x1cc758b72f21b45cfde1378551445922877e09fa",
+      "transactionHash": "0x1eacaff233df863d34bc81b17922879e106466d68dbf20c10d3dc096d75c53a3",
+      "blockNumber": 317150675,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "TransparentUpgradeableProxy",
+      "address": "0x0c4f279c2fc2332ccdcf1842ff4d511a7c12d527",
+      "transactionHash": "0x71ed87176ddcdba40716f2c2570e2cda0ba1c6b974ee19c82ef9ed98bc0ebb9a",
+      "blockNumber": 317150680,
+      "receiptStatus": "success",
+      "internallyCreated": [
+        {
+          "contractName": "ProxyAdmin",
+          "address": "0x3bd672410f2c86c49457794551228e94e3216aa8"
+        }
+      ]
+    },
+    {
+      "contractName": "AlphaEngineCompetitionStrategyManager",
+      "address": "0x6b695e6bae7c39b70b31136844ca674abe446842",
+      "transactionHash": "0x2af29c22ae93b09dcbfd35f9b5e557ce91773c663a96a79873e50821caf55b55",
+      "blockNumber": 317150686,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "TransparentUpgradeableProxy",
+      "address": "0x9cbf3917ff31e41393e5d992b3bdbf1fc9c80744",
+      "transactionHash": "0x4a287dea0fa2fc2eb2272d364b913589e4b9d6c8a46ad39abd6cb3de63868d63",
+      "blockNumber": 317150690,
+      "receiptStatus": "success",
+      "internallyCreated": [
+        {
+          "contractName": "ProxyAdmin",
+          "address": "0x4e3841a9e383850bd238377f3471205ba21ded8c"
+        }
+      ]
+    },
+    {
+      "contractName": "AlphaEngineCapitalStrategyManager",
+      "address": "0xa2304788cb7a030d2ea443ceb36f4a8e4a7ff39a",
+      "transactionHash": "0x0e690c6a4e6c6daf187f91aa2c0ea02837d89ee9b4f34a90dc88312ff15eecf1",
+      "blockNumber": 317150696,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "TransparentUpgradeableProxy",
+      "address": "0x6571f70e9e312a07c851740a4e48a49df7f714b5",
+      "transactionHash": "0x1118abfabc88f2f38b46c0a23488cf5e2a458aef1469203e96a01da2db6fcbb2",
+      "blockNumber": 317150701,
+      "receiptStatus": "success",
+      "internallyCreated": [
+        {
+          "contractName": "ProxyAdmin",
+          "address": "0x669e36d8ba474140a20907f6ee64355cf15d70f2"
+        }
+      ]
+    },
+    {
+      "contractName": "AlphaEngineConfidentialSwapController",
+      "address": "0x353198589ca9f90c3bf4907d045f86381abb597b",
+      "transactionHash": "0xa74da2c2289fe1b44e59f026b83eb289175d8ff7711ed83541d90a807855ed77",
+      "blockNumber": 317150708,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "TransparentUpgradeableProxy",
+      "address": "0xf02e3684c6dcc24b95418b02a66496c6b8ca46fa",
+      "transactionHash": "0x5ee44089f2bed47a79414ef341073ad2fe6af9f1bc0a9335a0fc6f721144ac48",
+      "blockNumber": 317150712,
+      "receiptStatus": "success",
+      "internallyCreated": [
+        {
+          "contractName": "ProxyAdmin",
+          "address": "0x499cefdb9b7747f8fd9978ba635b5092b1b59917"
+        }
+      ]
+    },
+    {
+      "contractName": "AlphaEngineConfidentialSwapEscrow",
+      "address": "0x0fb0db9a20af9159c1a458d2ce816636b8b6f0cc",
+      "transactionHash": "0xf7e2fec6ad7ed5a078991b9c1e9fc75f6af2a1b388aaabace17cfed2a8f1848e",
+      "blockNumber": 317150719,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    },
+    {
+      "contractName": "TransparentUpgradeableProxy",
+      "address": "0xc270adffc60c78e98f746fb9d9f3906e82754cbc",
+      "transactionHash": "0x31074fb113e4b1db16ed3395d2c039b252dd97736ee96d5bc479ed63676bad4d",
+      "blockNumber": 317150724,
+      "receiptStatus": "success",
+      "internallyCreated": [
+        {
+          "contractName": "ProxyAdmin",
+          "address": "0xe4e1bc2030b7e99c5a7acc9ec15c634aa8b3e35c"
+        }
+      ]
+    },
+    {
+      "contractName": "AlphaEngineV4SwapExecutor",
+      "address": "0x8c8af2a132d89dc5f747832de63fba91708c9491",
+      "transactionHash": "0x9660eae740073b71ac8bafc9fcbda05716f7fdd55b1e4d2381872594499410a6",
+      "blockNumber": 317150728,
+      "receiptStatus": "success",
+      "internallyCreated": []
+    }
+  ],
+  "componentDeploymentReceipts": {
+    "assetGateway": {
+      "address": "0xa3c8E767eA23cE564AEe6b7D1e7Cd49f8887216f",
+      "transactionHash": "0x60967ebde404cf11fd1f3bbe7fc55af8ee000b9a7dfe9bd2c6975ae658c98373",
+      "blockNumber": 317150669,
+      "createdInsideProxyTransaction": false
+    },
+    "assetRegistry": {
+      "address": "0x01CE620B64D29B1121172CB36f572ebFAf1Eea74",
+      "transactionHash": "0xae901938280f3e972ebd568ae22752205e2b9d5dd44510872035edb7cf31d137",
+      "blockNumber": 317150664,
+      "createdInsideProxyTransaction": false
+    },
+    "capitalManagerImplementation": {
+      "address": "0xa2304788Cb7a030d2EA443CEb36F4a8E4A7ff39a",
+      "transactionHash": "0x0e690c6a4e6c6daf187f91aa2c0ea02837d89ee9b4f34a90dc88312ff15eecf1",
+      "blockNumber": 317150696,
+      "createdInsideProxyTransaction": false
+    },
+    "capitalManagerProxy": {
+      "address": "0x6571f70e9E312A07c851740A4e48a49Df7f714B5",
+      "transactionHash": "0x1118abfabc88f2f38b46c0a23488cf5e2a458aef1469203e96a01da2db6fcbb2",
+      "blockNumber": 317150701,
+      "createdInsideProxyTransaction": false
+    },
+    "capitalManagerProxyAdmin": {
+      "address": "0x669e36D8ba474140A20907F6ee64355cF15D70f2",
+      "transactionHash": "0x1118abfabc88f2f38b46c0a23488cf5e2a458aef1469203e96a01da2db6fcbb2",
+      "blockNumber": 317150701,
+      "createdInsideProxyTransaction": true
+    },
+    "competitionManagerImplementation": {
+      "address": "0x6b695e6bae7c39B70b31136844Ca674abe446842",
+      "transactionHash": "0x2af29c22ae93b09dcbfd35f9b5e557ce91773c663a96a79873e50821caf55b55",
+      "blockNumber": 317150686,
+      "createdInsideProxyTransaction": false
+    },
+    "competitionManagerProxy": {
+      "address": "0x9CBF3917Ff31E41393e5D992b3bdbf1fC9C80744",
+      "transactionHash": "0x4a287dea0fa2fc2eb2272d364b913589e4b9d6c8a46ad39abd6cb3de63868d63",
+      "blockNumber": 317150690,
+      "createdInsideProxyTransaction": false
+    },
+    "competitionManagerProxyAdmin": {
+      "address": "0x4e3841A9e383850bD238377f3471205Ba21ded8c",
+      "transactionHash": "0x4a287dea0fa2fc2eb2272d364b913589e4b9d6c8a46ad39abd6cb3de63868d63",
+      "blockNumber": 317150690,
+      "createdInsideProxyTransaction": true
+    },
+    "confidentialTokenLibrary": {
+      "address": "0x4BDF378C53F942c02Ba88FAb39903A7451602a36",
+      "transactionHash": "0xdf135fe42d7f6975e9009d91323c8478388045edbde36641030c969663c6d7a1",
+      "blockNumber": 317150657,
+      "createdInsideProxyTransaction": false
+    },
+    "qualificationRegistryImplementation": {
+      "address": "0x1CC758B72F21B45CfDe1378551445922877E09fa",
+      "transactionHash": "0x1eacaff233df863d34bc81b17922879e106466d68dbf20c10d3dc096d75c53a3",
+      "blockNumber": 317150675,
+      "createdInsideProxyTransaction": false
+    },
+    "qualificationRegistryProxy": {
+      "address": "0x0C4f279C2fC2332CCdcF1842ff4D511A7C12d527",
+      "transactionHash": "0x71ed87176ddcdba40716f2c2570e2cda0ba1c6b974ee19c82ef9ed98bc0ebb9a",
+      "blockNumber": 317150680,
+      "createdInsideProxyTransaction": false
+    },
+    "qualificationRegistryProxyAdmin": {
+      "address": "0x3bD672410F2c86C49457794551228E94E3216aA8",
+      "transactionHash": "0x71ed87176ddcdba40716f2c2570e2cda0ba1c6b974ee19c82ef9ed98bc0ebb9a",
+      "blockNumber": 317150680,
+      "createdInsideProxyTransaction": true
+    },
+    "swapControllerImplementation": {
+      "address": "0x353198589Ca9F90c3BF4907D045F86381abb597B",
+      "transactionHash": "0xa74da2c2289fe1b44e59f026b83eb289175d8ff7711ed83541d90a807855ed77",
+      "blockNumber": 317150708,
+      "createdInsideProxyTransaction": false
+    },
+    "swapControllerProxy": {
+      "address": "0xf02E3684C6DCC24B95418B02A66496C6b8CA46FA",
+      "transactionHash": "0x5ee44089f2bed47a79414ef341073ad2fe6af9f1bc0a9335a0fc6f721144ac48",
+      "blockNumber": 317150712,
+      "createdInsideProxyTransaction": false
+    },
+    "swapControllerProxyAdmin": {
+      "address": "0x499CefDB9b7747F8Fd9978bA635B5092b1B59917",
+      "transactionHash": "0x5ee44089f2bed47a79414ef341073ad2fe6af9f1bc0a9335a0fc6f721144ac48",
+      "blockNumber": 317150712,
+      "createdInsideProxyTransaction": true
+    },
+    "swapEscrowImplementation": {
+      "address": "0x0Fb0DB9a20aF9159c1a458d2ce816636b8b6f0Cc",
+      "transactionHash": "0xf7e2fec6ad7ed5a078991b9c1e9fc75f6af2a1b388aaabace17cfed2a8f1848e",
+      "blockNumber": 317150719,
+      "createdInsideProxyTransaction": false
+    },
+    "swapEscrowProxy": {
+      "address": "0xc270ADFfc60c78e98f746Fb9D9f3906E82754CBc",
+      "transactionHash": "0x31074fb113e4b1db16ed3395d2c039b252dd97736ee96d5bc479ed63676bad4d",
+      "blockNumber": 317150724,
+      "createdInsideProxyTransaction": false
+    },
+    "swapEscrowProxyAdmin": {
+      "address": "0xE4E1BC2030B7e99C5a7acC9eC15C634AA8B3E35c",
+      "transactionHash": "0x31074fb113e4b1db16ed3395d2c039b252dd97736ee96d5bc479ed63676bad4d",
+      "blockNumber": 317150724,
+      "createdInsideProxyTransaction": true
+    },
+    "swapExecutor": {
+      "address": "0x8C8af2a132D89DC5f747832De63fBA91708C9491",
+      "transactionHash": "0x9660eae740073b71ac8bafc9fcbda05716f7fdd55b1e4d2381872594499410a6",
+      "blockNumber": 317150728,
+      "createdInsideProxyTransaction": false
+    }
+  }
+}

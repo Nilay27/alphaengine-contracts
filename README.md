@@ -103,8 +103,13 @@ Implementation is complete through **Stage 16** of the canonical plan:
 - deterministic Merkle policy artifacts and the immutable vault execution manager;
 - focused unit, fuzz, invariant, and integration coverage for each stage.
 
-No public-network deployment is performed by this repository state. Stage 17
-still requires pinned real-market Pendle enter/hold/exit fork integration.
+The user deployed the selected strategy/confidential-swap core to Arbitrum
+Sepolia on 9 October 2026; see the [final addresses and receipt record](docs/engineering/deployment-arbitrum-sepolia-2026-10-09.md).
+FundVault and per-asset wrappers remain undeployed. The local competition
+submission/decryption/evaluation/leaderboard flow has been exercised; on-chain
+evaluation/finalization/reveal and capital/swap activation remain pending.
+Stage 17 still requires pinned real-market Pendle
+enter/hold/exit fork integration.
 Consolidated X-Ray, Solidity Auditor, remediation, final fuzzing, production
 Fhenix validation, and release freeze remain later gates. This codebase must
 not be described as production-ready or externally audited.
