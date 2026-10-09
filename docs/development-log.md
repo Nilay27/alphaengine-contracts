@@ -7,6 +7,8 @@
 
 ## 2026-10-09 — Rolling competition submissions
 
+- Upgrade rehearsal passed on the populated Sepolia proxy at block 317476663;
+  submission, nonce, roles and proxy identity survive. Configure limits explicitly.
 - Allow 3 successes per wallet per rolling 5 minutes across encrypted markets;
   paused admin can configure the limits. Cancellation does not refund admission.
 - Only the latest entry per trader/competition is ranked; replacement supersedes
