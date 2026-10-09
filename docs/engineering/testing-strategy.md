@@ -16,6 +16,14 @@ deferring those broad commands does not reduce focused test depth.
 
 ## Required suites
 
+Deployment-preparation regression checks additionally cover legacy/traversal
+manifest-path rejection, explicit test-only role collapse on Arbitrum Sepolia,
+mainnet rejection of collapsed roles, and candidate/omitted/verification manifest
+statuses. The CoFHE 1.0.0 mock address book is installed with runtime bytecode
+without consuming a CREATE nonce, preserving persisted invariant-handler
+addresses and replaying saved cases rather than discarding them. The
+[October 8–9 rehearsal](deployment-rehearsal-2026-10-08.md) records this scope.
+
 - Hash vectors: `AlphaEngineHashLibrariesTest` compares Solidity against the
   dependency-free Python reference in
   `script/reference/alphaengine_hash_vectors.py`, mutates every strategy and

@@ -187,6 +187,7 @@ contract DeployAlphaEngineV2Test is Test {
     }
 
     function test_allowsExplicitTestOnlyRoleCollapse() public {
+        vm.chainId(421_614);
         DeployAlphaEngineV2.DeploymentConfig memory config = _config();
         config.roles.capitalEvaluator = config.roles.defaultAdmin;
         config.metadata.testOnlyRoleCollapse = true;
@@ -209,11 +210,12 @@ contract DeployAlphaEngineV2Test is Test {
     function test_manifestRecordsReplayAndHistoricalEvidence() public {
         DeployAlphaEngineV2.DeploymentConfig memory config = _config();
         DeployAlphaEngineV2.Deployment memory deployment = deployer.deploy(config);
-        string memory path = "cache/alphaengine-v2-stage-9-manifest.json";
+        vm.createDir("deployments/v2/rehearsals", true);
+        string memory path = "deployments/v2/rehearsals/test-manifest.json";
         deployer.writeManifest(path, config, deployment);
         string memory manifest = vm.readFile(path);
 
-        assertEq(vm.parseJsonString(manifest, ".cofheContractsVersion"), "0.2.0");
+        assertEq(vm.parseJsonString(manifest, ".cofheContractsVersion"), "1.0.0");
         assertEq(vm.parseJsonString(manifest, ".confidentialContractsVersion"), "0.4.0");
         assertEq(vm.parseJsonString(manifest, ".contractApiRevision"), "v2-cofhe-0.2");
         assertEq(
@@ -243,7 +245,45 @@ contract DeployAlphaEngineV2Test is Test {
             vm.parseJsonBytes32(manifest, ".adminActionsHash"),
             deployer.adminActionsHash(deployment, config)
         );
-        assertEq(vm.parseJsonString(manifest, ".fundVaultStatus"), "not-implemented");
+        assertEq(vm.parseJsonString(manifest, ".fundVaultStatus"), "not-deployed-out-of-scope");
+        assertEq(
+            vm.parseJsonString(manifest, ".assetWrappersStatus"),
+            "not-deployed-pending-asset-selection"
+        );
+        assertEq(vm.parseJsonString(manifest, ".explorerVerificationStatus"), "not-verified");
+        assertEq(
+            vm.parseJsonString(manifest, ".executionStatus"),
+            "candidate-pending-receipt-reconciliation"
+        );
+        vm.removeFile(path);
+    }
+
+    function test_rejectsTestOnlyRoleCollapseOnMainnet() public {
+        vm.chainId(42_161);
+        DeployAlphaEngineV2.DeploymentConfig memory config = _config();
+        config.metadata.testOnlyRoleCollapse = true;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployAlphaEngineV2.TestOnlyRoleCollapseOnUnsupportedChain.selector, block.chainid
+            )
+        );
+        deployer.deploy(config);
+    }
+
+    function test_rejectsLegacyAndTraversalManifestPaths() public {
+        DeployAlphaEngineV2.DeploymentConfig memory config = _config();
+        DeployAlphaEngineV2.Deployment memory deployment = deployer.deploy(config);
+        string[3] memory paths = [
+            string("deployments/arbitrum-sepolia-latest.json"),
+            string("deployments/v2/../arbitrum-sepolia-latest.json"),
+            string("deployments/v2/./candidate.json")
+        ];
+        for (uint256 i; i < paths.length; ++i) {
+            vm.expectRevert(
+                abi.encodeWithSelector(DeployAlphaEngineV2.UnsafeManifestPath.selector, paths[i])
+            );
+            deployer.writeManifest(paths[i], config, deployment);
+        }
     }
 
     function _config() private returns (DeployAlphaEngineV2.DeploymentConfig memory config) {

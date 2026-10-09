@@ -6,10 +6,14 @@
 
 ## CoFHE dependency revision
 
-The current v2 input/claim API uses CoFHE v0.2.0 and FHERC20 v0.4.0.
+The current v2 input/claim API uses CoFHE v1.0.0 and FHERC20 v0.4.0.
 [Migration requirements](cofhe-v020-migration.md) define batched external inputs,
 consumer-bound proofs, shared token handles, unique wrapper claim IDs, and
 linked-library deployment. Stored strategy handles and hash domains are retained.
+The 1.0.0 upgrade retains that consumer API and resolves TaskManager ID 1
+through the CoFHE address book. See the
+[deployment rehearsal](deployment-rehearsal-2026-10-08.md) for dependency and
+manifest changes; no public broadcast accompanies this preparation.
 
 ## Current shape
 

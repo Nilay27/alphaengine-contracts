@@ -35,7 +35,7 @@
     "fundVaultStatus": { "type": "string" },
     "testOnlyRoleCollapse": { "type": "boolean" },
     "contractApiRevision": { "const": "v2-cofhe-0.2" },
-    "cofheContractsVersion": { "const": "0.2.0" },
+    "cofheContractsVersion": { "enum": ["0.2.0", "1.0.0"] },
     "confidentialContractsVersion": { "const": "0.4.0" },
     "confidentialTokenLibrary": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
     "confidentialTokenLibraryCodeHash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" }

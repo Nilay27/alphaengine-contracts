@@ -8,3 +8,4 @@ coverage/
 .env
 x-ray/
 __pycache__/
+deployments/v2/rehearsals/

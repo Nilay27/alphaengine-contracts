@@ -1,5 +1,106 @@
 # Development Log
 
+## 2026-10-09 — Configured Alchemy RPC alias
+
+- The user selects the existing `ARBITRUM_SEPOLIA_RPC_URL` in ignored `.env`
+  for the deployment command. Add the Foundry `arbitrum_sepolia` RPC alias,
+  which resolves that variable internally without putting the API key into
+  command text or requiring dotenv to be sourced as shell code.
+- Compiler settings and deployment scope are unchanged. The earlier public-RPC
+  rehearsal remains historical evidence; validate the Alchemy alias and repeat
+  the prepared command without broadcasting before handing it to the user.
+  Signing remains through the `alphaengine-deployer` keystore.
+
+## 2026-10-08 — No-broadcast v2 deployment preparation
+
+- User instruction explicitly limits this step to script completion, environment
+  validation and simulation; no public transactions may be broadcast.
+- Pin CoFHE v1.0.0, install a durable local address-book fixture and preserve the
+  existing consumer ABI revision. Update manifest library metadata while keeping
+  the schema compatible with retained 0.2.0 manifests.
+- Guard manifest paths before transaction recording/writing, reject directory
+  traversal and preserve the immutable legacy manifest. The old local dotenv
+  target pointed at legacy evidence and is now corrected to the ignored
+  rehearsal directory.
+- Limit test-only role collapse to Sepolia/local chain IDs. Report candidate,
+  capital-paused, omitted-vault, pending-wrapper and unverified statuses instead
+  of treating simulation output as confirmed deployment.
+- Add a no-broadcast helper that validates actual role settings and RPC code,
+  resolves the CoFHE TaskManager and derives real dependency/ABI/layout/source
+  fingerprints without printing secrets or unlocking the keystore.
+- Scope, evidence paths, fingerprint definitions and remaining public-deployment
+  gates are in the [rehearsal log](engineering/deployment-rehearsal-2026-10-08.md).
+  Completed October 9 on pinned Foundry 1.7.1: 347 tests pass, 15 ABI and five
+  layout snapshots match, runtime-size and formatting/hygiene checks pass, and
+  the final Arbitrum Sepolia fork simulation records 14 simulated transactions
+  with zero confirmed receipts. The final source fingerprint and legacy
+  manifest integrity were independently checked. The initial fixture nonce
+  shift was corrected without removing saved invariant failures. No broadcast
+  or explorer verification occurred; omitted products remain not deployed.
+
+## 2026-10-08 — Selected deployment scope: strategies and confidential swaps
+
+- The user supersedes the earlier competition-only deployment proposal: prepare
+  fresh qualification, competition and capital managers plus the confidential
+  swap controller, swap escrow, asset registry/gateway, swap executor and
+  required confidential-token library. Deploy reviewed asset wrappers as needed
+  for the selected assets and Fhenix admission scope; asset addresses, wrapper
+  configuration and target-network PoolManager remain deployment inputs.
+- The beta frontend remains focused on competition. Deployment and explorer
+  verification of additional contracts do not activate their UI or runtime.
+  The user wants the swap contracts included for subsequent mainnet admission;
+  mainnet will have its own deployment addresses and whitelisting step.
+- Omit the pooled `AlphaEngineFundVault`, `AlphaEngineUSDCVaultManager`,
+  `AlphaEngineVaultExecutionManager` and vault-bound decoders for now. These are
+  independent from competition and confidential swaps. Keep the Capital Manager
+  paused, with no approved execution manager; capital approval/execution cannot
+  operate without the real vault system.
+- The confidential Swap Escrow is required and is not the omitted FundVault.
+  Preserve its settlement/refund path and verify swap reciprocal links before
+  activation. Deploy fresh proxies paused and preserve legacy deployment
+  evidence.
+- Reuse and adapt `DeployAlphaEngineV2`, which already deploys the selected core
+  strategy/swap stack and omits FundVault. A new competition-only script is no
+  longer needed. Remaining preparation includes the CoFHE 1.0.0 dependency/test
+  migration, linked-library and asset setup, accurate manifest metadata/status,
+  dry-run validation and explorer verification. The current manifest's
+  `fundVaultStatus: not-implemented` is stale; the eventual deployment manifest
+  must identify the implemented vault system as deliberately not deployed.
+- This records scope and preparation, not a transaction broadcast, completed
+  verification, whitelisting or a mainnet-readiness claim. Existing mainnet key,
+  governance and release requirements remain in force.
+
+## 2026-10-08 — Beta signer and mainnet key/ownership requirement
+
+- User decision: reuse the existing encrypted Foundry keystore account
+  `alphaengine-deployer` for the Arbitrum Sepolia beta. The user reports no key
+  exposure; that is not an independently verified key-security assessment.
+- The user identifies its address as
+  `0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d` and authorizes using it for
+  currently missing beta role addresses. The ignored local `.env` already had
+  `OWNER`, `LISTENER_OPERATOR` and `BROADCASTER` set to that address; the 17
+  explicit v2 role variables were filled with it, preserving existing values
+  and unrelated credentials. `EXPECTED_CHAIN_ID=421614` and
+  `TEST_ONLY_ROLE_COLLAPSE=true` mark this as Arbitrum Sepolia configuration.
+  This collapse is test-only and must be recorded in the deployment manifest.
+  The current script reads explicit v2 roles and uses the CLI keystore account
+  for signing; the three legacy variable names alone do not configure it.
+  Role defaults alone do not select products for deployment. The later scope
+  decision above includes capital/swap deployments while keeping capital paused;
+  non-role deployment metadata and script preparation remain pending.
+- Mainnet must use a fresh, dedicated deployment key separate from beta/testnet,
+  preferably held in a hardware wallet. Assign long-term contract ownership and
+  upgrade permissions to a Safe multisig with independently secured signers.
+  Hardware wallets can secure the Safe signers.
+- Verify the ownership/role handover, then remove any deployment-wallet admin
+  permissions that are no longer needed. Mainnet signer addresses, Safe
+  threshold and the exact handover procedure remain deployment configuration
+  work; they are not implemented or verified by this decision record.
+- Only documentation and ignored local role configuration changed: no keys
+  generated, Safe created, contracts changed, permissions transferred or
+  transactions broadcast. This requirement does not authorize deployment. See the
+  [beta redeployment handoff](../../aws-migration/BETA-REDEPLOYMENT-HANDOFF-2026-10-08.md#contract-signer-and-mainnet-ownership-decision--8-october-2026).
+
 ## 2026-09-25 — Fhenix review remediation
 
 - CoFHE 0.2 / FHERC20 0.4 migration: external inputs with batch proofs, shared

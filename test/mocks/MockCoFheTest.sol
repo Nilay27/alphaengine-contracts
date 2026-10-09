@@ -3,12 +3,14 @@ pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {
+    COFHE_ADDRESS_BOOK,
     externalEuint32,
     externalEuint64,
     externalEuint128
 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {Utils} from "@fhenixprotocol/cofhe-contracts/ICofhe.sol";
 import {MockCoFheTaskManager} from "test/mocks/MockCoFheTaskManager.sol";
+import {MockCoFheAddressBook} from "test/mocks/MockCoFheAddressBook.sol";
 import {
     AlphaEngineCompetitionStrategyManager
 } from "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
@@ -25,6 +27,9 @@ abstract contract MockCoFheTest is Test {
     mapping(bytes32 => address) internal _inputSenders;
 
     function _installMockTaskManager() internal {
+        // Install fixture code without consuming a CREATE nonce, preserving persisted
+        // invariant-handler addresses and their replay sequences.
+        vm.etch(COFHE_ADDRESS_BOOK, type(MockCoFheAddressBook).runtimeCode);
         MockCoFheTaskManager mockImplementation = new MockCoFheTaskManager();
         vm.etch(TASK_MANAGER_ADDRESS, address(mockImplementation).code);
         _bindMockTaskManager();

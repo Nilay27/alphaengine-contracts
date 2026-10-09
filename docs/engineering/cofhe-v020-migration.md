@@ -1,5 +1,11 @@
 # CoFHE 0.2 / FHERC20 0.4 migration
 
+Historical migration checkpoint: the current CoFHE dependency has since been
+bumped to 1.0.0 with the consumer API unchanged. See the
+[October 8 deployment rehearsal](deployment-rehearsal-2026-10-08.md) for the
+address-book resolution, exact pin and manifest updates. Pins below describe
+the original 0.2 migration.
+
 Breaking input/claim API revision for the undeployed v2 family, following Fhenix's
 review of `0595ef4`. [Decrypt-pressure controls](fhenix-decrypt-pressure-remediation.md)
 apply on top of this migration.

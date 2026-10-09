@@ -122,11 +122,15 @@ contract DeployAlphaEngineV2 is Script {
     error RoleOverlap(bytes32 relationship, address holder);
     error MissingArtifactMetadata(bytes32 field);
     error MissingConfidentialTokenLibrary(address libraryAddress);
+    error UnsafeManifestPath(string path);
+    error TestOnlyRoleCollapseOnUnsupportedChain(uint256 chainId);
 
     function run() external returns (Deployment memory deployment) {
         DeploymentConfig memory config = _readConfig();
         string memory manifestPath =
             vm.envOr("DEPLOYMENT_MANIFEST", string("deployments/v2/local-latest.json"));
+
+        _validateManifestPath(manifestPath);
 
         vm.startBroadcast();
         deployment = deploy(config);
@@ -279,6 +283,7 @@ contract DeployAlphaEngineV2 is Script {
         DeploymentConfig memory config,
         Deployment memory deployment
     ) public {
+        _validateManifestPath(manifestPath);
         string memory object = "alphaEngineV2";
         vm.serializeUint(object, "schemaVersion", SCHEMA_VERSION);
         vm.serializeUint(object, "chainId", block.chainid);
@@ -291,7 +296,7 @@ contract DeployAlphaEngineV2 is Script {
         vm.serializeUint(object, "optimizerRuns", 200);
         vm.serializeString(object, "evmVersion", "cancun");
         vm.serializeString(object, "fhenixPackageRevision", config.metadata.fhenixPackageRevision);
-        vm.serializeString(object, "cofheContractsVersion", "0.2.0");
+        vm.serializeString(object, "cofheContractsVersion", "1.0.0");
         vm.serializeString(object, "confidentialContractsVersion", "0.4.0");
         vm.serializeString(object, "contractApiRevision", "v2-cofhe-0.2");
         vm.serializeBytes32(object, "dependencyLockHash", config.metadata.dependencyLockHash);
@@ -303,9 +308,18 @@ contract DeployAlphaEngineV2 is Script {
         vm.serializeBool(object, "deploymentTransactionHashesRecorded", false);
         vm.serializeString(object, "legacyManifestPath", LEGACY_MANIFEST_PATH);
         vm.serializeString(object, "legacyManifestSha256", LEGACY_MANIFEST_SHA256);
-        vm.serializeString(object, "strategyStatus", "deployed-paused-pending-admin-actions");
-        vm.serializeString(object, "swapStatus", "deployed-paused-pending-admin-actions");
-        vm.serializeString(object, "fundVaultStatus", "not-implemented");
+        // Script simulation produces candidate addresses too. Only receipt reconciliation
+        // may promote these statuses to deployed/verified on a public network.
+        vm.serializeString(object, "executionStatus", "candidate-pending-receipt-reconciliation");
+        vm.serializeString(object, "strategyStatus", "candidate-paused-pending-admin-actions");
+        vm.serializeString(object, "swapStatus", "candidate-paused-pending-admin-actions");
+        vm.serializeString(object, "capitalStatus", "candidate-paused-no-execution-manager");
+        vm.serializeString(object, "fundVaultStatus", "not-deployed-out-of-scope");
+        vm.serializeString(object, "usdcVaultManagerStatus", "not-deployed-out-of-scope");
+        vm.serializeString(object, "vaultExecutionManagerStatus", "not-deployed-out-of-scope");
+        vm.serializeString(object, "vaultDecodersStatus", "not-deployed-out-of-scope");
+        vm.serializeString(object, "assetWrappersStatus", "not-deployed-pending-asset-selection");
+        vm.serializeString(object, "explorerVerificationStatus", "not-verified");
         vm.serializeAddress(object, "defaultAdmin", config.roles.defaultAdmin);
         vm.serializeAddress(object, "proxyAdminOwner", config.roles.proxyAdminOwner);
         vm.serializeAddress(object, "pauser", config.roles.pauser);
@@ -536,6 +550,10 @@ contract DeployAlphaEngineV2 is Script {
             revert MissingConfidentialTokenLibrary(address(ERC20ConfidentialLib));
         }
         _requireNonzeroRoles(config.roles);
+        if (
+            config.metadata.testOnlyRoleCollapse && block.chainid != 421_614
+                && block.chainid != 31_337
+        ) revert TestOnlyRoleCollapseOnUnsupportedChain(block.chainid);
         if (!config.metadata.testOnlyRoleCollapse) _validateRoleSeparation(config.roles);
         if (bytes(config.metadata.deploymentGitSha).length == 0) {
             revert MissingArtifactMetadata("DEPLOYMENT_GIT_SHA");
@@ -638,7 +656,7 @@ contract DeployAlphaEngineV2 is Script {
     }
 
     function _logDeployment(Deployment memory deployment, string memory manifestPath) private pure {
-        console2.log("AlphaEngine v2 local deployment rehearsal");
+        console2.log("AlphaEngine v2 candidate: reconcile receipts before claiming deployment");
         console2.log("qualification registry proxy:", deployment.qualificationRegistryProxy);
         console2.log("competition manager proxy:", deployment.competitionManagerProxy);
         console2.log("capital manager proxy:", deployment.capitalManagerProxy);
@@ -648,5 +666,41 @@ contract DeployAlphaEngineV2 is Script {
         console2.log("swap escrow proxy:", deployment.swapEscrowProxy);
         console2.log("swap executor:", deployment.swapExecutor);
         console2.log("manifest:", manifestPath);
+    }
+
+    function _validateManifestPath(string memory path) private pure {
+        // Historical files and broadcast receipts must never be simulation output targets.
+        string memory normalizedPath = string.concat("/", path, "/");
+        if (
+            !_startsWith(path, "deployments/v2/") || _contains(normalizedPath, "/../")
+                || _contains(normalizedPath, "/./") || _contains(path, "\\")
+        ) revert UnsafeManifestPath(path);
+    }
+
+    function _startsWith(string memory value, string memory prefix) private pure returns (bool) {
+        bytes memory text = bytes(value);
+        bytes memory start = bytes(prefix);
+        if (text.length <= start.length) return false;
+        for (uint256 i; i < start.length; ++i) {
+            if (text[i] != start[i]) return false;
+        }
+        return true;
+    }
+
+    function _contains(string memory value, string memory fragment) private pure returns (bool) {
+        bytes memory text = bytes(value);
+        bytes memory needle = bytes(fragment);
+        if (needle.length > text.length) return false;
+        for (uint256 i; i <= text.length - needle.length; ++i) {
+            bool matchFound = true;
+            for (uint256 j; j < needle.length; ++j) {
+                if (text[i + j] != needle[j]) {
+                    matchFound = false;
+                    break;
+                }
+            }
+            if (matchFound) return true;
+        }
+        return false;
     }
 }

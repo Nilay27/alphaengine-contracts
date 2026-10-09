@@ -87,9 +87,11 @@ FundVault capital and can be deployed or paused separately.
 See [FHENIX_REVIEW.md](FHENIX_REVIEW.md) for the operation inventory, limits,
 permission graph, dependencies, and reproduction commands.
 
-The current dependency revision uses CoFHE v0.2.0 and FHERC20 v0.4.0. Encrypted
+The current dependency revision uses CoFHE v1.0.0 and FHERC20 v0.4.0. Encrypted
 input ABIs, handle sharing and wrapper claim IDs require consumer migration;
 see the [migration notes](docs/engineering/cofhe-v020-migration.md).
+The 1.0.0 address-book adaptation and no-broadcast deployment preparation are
+recorded in the [October 8 rehearsal](docs/engineering/deployment-rehearsal-2026-10-08.md).
 
 ## Implementation status
 
