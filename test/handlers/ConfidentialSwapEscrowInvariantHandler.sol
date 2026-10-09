@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {FHE, InEuint64, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    ERC20ConfidentialLib
+} from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
+
+import {FHE, externalEuint64, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
-import {IFHERC20ERC20Wrapper} from
-    "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    IFHERC20ERC20Wrapper
+} from "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
-import {IAlphaEngineEncryptedUnshieldFHERC20Wrapper} from
-    "src/interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineEncryptedUnshieldFHERC20Wrapper
+} from "src/interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {MockMintingSwapExecutor} from "test/mocks/MockMintingSwapExecutor.sol";
@@ -21,6 +29,7 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
         address account;
         bytes32 lockedAmountHandle;
         bytes32 unshieldRequestHandle;
+        bytes32 unshieldClaimId;
         uint64 inputAmount;
         uint64 outputUnits;
         bool preclaimed;
@@ -185,9 +194,8 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
             uint256(snapshot.unshieldRequestHandle), snapshot.inputAmount, ""
         );
         uint256 balanceBefore = INPUT_UNDERLYING.balanceOf(address(escrow));
-        IFHERC20ERC20Wrapper(INPUT_WRAPPER).claimUnshielded(
-            snapshot.unshieldRequestHandle, snapshot.inputAmount, ""
-        );
+        IFHERC20ERC20Wrapper(INPUT_WRAPPER)
+            .claimUnshielded(snapshot.unshieldClaimId, snapshot.inputAmount, "");
         uint256 claimedUnderlying =
             uint256(snapshot.inputAmount) * IFHERC20ERC20Wrapper(INPUT_WRAPPER).rate();
 
@@ -211,10 +219,9 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
 
         IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory lockBefore =
             escrow.getSwapIntentLock(intentId);
-        IAlphaEngineEncryptedUnshieldFHERC20Wrapper.UnshieldClaim memory claimBefore =
-        IAlphaEngineEncryptedUnshieldFHERC20Wrapper(INPUT_WRAPPER).getClaim(
-            snapshot.unshieldRequestHandle
-        );
+        ERC20ConfidentialLib.Claim memory claimBefore = IAlphaEngineEncryptedUnshieldFHERC20Wrapper(
+                INPUT_WRAPPER
+            ).getClaim(snapshot.unshieldClaimId);
         uint256 liveCountBefore = escrow.liveSwapLockCount();
         uint256 escrowInputBefore = INPUT_UNDERLYING.balanceOf(address(escrow));
         uint256 executorInputBefore = INPUT_UNDERLYING.balanceOf(address(EXECUTOR));
@@ -250,10 +257,9 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
             assertEq(INPUT_UNDERLYING.balanceOf(address(escrow)), escrowInputBefore);
             assertEq(INPUT_UNDERLYING.balanceOf(address(EXECUTOR)), executorInputBefore);
             assertEq(_confidentialBalance(OUTPUT_WRAPPER, snapshot.account), outputBalanceBefore);
-            IAlphaEngineEncryptedUnshieldFHERC20Wrapper.UnshieldClaim memory claimAfter =
-            IAlphaEngineEncryptedUnshieldFHERC20Wrapper(INPUT_WRAPPER).getClaim(
-                snapshot.unshieldRequestHandle
-            );
+            ERC20ConfidentialLib.Claim memory claimAfter = IAlphaEngineEncryptedUnshieldFHERC20Wrapper(
+                    INPUT_WRAPPER
+                ).getClaim(snapshot.unshieldClaimId);
             assertEq(claimAfter.claimed, claimBefore.claimed);
         }
     }
@@ -261,13 +267,14 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
     function lockWithInputForInvariant(
         bytes32 intentId,
         address account,
-        InEuint64 calldata encryptedInput
+        externalEuint64 encryptedInput,
+        bytes calldata inputProof
     ) external returns (euint64 lockedAmount) {
         if (msg.sender != account) {
             revert UnexpectedLockSender(msg.sender, account);
         }
 
-        euint64 requestedAmount = FHE.asEuint64(encryptedInput);
+        euint64 requestedAmount = FHE.asEuint64(encryptedInput, inputProof);
         FHE.allow(requestedAmount, address(escrow));
         return escrow.lockForSwapIntent(intentId, account, INPUT_WRAPPER, requestedAmount);
     }
@@ -307,13 +314,15 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
         }
 
         uint64 amount = uint64(bound(uint256(rawAmount), 1, _min(availableBalance, 1_000_000e6)));
-        InEuint64 memory encryptedInput = createInEuint64(amount, account);
+        externalEuint64 encryptedInput = createExternalEuint64(amount, account);
         bytes32 intentId =
             keccak256(abi.encode("alphaengine.stage7.invariant.lock", _nextIntentId, account));
         _nextIntentId += 1;
 
         vm.prank(account);
-        euint64 lockedAmount = this.lockWithInputForInvariant(intentId, account, encryptedInput);
+        euint64 lockedAmount = this.lockWithInputForInvariant(
+            intentId, account, encryptedInput, _inputProof(address(this), encryptedInput)
+        );
         assertEq(_evalue(lockedAmount), amount);
         _recordLock(intentId, account, lockedAmount, amount);
         successfulLocks += 1;
@@ -328,13 +337,15 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
         // The preceding guard proves availableBalance + 1 fits in uint64.
         // forge-lint: disable-next-line(unsafe-typecast)
         uint64 requestedAmount = uint64(availableBalance + 1);
-        InEuint64 memory encryptedInput = createInEuint64(requestedAmount, account);
+        externalEuint64 encryptedInput = createExternalEuint64(requestedAmount, account);
         bytes32 intentId =
             keccak256(abi.encode("alphaengine.stage7.invariant.overdraw", _nextIntentId, account));
         _nextIntentId += 1;
 
         vm.prank(account);
-        euint64 lockedAmount = this.lockWithInputForInvariant(intentId, account, encryptedInput);
+        euint64 lockedAmount = this.lockWithInputForInvariant(
+            intentId, account, encryptedInput, _inputProof(address(this), encryptedInput)
+        );
         assertEq(_evalue(lockedAmount), 0);
         _recordLock(intentId, account, lockedAmount, 0);
         successfulZeroLocks += 1;
@@ -353,10 +364,12 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
             account: account,
             lockedAmountHandle: euint64.unwrap(lockedAmount),
             unshieldRequestHandle: euint64.unwrap(intentLock.unshieldRequestHandle),
+            unshieldClaimId: intentLock.unshieldClaimId,
             inputAmount: amount,
             outputUnits: 0,
             preclaimed: false,
-            expectedStatus: IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.UnshieldRequested,
+            expectedStatus: IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus
+                .UnshieldRequested,
             failedSettlementAttempts: 0
         });
         pendingUnitsByAccount[account] += amount;
@@ -365,8 +378,8 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
 
     function _accountForClaimedInput(LockSnapshot storage snapshot) private {
         if (snapshot.preclaimed) {
-            totalPreclaimedUnderlying -=
-                uint256(snapshot.inputAmount) * IFHERC20ERC20Wrapper(INPUT_WRAPPER).rate();
+            totalPreclaimedUnderlying -= uint256(snapshot.inputAmount)
+            * IFHERC20ERC20Wrapper(INPUT_WRAPPER).rate();
         } else {
             totalUnclaimedPendingUnits -= snapshot.inputAmount;
         }
@@ -387,7 +400,7 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
             bytes32 candidate = _lockIds[(startIndex + offset) % length];
             if (
                 _lockSnapshots[candidate].expectedStatus
-                    == IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.UnshieldRequested
+                        == IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.UnshieldRequested
                     && (!positiveOnly || _lockSnapshots[candidate].inputAmount != 0)
                     && (!unclaimedOnly || !_lockSnapshots[candidate].preclaimed)
             ) {
@@ -397,11 +410,7 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
         return (bytes32(0), false);
     }
 
-    function _confidentialBalance(address wrapper, address account)
-        private
-        view
-        returns (uint256)
-    {
+    function _confidentialBalance(address wrapper, address account) private view returns (uint256) {
         return _evalue(IERC7984(wrapper).confidentialBalanceOf(account));
     }
 

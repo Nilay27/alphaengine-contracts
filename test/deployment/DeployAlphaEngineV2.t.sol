@@ -1,20 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {
+    ERC20ConfidentialLib
+} from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {PoolManager} from "@uniswap/v4-core/src/PoolManager.sol";
 import {DeployAlphaEngineV2} from "script/DeployAlphaEngineV2.s.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
-import {AlphaEngineCapitalStrategyManager} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
-import {AlphaEngineCompetitionStrategyManager} from
-    "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineCapitalStrategyManager
+} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
+import {
+    AlphaEngineCompetitionStrategyManager
+} from "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 
 contract DeployAlphaEngineV2Test is Test {
@@ -44,6 +53,8 @@ contract DeployAlphaEngineV2Test is Test {
         AlphaEngineConfidentialSwapEscrow escrow =
             AlphaEngineConfidentialSwapEscrow(deployment.swapEscrowProxy);
 
+        assertEq(deployment.confidentialTokenLibrary, address(ERC20ConfidentialLib));
+        assertGt(deployment.confidentialTokenLibrary.code.length, 0);
         assertTrue(qualification.paused());
         assertTrue(competition.paused());
         assertTrue(capital.paused());
@@ -86,14 +97,14 @@ contract DeployAlphaEngineV2Test is Test {
         (address[] memory targets, bytes[] memory data) =
             deployer.buildAdminActions(deployment, config);
 
-        assertEq(targets.length, 10);
-        assertEq(data.length, 10);
+        assertEq(targets.length, 11);
+        assertEq(data.length, 11);
         assertEq(
             deployer.adminActionsHash(deployment, config), keccak256(abi.encode(targets, data))
         );
 
         for (uint256 i; i < targets.length; ++i) {
-            vm.prank(defaultAdmin);
+            vm.prank(i == 10 ? config.roles.assetRegistryOwner : defaultAdmin);
             (bool success, bytes memory returnData) = targets[i].call(data[i]);
             if (!success) _bubble(returnData);
         }
@@ -150,6 +161,18 @@ contract DeployAlphaEngineV2Test is Test {
         deployer.deploy(config);
     }
 
+    function test_revertsWhenLinkedLibraryHasNoCode() public {
+        DeployAlphaEngineV2.DeploymentConfig memory config = _config();
+        vm.etch(address(ERC20ConfidentialLib), "");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployAlphaEngineV2.MissingConfidentialTokenLibrary.selector,
+                address(ERC20ConfidentialLib)
+            )
+        );
+        deployer.deploy(config);
+    }
+
     function test_revertsOnProductionRoleOverlap() public {
         DeployAlphaEngineV2.DeploymentConfig memory config = _config();
         config.roles.capitalEvaluator = config.roles.defaultAdmin;
@@ -190,6 +213,17 @@ contract DeployAlphaEngineV2Test is Test {
         deployer.writeManifest(path, config, deployment);
         string memory manifest = vm.readFile(path);
 
+        assertEq(vm.parseJsonString(manifest, ".cofheContractsVersion"), "0.2.0");
+        assertEq(vm.parseJsonString(manifest, ".confidentialContractsVersion"), "0.4.0");
+        assertEq(vm.parseJsonString(manifest, ".contractApiRevision"), "v2-cofhe-0.2");
+        assertEq(
+            vm.parseJsonAddress(manifest, ".confidentialTokenLibrary"),
+            address(ERC20ConfidentialLib)
+        );
+        assertEq(
+            vm.parseJsonBytes32(manifest, ".confidentialTokenLibraryCodeHash"),
+            address(ERC20ConfidentialLib).codehash
+        );
         assertEq(vm.parseJsonUint(manifest, ".schemaVersion"), 2);
         assertEq(vm.parseJsonUint(manifest, ".chainId"), block.chainid);
         assertEq(

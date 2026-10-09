@@ -18,7 +18,9 @@ contract MockFundVaultExecutionManager {
         uint256[] calldata values,
         bytes[] calldata targetData
     ) external returns (bytes[] memory results) {
-        if (msg.sender != AUTHORIZED_CALLER) revert UnauthorizedCaller(msg.sender);
+        if (msg.sender != AUTHORIZED_CALLER) {
+            revert UnauthorizedCaller(msg.sender);
+        }
         results = vault.executeBatch(targets, values, targetData);
     }
 }

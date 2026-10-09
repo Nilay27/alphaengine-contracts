@@ -3,7 +3,7 @@
 - Status: Stage 16 implementation complete; admission-review documentation prepared
 - Review type: Fhenix FHE-efficiency, behavior and basic-security review
 - Designated reviewer: `@liorbond`
-- Review commit: `TBD at repository handoff`
+- Review commit: `0595ef4`; dependency migration is a separate remediation commit
 - Production claim: none; this is not a full external security audit
 
 The reviewer entry point is
@@ -34,8 +34,8 @@ they execute no FHE operations.
    operations compatible with the intended Fhenix mainnet package/network?
 2. Are the encrypted operation types and explicit per-call bounds acceptable
    for expected production frequency?
-3. Is the temporary encrypted-handle unshield extension compatible with the
-   production wrapper and decryption/claim lifecycle?
+3. Does the constant-time claim-ID adapter preserve the official v0.4 wrapper
+   and shared-handle decryption/claim lifecycle?
 4. Are permission grants and operator-rotation incident assumptions correct?
 5. Does Fhenix require any additional allowlist identity, network address,
    compiler/EVM setting, integration test or monitoring control?
@@ -45,8 +45,12 @@ they execute no FHE operations.
 - Foundry uses a repository-owned Task Manager compatibility harness. A real
   production-network permission/decryption test remains a release gate.
 - Previous ciphertext access cannot be revoked when an FHE operator rotates.
-- Competition public score decryption is asynchronous and intentionally bounded
-  to 96 decrypt tasks per request.
+- Competition public score decryption remains asynchronous: 24 handles per
+  request, five seconds globally between requests and once-per-rank authorization.
+  Initial swap and ordinary withdrawal budgets are provisional. Local tests do
+  not establish network throughput; inherited holder disclosure remains outside
+  these protocol admission budgets. See the
+  [remediation contract](../engineering/fhenix-decrypt-pressure-remediation.md).
 - Stage 17 pinned Pendle market enter/hold/exit fork integration is pending.
 - Consolidated X-Ray, Solidity Auditor, remediation, final fuzzing and
   independent external audit are not complete.
@@ -65,13 +69,16 @@ they execute no FHE operations.
 - [ ] Record the immutable review commit SHA and grant reviewer access.
 - [ ] Confirm target Fhenix network/package/address matrix.
 - [ ] Run the requested production Fhenix integration check.
-- [ ] Record findings and remediation against the immutable review SHA.
+- [x] Record findings against `0595ef4`; the first remediation targets dependency
+  compatibility only, as detailed in `docs/engineering/cofhe-v020-migration.md`.
 
 ## Reproduce
 
+PR CI runs `forge fmt --check` on changed Solidity files, leaving unrelated
+baseline formatting out of the review. The release workflow retains its full check.
+
 ```bash
 git submodule update --init --recursive
-forge fmt --check
 forge build --offline
 forge test --offline
 python3 script/reference/alphaengine_listener_surface.py --check

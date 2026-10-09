@@ -2,22 +2,28 @@
 pragma solidity 0.8.26;
 
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {InEuint32, InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {externalEuint32, externalEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {Utils} from "@fhenixprotocol/cofhe-contracts/ICofhe.sol";
 import {StdStorage, stdStorage} from "forge-std/StdStorage.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {IAlphaEngineCapitalStrategyManager} from
-    "src/interfaces/IAlphaEngineCapitalStrategyManager.sol";
+import {
+    IAlphaEngineCapitalStrategyManager
+} from "src/interfaces/IAlphaEngineCapitalStrategyManager.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineStrategyHashLib} from "src/libraries/AlphaEngineStrategyHashLib.sol";
-import {AlphaEngineCapitalStrategyManager} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineCapitalStrategyManager
+} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockFundVault, MockVaultExecutionManager} from "test/mocks/MockVaultExecutionManager.sol";
 
@@ -195,12 +201,16 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
         vm.prank(pauser);
         manager.pause();
 
-        InEuint128 memory market = createInEuint128(1, trader);
-        InEuint128[] memory components = _components(trader, 2, 3);
+        externalEuint128 market = createExternalEuint128(1, trader);
+        externalEuint128[] memory components = _components(trader, 2, 3);
         vm.prank(trader);
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         manager.submitCapitalIntent(
-            market, TIMEFRAME_KEY, uint40(block.timestamp) + 1 days, components
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 1 days,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
         );
 
         AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission memory scores =
@@ -313,16 +323,21 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
 
     function test_submitStoresCanonicalHandlesPermissionsPayloadAndNonce() public {
         uint40 deadline = uint40(block.timestamp) + 2 days;
-        InEuint128 memory encryptedMarket = createInEuint128(11, trader);
-        InEuint128[] memory components = _components(trader, 21, 22);
+        externalEuint128 encryptedMarket = createExternalEuint128(11, trader);
+        externalEuint128[] memory components = _components(trader, 21, 22);
         bytes32 expectedIntentId = AlphaEngineStrategyHashLib.hashCapitalIntentId(
             block.chainid, address(manager), trader, 0
         );
 
         vm.recordLogs();
         vm.prank(trader);
-        bytes32 intentId =
-            manager.submitCapitalIntent(encryptedMarket, TIMEFRAME_KEY, deadline, components);
+        bytes32 intentId = manager.submitCapitalIntent(
+            TIMEFRAME_KEY,
+            deadline,
+            encryptedMarket,
+            components,
+            _strategyProof(address(manager), encryptedMarket, components)
+        );
 
         assertEq(intentId, expectedIntentId);
         assertEq(manager.traderNonces(trader), 1);
@@ -396,8 +411,8 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
     }
 
     function test_submissionRequiresCurrentQualificationAndBoundedInputs() public {
-        InEuint128 memory market = createInEuint128(1, stranger);
-        InEuint128[] memory components = _components(stranger, 2, 3);
+        externalEuint128 market = createExternalEuint128(1, stranger);
+        externalEuint128[] memory components = _components(stranger, 2, 3);
         vm.prank(stranger);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -405,15 +420,23 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
             )
         );
         manager.submitCapitalIntent(
-            market, TIMEFRAME_KEY, uint40(block.timestamp) + 1 days, components
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 1 days,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
         );
 
-        market = createInEuint128(1, trader);
+        market = createExternalEuint128(1, trader);
         components = _components(trader, 2, 3);
         vm.startPrank(trader);
         vm.expectRevert(AlphaEngineCapitalStrategyManager.ZeroTimeframeKey.selector);
         manager.submitCapitalIntent(
-            market, bytes32(0), uint40(block.timestamp) + 1 days, components
+            bytes32(0),
+            uint40(block.timestamp) + 1 days,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
         );
 
         vm.expectRevert(
@@ -423,16 +446,26 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
                 block.timestamp
             )
         );
-        manager.submitCapitalIntent(market, TIMEFRAME_KEY, uint40(block.timestamp), components);
+        manager.submitCapitalIntent(
+            TIMEFRAME_KEY,
+            uint40(block.timestamp),
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
+        );
 
-        InEuint128[] memory emptyComponents = new InEuint128[](0);
+        externalEuint128[] memory emptyComponents = new externalEuint128[](0);
         vm.expectRevert(
             abi.encodeWithSelector(
                 AlphaEngineCapitalStrategyManager.InvalidComponentCount.selector, 0
             )
         );
         manager.submitCapitalIntent(
-            market, TIMEFRAME_KEY, uint40(block.timestamp) + 1 days, emptyComponents
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 1 days,
+            market,
+            emptyComponents,
+            _strategyProof(address(manager), market, emptyComponents)
         );
 
         vm.expectRevert(
@@ -444,7 +477,11 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
             )
         );
         manager.submitCapitalIntent(
-            market, TIMEFRAME_KEY, uint40(block.timestamp) + 31 days, components
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 31 days,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
         );
         vm.stopPrank();
         assertEq(manager.traderNonces(trader), 0);
@@ -941,8 +978,10 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
     }
 
     function test_revokeAndExpireRemainAvailableWhilePaused() public {
-        (bytes32 approvedId, AlphaEngineExecutionHashLib.ExecutionCommitmentV1 memory authorization)
-        = _submitAndApprove(trader);
+        (
+            bytes32 approvedId,
+            AlphaEngineExecutionHashLib.ExecutionCommitmentV1 memory authorization
+        ) = _submitAndApprove(trader);
         bytes32 pendingId = _submit(secondTrader);
         vm.prank(pauser);
         manager.pause();
@@ -1067,8 +1106,8 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
     function test_expiredQualificationAndZeroCanonicalHandlesFailWithoutNonceChange() public {
         _qualify(stranger, uint40(block.timestamp) + 1);
         vm.warp(block.timestamp + 1);
-        InEuint128 memory market = createInEuint128(1, stranger);
-        InEuint128[] memory components = _components(stranger, 2, 3);
+        externalEuint128 market = createExternalEuint128(1, stranger);
+        externalEuint128[] memory components = _components(stranger, 2, 3);
         vm.prank(stranger);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1078,17 +1117,16 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
             )
         );
         manager.submitCapitalIntent(
-            market, TIMEFRAME_KEY, uint40(block.timestamp) + 1 days, components
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 1 days,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
         );
 
-        bytes memory marketSignature = abi.encode(trader, uint128(7), uint256(0));
-        taskManager.registerInput(0, trader, 0, Utils.EUINT128_TFHE, 7, marketSignature);
-        InEuint128 memory zeroInput = InEuint128({
-            ctHash: 0,
-            securityZone: 0,
-            utype: Utils.EUINT128_TFHE,
-            signature: marketSignature
-        });
+        taskManager.registerInput(0, trader, 0, Utils.EUINT128_TFHE, 7);
+        _inputSenders[bytes32(0)] = trader;
+        externalEuint128 zeroInput = externalEuint128.wrap(bytes32(0));
         components = _components(trader, 4, 5);
         vm.prank(trader);
         vm.expectRevert(
@@ -1097,11 +1135,15 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
             )
         );
         manager.submitCapitalIntent(
-            zeroInput, TIMEFRAME_KEY, uint40(block.timestamp) + 1 days, components
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 1 days,
+            zeroInput,
+            components,
+            _strategyProof(address(manager), zeroInput, components)
         );
 
-        market = createInEuint128(8, trader);
-        components = new InEuint128[](1);
+        market = createExternalEuint128(8, trader);
+        components = new externalEuint128[](1);
         components[0] = zeroInput;
         vm.prank(trader);
         vm.expectRevert(
@@ -1110,7 +1152,11 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
             )
         );
         manager.submitCapitalIntent(
-            market, TIMEFRAME_KEY, uint40(block.timestamp) + 1 days, components
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 1 days,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
         );
         assertEq(manager.traderNonces(trader), 0);
     }
@@ -1270,7 +1316,7 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
         manager.consumeCapitalExecution(authorization);
 
         AlphaEngineExecutionHashLib.ExecutionCommitmentV1 memory mutatedAuthorization =
-            authorization;
+        authorization;
         bytes32 originalCallsHash = authorization.callsHash;
         mutatedAuthorization.callsHash = keccak256("mutated calls");
         bytes32 mutatedCommitment =
@@ -1286,9 +1332,8 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
         executionManager.consumeWithoutVaultAction(mutatedAuthorization);
         authorization.callsHash = originalCallsHash;
 
-        stdstore.target(address(manager)).sig(manager.isExecutionConsumed.selector).with_key(
-            commitment
-        ).checked_write(true);
+        stdstore.target(address(manager)).sig(manager.isExecutionConsumed.selector)
+            .with_key(commitment).checked_write(true);
         vm.prank(trader);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1297,13 +1342,11 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
             )
         );
         executionManager.consumeWithoutVaultAction(authorization);
-        stdstore.target(address(manager)).sig(manager.isExecutionConsumed.selector).with_key(
-            commitment
-        ).checked_write(false);
+        stdstore.target(address(manager)).sig(manager.isExecutionConsumed.selector)
+            .with_key(commitment).checked_write(false);
 
-        stdstore.target(address(manager)).sig(manager.consumedAuthorizationNonces.selector).with_key(
-            authorization.authorizationNonce
-        ).checked_write(true);
+        stdstore.target(address(manager)).sig(manager.consumedAuthorizationNonces.selector)
+            .with_key(authorization.authorizationNonce).checked_write(true);
         vm.prank(trader);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1320,20 +1363,18 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
 
     function test_zeroScoreHandleAndTraderNonceExhaustionFailLoudly() public {
         bytes32 intentId = _submit(trader);
-        bytes memory scoreSignature = abi.encode(evaluator, uint32(7), uint256(0));
-        taskManager.registerInput(0, evaluator, 0, Utils.EUINT32_TFHE, 7, scoreSignature);
-        InEuint32 memory zeroScore = InEuint32({
-            ctHash: 0,
-            securityZone: 0,
-            utype: Utils.EUINT32_TFHE,
-            signature: scoreSignature
-        });
-        AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission memory scores =
-        AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
-            realSisterScore: zeroScore,
-            perturbationP25Score: createInEuint32(8, evaluator),
-            stressP25Score: createInEuint32(9, evaluator)
-        });
+        taskManager.registerInput(0, evaluator, 0, Utils.EUINT32_TFHE, 7);
+        _inputSenders[bytes32(0)] = evaluator;
+        externalEuint32 zeroScore = externalEuint32.wrap(bytes32(0));
+        AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission memory scores = _withScoreProof(
+            address(manager),
+            AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
+                realSisterScore: zeroScore,
+                perturbationP25Score: createExternalEuint32(8, evaluator),
+                stressP25Score: createExternalEuint32(9, evaluator),
+                inputProof: ""
+            })
+        );
         vm.prank(evaluator);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1346,8 +1387,8 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
 
         stdstore.target(address(manager)).sig(manager.traderNonces.selector).with_key(secondTrader)
             .checked_write(type(uint64).max);
-        InEuint128 memory market = createInEuint128(1, secondTrader);
-        InEuint128[] memory components = _components(secondTrader, 2, 3);
+        externalEuint128 market = createExternalEuint128(1, secondTrader);
+        externalEuint128[] memory components = _components(secondTrader, 2, 3);
         vm.prank(secondTrader);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1355,7 +1396,11 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
             )
         );
         manager.submitCapitalIntent(
-            market, TIMEFRAME_KEY, uint40(block.timestamp) + 1 days, components
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 1 days,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
         );
     }
 
@@ -1431,11 +1476,16 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
         private
         returns (bytes32 intentId)
     {
-        InEuint128 memory encryptedMarket = createInEuint128(market, account);
-        InEuint128[] memory encryptedComponents = _components(account, component, component ^ 1);
+        externalEuint128 encryptedMarket = createExternalEuint128(market, account);
+        externalEuint128[] memory encryptedComponents =
+            _components(account, component, component ^ 1);
         vm.prank(account);
         return manager.submitCapitalIntent(
-            encryptedMarket, TIMEFRAME_KEY, uint40(block.timestamp) + 2 days, encryptedComponents
+            TIMEFRAME_KEY,
+            uint40(block.timestamp) + 2 days,
+            encryptedMarket,
+            encryptedComponents,
+            _strategyProof(address(manager), encryptedMarket, encryptedComponents)
         );
     }
 
@@ -1487,22 +1537,26 @@ contract AlphaEngineCapitalStrategyManagerTest is MockCoFheTest {
 
     function _components(address account, uint128 first, uint128 second)
         private
-        returns (InEuint128[] memory components)
+        returns (externalEuint128[] memory components)
     {
-        components = new InEuint128[](2);
-        components[0] = createInEuint128(first, account);
-        components[1] = createInEuint128(second, account);
+        components = new externalEuint128[](2);
+        components[0] = createExternalEuint128(first, account);
+        components[1] = createExternalEuint128(second, account);
     }
 
     function _scores(address sender, uint32 first, uint32 second, uint32 third)
         private
         returns (AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission memory scores)
     {
-        return AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
-            realSisterScore: createInEuint32(first, sender),
-            perturbationP25Score: createInEuint32(second, sender),
-            stressP25Score: createInEuint32(third, sender)
-        });
+        return _withScoreProof(
+                address(manager),
+                AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
+                    realSisterScore: createExternalEuint32(first, sender),
+                    perturbationP25Score: createExternalEuint32(second, sender),
+                    stressP25Score: createExternalEuint32(third, sender),
+                    inputProof: ""
+                })
+            );
     }
 
     function _expectApprovalRevert(

@@ -115,10 +115,6 @@
           "signature": "InvalidComponentCount(uint256)"
         },
         {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
-        },
-        {
           "selector": "0xe662e444",
           "signature": "InvalidFundVault(address)"
         },
@@ -331,8 +327,8 @@
           "signature": "acceptDefaultAdminTransfer()"
         },
         {
-          "selector": "0x8a7dbdc3",
-          "signature": "approveCapitalIntent(bytes32,((uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes)),(uint256,address,address,address,bytes32,address,uint64,address,uint64,uint40,uint40,bytes32,uint64,bytes32,bytes32,uint64,bytes32,bytes32))"
+          "selector": "0x0aec81a7",
+          "signature": "approveCapitalIntent(bytes32,(bytes32,bytes32,bytes32,bytes),(uint256,address,address,address,bytes32,address,uint64,address,uint64,uint40,uint40,bytes32,uint64,bytes32,bytes32,uint64,bytes32,bytes32))"
         },
         {
           "selector": "0x58a1af94",
@@ -459,8 +455,8 @@
           "signature": "qualificationRegistry()"
         },
         {
-          "selector": "0x567a6450",
-          "signature": "rejectCapitalIntent(bytes32,((uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes)),bytes32,bytes32)"
+          "selector": "0xa0e1e16a",
+          "signature": "rejectCapitalIntent(bytes32,(bytes32,bytes32,bytes32,bytes),bytes32,bytes32)"
         },
         {
           "selector": "0x36568abe",
@@ -483,8 +479,8 @@
           "signature": "setExecutionManagerAuthorization(address,bool)"
         },
         {
-          "selector": "0x9e9bc4da",
-          "signature": "submitCapitalIntent((uint256,uint8,uint8,bytes),bytes32,uint40,(uint256,uint8,uint8,bytes)[])"
+          "selector": "0x3da775b5",
+          "signature": "submitCapitalIntent(bytes32,uint40,bytes32,bytes32[],bytes)"
         },
         {
           "selector": "0x01ffc9a7",
@@ -595,10 +591,6 @@
           "signature": "InvalidComponentCount(uint256)"
         },
         {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
-        },
-        {
           "selector": "0xf92ee8a9",
           "signature": "InvalidInitialization()"
         },
@@ -645,6 +637,14 @@
         {
           "selector": "0x6dfcc650",
           "signature": "SafeCastOverflowedUintDowncast(uint8,uint256)"
+        },
+        {
+          "selector": "0xe6869292",
+          "signature": "ScoreRevealCursorMismatch(bytes32,uint16,uint16)"
+        },
+        {
+          "selector": "0x1acd3abc",
+          "signature": "ScoreRevealNotAvailable(uint256)"
         },
         {
           "selector": "0x5a0e05d3",
@@ -827,6 +827,10 @@
           "signature": "SCORE_REVEALER_ROLE()"
         },
         {
+          "selector": "0x608285d0",
+          "signature": "SCORE_REVEAL_INTERVAL()"
+        },
+        {
           "selector": "0xcefc1429",
           "signature": "acceptDefaultAdminTransfer()"
         },
@@ -939,6 +943,10 @@
           "signature": "initialize((address,address,address,address))"
         },
         {
+          "selector": "0xefcdf179",
+          "signature": "nextScoreRevealAt()"
+        },
+        {
           "selector": "0x8da5cb5b",
           "signature": "owner()"
         },
@@ -967,8 +975,8 @@
           "signature": "qualificationRegistry()"
         },
         {
-          "selector": "0x928a5344",
-          "signature": "recordEvaluation(bytes32,((uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes),(uint256,uint8,uint8,bytes)),uint16,bytes32)"
+          "selector": "0x96dde83f",
+          "signature": "recordEvaluation(bytes32,(bytes32,bytes32,bytes32,bytes),uint16,bytes32)"
         },
         {
           "selector": "0x36568abe",
@@ -987,12 +995,16 @@
           "signature": "rollbackDefaultAdminDelay()"
         },
         {
+          "selector": "0x70cb17ed",
+          "signature": "scoreRevealedThrough(bytes32)"
+        },
+        {
           "selector": "0x54b583ae",
           "signature": "submissionByRank(bytes32,uint16)"
         },
         {
-          "selector": "0xc2e100de",
-          "signature": "submitCompetitionStrategy(bytes32,(uint256,uint8,uint8,bytes),bytes32,(uint256,uint8,uint8,bytes)[])"
+          "selector": "0x306d9957",
+          "signature": "submitCompetitionStrategy(bytes32,bytes32,bytes32,bytes32[],bytes)"
         },
         {
           "selector": "0x01ffc9a7",
@@ -1015,24 +1027,12 @@
     "AlphaEngineConfidentialAssetGateway": {
       "errors": [
         {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
           "selector": "0xb6a9dcbc",
           "signature": "AmountExceedsFHERC20Precision(uint256,uint256)"
         },
         {
           "selector": "0x87a756c1",
           "signature": "AmountNotMultipleOfRate(uint256,uint256)"
-        },
-        {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
         },
         {
           "selector": "0x5f5ac8b5",
@@ -1081,8 +1081,8 @@
           "topic0": "0xe7ce5f41e2512fdfc65a7b65aa6af118069439ef545835cdcd87bc832478eab1"
         },
         {
-          "signature": "UnshieldRequested(address,address,address,uint64,bytes32)",
-          "topic0": "0x75ce396e939b11144bfb35d1506fb9916e7f26912a6cd7fa9cc966c844ce7227"
+          "signature": "UnshieldRequested(address,address,address,uint64,bytes32,bytes32)",
+          "topic0": "0xb7e370fe6b39bd6703c17bc52325973a606eefacbe2053c5537b77562aec5c24"
         }
       ],
       "functions": [
@@ -1107,12 +1107,28 @@
     "AlphaEngineConfidentialAssetRegistry": {
       "errors": [
         {
+          "selector": "0x49d40030",
+          "signature": "ActiveSwapLocksPresent(uint256)"
+        },
+        {
+          "selector": "0xd1c4e2dd",
+          "signature": "InvalidSwapEscrow(address)"
+        },
+        {
           "selector": "0x1dfa3154",
           "signature": "InvalidUnderlying(address)"
         },
         {
+          "selector": "0xaa7cb56f",
+          "signature": "InvalidUnshieldRateLimits(uint16,uint16)"
+        },
+        {
           "selector": "0x0fff6820",
           "signature": "InvalidWrapper(address)"
+        },
+        {
+          "selector": "0xb89bd1b8",
+          "signature": "InvalidWrapperMinimums(uint64,uint64)"
         },
         {
           "selector": "0x1e4fbdf7",
@@ -1123,8 +1139,20 @@
           "signature": "OwnableUnauthorizedAccount(address)"
         },
         {
+          "selector": "0xa4b06257",
+          "signature": "UnshieldRateLimitExceeded(uint256)"
+        },
+        {
           "selector": "0x7c363626",
           "signature": "WrapperAlreadyRegistered(address,address)"
+        },
+        {
+          "selector": "0xf9723290",
+          "signature": "WrapperNotRegistered(address)"
+        },
+        {
+          "selector": "0xd96ed3cf",
+          "signature": "WrapperRegistryMismatch(address,address,address)"
         },
         {
           "selector": "0xc777d164",
@@ -1151,9 +1179,33 @@
         {
           "signature": "OwnershipTransferred(address,address)",
           "topic0": "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"
+        },
+        {
+          "signature": "TrustedSwapEscrowUpdated(address,address)",
+          "topic0": "0xb714a89d4018c14b087cbb436614ff023520b43ad8f46d50f09aed3f9083384d"
+        },
+        {
+          "signature": "UnshieldAdmissionConsumed(address,uint16)",
+          "topic0": "0x9d3c5bba7f8e35e18986421b4037db19b05251422ca3cb831b56122e36efe474"
+        },
+        {
+          "signature": "UnshieldRateLimitsUpdated(uint16,uint16)",
+          "topic0": "0xee0ca0483299b0c352ebfa949f03387566462818a945f81632c52b01bbd570e2"
+        },
+        {
+          "signature": "WrapperMinimumsUpdated(address,uint64,uint64)",
+          "topic0": "0x3057c911822dd0a2dc72f91e9931caf71c6bdca58826231a659f2fb8bff9a395"
         }
       ],
       "functions": [
+        {
+          "selector": "0x2d078fe5",
+          "signature": "availableUnshieldTokens()"
+        },
+        {
+          "selector": "0x53cf0ee1",
+          "signature": "consumeUnshieldAdmission()"
+        },
         {
           "selector": "0x715f9a71",
           "signature": "createWrapper(address,string,string,string)"
@@ -1165,6 +1217,14 @@
         {
           "selector": "0x7acc62a0",
           "signature": "isWrapperRegistered(address)"
+        },
+        {
+          "selector": "0xf38354da",
+          "signature": "minimumSwapInput(address)"
+        },
+        {
+          "selector": "0x1544f664",
+          "signature": "minimumUnshieldAmount(address)"
         },
         {
           "selector": "0x8da5cb5b",
@@ -1179,12 +1239,40 @@
           "signature": "renounceOwnership()"
         },
         {
+          "selector": "0x1477c035",
+          "signature": "setTrustedSwapEscrow(address)"
+        },
+        {
+          "selector": "0x6d94a5fa",
+          "signature": "setUnshieldRateLimits(uint16,uint16)"
+        },
+        {
+          "selector": "0x48b5bb30",
+          "signature": "setWrapperMinimums(address,uint64,uint64)"
+        },
+        {
           "selector": "0xf2fde38b",
           "signature": "transferOwnership(address)"
         },
         {
+          "selector": "0x79315c7b",
+          "signature": "trustedSwapEscrow()"
+        },
+        {
           "selector": "0xa782d50e",
           "signature": "underlyingForWrapper(address)"
+        },
+        {
+          "selector": "0x0da3a7a6",
+          "signature": "unshieldBurst()"
+        },
+        {
+          "selector": "0x2232c7ef",
+          "signature": "unshieldRequestsPerSecond()"
+        },
+        {
+          "selector": "0xff10e31b",
+          "signature": "unshieldTokensUpdatedAt()"
         },
         {
           "selector": "0x4f311bd9",
@@ -1213,6 +1301,10 @@
         {
           "selector": "0xe2517d3f",
           "signature": "AccessControlUnauthorizedAccount(address,bytes32)"
+        },
+        {
+          "selector": "0x05a6be89",
+          "signature": "ActiveSwapIntentExists(address,bytes32)"
         },
         {
           "selector": "0x6f04cb5c",
@@ -1247,10 +1339,6 @@
           "signature": "ExpectedPause()"
         },
         {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
-        },
-        {
           "selector": "0xf92ee8a9",
           "signature": "InvalidInitialization()"
         },
@@ -1261,6 +1349,10 @@
         {
           "selector": "0x1c3899e0",
           "signature": "InvalidSwapExecutor(address)"
+        },
+        {
+          "selector": "0xf2415122",
+          "signature": "InvalidSwapIntentRateLimit(uint16,uint16,uint16)"
         },
         {
           "selector": "0xf546738d",
@@ -1283,12 +1375,24 @@
           "signature": "SafeCastOverflowedUintDowncast(uint8,uint256)"
         },
         {
+          "selector": "0x8f568bf8",
+          "signature": "SecurityZoneOutOfBounds(int32)"
+        },
+        {
           "selector": "0x964685ab",
           "signature": "SwapConfigurationIncomplete()"
         },
         {
           "selector": "0x4f6b4ce5",
           "signature": "SwapConfigurationUnchanged(address,address)"
+        },
+        {
+          "selector": "0xa5b307c1",
+          "signature": "SwapCooldownActive(address,uint256)"
+        },
+        {
+          "selector": "0x7a6d661e",
+          "signature": "SwapIntentBurstLimitExceeded(uint256)"
         },
         {
           "selector": "0xa97d4312",
@@ -1299,8 +1403,16 @@
           "signature": "SwapIntentNotFound(bytes32)"
         },
         {
+          "selector": "0xf571c638",
+          "signature": "SwapIntentRateLimitExceeded(uint256)"
+        },
+        {
           "selector": "0x088d1be8",
           "signature": "SwapIntentRefundUnavailable(bytes32,uint40,uint256)"
+        },
+        {
+          "selector": "0xe497e170",
+          "signature": "SwapMinimumNotConfigured(address)"
         },
         {
           "selector": "0xf27b5acf",
@@ -1401,6 +1513,14 @@
           "topic0": "0xa4da00aee0af8ffe45fdf77fa91c713316f0f3987272d72f14e7223ae3032b51"
         },
         {
+          "signature": "SwapCooldownStarted(address,uint40)",
+          "topic0": "0x40b2867614ffd4053717460decc7d92b8b93f084296a12a6188206ad7d71c73d"
+        },
+        {
+          "signature": "SwapIntentRateLimitUpdated(uint16,uint16,uint16)",
+          "topic0": "0x81f62e2b206960c887f73c59ffbfd28c51afa0fb9481e609ab631f3a6744481a"
+        },
+        {
           "signature": "Unpaused(address)",
           "topic0": "0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa"
         }
@@ -1415,16 +1535,48 @@
           "signature": "DEFAULT_ADMIN_ROLE()"
         },
         {
+          "selector": "0xb35eb2a1",
+          "signature": "DEFAULT_SWAP_BURST()"
+        },
+        {
+          "selector": "0x284a18b2",
+          "signature": "DEFAULT_SWAP_INTENTS_PER_SECOND()"
+        },
+        {
+          "selector": "0x469e5771",
+          "signature": "DEFAULT_SWAP_INTENTS_PER_WINDOW()"
+        },
+        {
+          "selector": "0x4892426e",
+          "signature": "MAX_CONFIGURABLE_SWAP_INTENTS_PER_WINDOW()"
+        },
+        {
           "selector": "0xe63ab1e9",
           "signature": "PAUSER_ROLE()"
+        },
+        {
+          "selector": "0x168c82f2",
+          "signature": "SWAP_INTENT_WINDOW()"
         },
         {
           "selector": "0xfef133e4",
           "signature": "SWAP_OPERATOR_ROLE()"
         },
         {
+          "selector": "0x6df74690",
+          "signature": "ZERO_SWAP_COOLDOWN()"
+        },
+        {
           "selector": "0xcefc1429",
           "signature": "acceptDefaultAdminTransfer()"
+        },
+        {
+          "selector": "0xee484d89",
+          "signature": "activeSwapIntentOf(address)"
+        },
+        {
+          "selector": "0x16e1f0c4",
+          "signature": "availableSwapTokens()"
         },
         {
           "selector": "0x634e93da",
@@ -1487,6 +1639,10 @@
           "signature": "initialize((address,address,address))"
         },
         {
+          "selector": "0xb3fb5714",
+          "signature": "maxSwapIntentsPerWindow()"
+        },
+        {
           "selector": "0x8da5cb5b",
           "signature": "owner()"
         },
@@ -1527,12 +1683,28 @@
           "signature": "setSwapConfiguration(address,address)"
         },
         {
-          "selector": "0x6dc9898f",
-          "signature": "submitSwapIntent((address,address,bytes32,bytes32,bytes32,(uint256,uint8,uint8,bytes),uint40))"
+          "selector": "0xc4a5064d",
+          "signature": "setSwapRateLimits(uint16,uint16,uint16)"
+        },
+        {
+          "selector": "0x2a9c28ef",
+          "signature": "submitSwapIntent((address,address,bytes32,bytes32,bytes32,bytes32,bytes,uint40))"
+        },
+        {
+          "selector": "0xb5c3a269",
+          "signature": "submittedSwapIntentCount()"
         },
         {
           "selector": "0x01ffc9a7",
           "signature": "supportsInterface(bytes4)"
+        },
+        {
+          "selector": "0x150a28f2",
+          "signature": "swapBurst()"
+        },
+        {
+          "selector": "0x0ace5c49",
+          "signature": "swapCooldownUntil(address)"
         },
         {
           "selector": "0xb3b25558",
@@ -1541,6 +1713,14 @@
         {
           "selector": "0x84fcec46",
           "signature": "swapExecutor()"
+        },
+        {
+          "selector": "0xa4af7eb6",
+          "signature": "swapIntentsPerSecond()"
+        },
+        {
+          "selector": "0x67efa774",
+          "signature": "swapTokensUpdatedAt()"
         },
         {
           "selector": "0x506ee1ef",
@@ -1579,14 +1759,6 @@
           "signature": "ActiveSwapLocksPresent(uint256)"
         },
         {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
           "selector": "0xb6a9dcbc",
           "signature": "AmountExceedsFHERC20Precision(uint256,uint256)"
         },
@@ -1601,10 +1773,6 @@
         {
           "selector": "0x8dfc202b",
           "signature": "ExpectedPause()"
-        },
-        {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
         },
         {
           "selector": "0x54d593e1",
@@ -1777,8 +1945,8 @@
           "topic0": "0x8c6e13fb053ff9d78c1f645e32144bbc804ee51776af021c2e6740e87d20d278"
         },
         {
-          "signature": "SwapIntentUnshieldRequested(bytes32,address,address,bytes32)",
-          "topic0": "0x8c31c074bacc5b17f2d69e736c08eb30afb05838dd140b3188366c15336183bc"
+          "signature": "SwapIntentUnshieldRequested(bytes32,address,address,bytes32,bytes32)",
+          "topic0": "0x6b9d854aec765e27000f12898a5912c29b9a95b2eec78c648e9a15f2a7b50aef"
         },
         {
           "signature": "SwapSettlementDustReturned(bytes32,address,address,uint256)",
@@ -1931,16 +2099,12 @@
     "AlphaEngineFHERC20ERC20Wrapper": {
       "errors": [
         {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
           "selector": "0x646cf558",
           "signature": "AlreadyClaimed()"
+        },
+        {
+          "selector": "0x1b957b58",
+          "signature": "ClaimBatchLengthMismatch()"
         },
         {
           "selector": "0x0455eeee",
@@ -1979,20 +2143,20 @@
           "signature": "FHERC20ZeroBalance(address)"
         },
         {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
-        },
-        {
-          "selector": "0x67cf3071",
-          "signature": "InvalidEncryptedInput(uint8,uint8)"
-        },
-        {
           "selector": "0x1dfa3154",
           "signature": "InvalidUnderlying(address)"
         },
         {
-          "selector": "0xff633a38",
-          "signature": "LengthMismatch()"
+          "selector": "0xe2820b49",
+          "signature": "InvalidWrapperRegistry(address)"
+        },
+        {
+          "selector": "0xc4a88268",
+          "signature": "PendingUnshieldClaim(address,bytes32)"
+        },
+        {
+          "selector": "0x3ee5aeb5",
+          "signature": "ReentrancyGuardReentrantCall()"
         },
         {
           "selector": "0x6dfcc650",
@@ -2005,6 +2169,18 @@
         {
           "selector": "0x8f568bf8",
           "signature": "SecurityZoneOutOfBounds(int32)"
+        },
+        {
+          "selector": "0x638f78c3",
+          "signature": "UnshieldAmountBelowMinimum(uint64,uint64)"
+        },
+        {
+          "selector": "0x5cfa9d68",
+          "signature": "UnshieldCooldownActive(address,uint256)"
+        },
+        {
+          "selector": "0xd01368c9",
+          "signature": "UnshieldMinimumNotConfigured()"
         },
         {
           "selector": "0xcf986a84",
@@ -2033,6 +2209,10 @@
           "topic0": "0x67500e8d0ed826d2194f514dd0d8124f35648ab6e3fb5e6ed867134cffe661e9"
         },
         {
+          "signature": "FullBalanceUnshieldRequested(address,address,bytes32)",
+          "topic0": "0x41e2840547593f01effbd0c4b689c68b94197fe3e17dfb990245fbb56af827c8"
+        },
+        {
           "signature": "OperatorSet(address,address,uint48)",
           "topic0": "0x921a218a75d18e8ec5704851e6b234a85725b21a2521ce889622c35dedc1fa12"
         },
@@ -2041,11 +2221,19 @@
           "topic0": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
         },
         {
+          "signature": "UnshieldCooldownStarted(address,uint40)",
+          "topic0": "0xd645b8633d7e600feaefedb54b1c4d281c9218740ae4b37dc741ade7d15eab4e"
+        },
+        {
           "signature": "Unshielded(address,bytes32)",
           "topic0": "0x5e4a739deb052871d39ea9aa5d20fea3897a302b54a1d1f423af763b0b257f6d"
         }
       ],
       "functions": [
+        {
+          "selector": "0x589a1ab6",
+          "signature": "UNSHIELD_COOLDOWN()"
+        },
         {
           "selector": "0xdd62ed3e",
           "signature": "allowance(address,address)"
@@ -2079,36 +2267,36 @@
           "signature": "confidentialTotalSupply()"
         },
         {
-          "selector": "0xa794ee95",
-          "signature": "confidentialTransfer(address,(uint256,uint8,uint8,bytes))"
-        },
-        {
           "selector": "0x5bebed7e",
           "signature": "confidentialTransfer(address,bytes32)"
         },
         {
-          "selector": "0xd174999a",
-          "signature": "confidentialTransferAndCall(address,(uint256,uint8,uint8,bytes),bytes)"
+          "selector": "0x2fb74e62",
+          "signature": "confidentialTransfer(address,bytes32,bytes)"
         },
         {
           "selector": "0x537d3c50",
           "signature": "confidentialTransferAndCall(address,bytes32,bytes)"
         },
         {
-          "selector": "0x7edb0e7d",
-          "signature": "confidentialTransferFrom(address,address,(uint256,uint8,uint8,bytes))"
+          "selector": "0xde642119",
+          "signature": "confidentialTransferAndCall(address,bytes32,bytes,bytes)"
         },
         {
           "selector": "0xeb3155b5",
           "signature": "confidentialTransferFrom(address,address,bytes32)"
         },
         {
-          "selector": "0xfca114d6",
-          "signature": "confidentialTransferFromAndCall(address,address,(uint256,uint8,uint8,bytes),bytes)"
+          "selector": "0xe064b9bb",
+          "signature": "confidentialTransferFrom(address,address,bytes32,bytes)"
         },
         {
           "selector": "0xc7b8a75e",
           "signature": "confidentialTransferFromAndCall(address,address,bytes32,bytes)"
+        },
+        {
+          "selector": "0x34c45743",
+          "signature": "confidentialTransferFromAndCall(address,address,bytes32,bytes,bytes)"
         },
         {
           "selector": "0xe8a3d485",
@@ -2143,8 +2331,16 @@
           "signature": "isOperator(address,address)"
         },
         {
+          "selector": "0x8609af0f",
+          "signature": "latestUnshieldClaimId(address)"
+        },
+        {
           "selector": "0x2ab4d052",
           "signature": "maxTotalSupply()"
+        },
+        {
+          "selector": "0xee8350d9",
+          "signature": "minimumUnshieldAmount()"
         },
         {
           "selector": "0x06fdde03",
@@ -2153,6 +2349,10 @@
         {
           "selector": "0x88a7ca5c",
           "signature": "onTransferReceived(address,address,uint256,bytes)"
+        },
+        {
+          "selector": "0x54f6f911",
+          "signature": "pendingUnshieldClaimId(address)"
         },
         {
           "selector": "0x2c4e722e",
@@ -2205,6 +2405,18 @@
         {
           "selector": "0x4ccac778",
           "signature": "unshield(address,address,uint64)"
+        },
+        {
+          "selector": "0x4f32ca16",
+          "signature": "unshieldAll(address)"
+        },
+        {
+          "selector": "0x66e25b33",
+          "signature": "unshieldCooldownUntil(address)"
+        },
+        {
+          "selector": "0x5ac39703",
+          "signature": "wrapperRegistry()"
         }
       ]
     },
@@ -2486,18 +2698,6 @@
     },
     "AlphaEngineV4SwapExecutor": {
       "errors": [
-        {
-          "selector": "0x9996b315",
-          "signature": "AddressEmptyCode(address)"
-        },
-        {
-          "selector": "0xcd786059",
-          "signature": "AddressInsufficientBalance(address)"
-        },
-        {
-          "selector": "0x1425ea42",
-          "signature": "FailedInnerCall()"
-        },
         {
           "selector": "0x6e3ff7cf",
           "signature": "InvalidInputToken(address)"

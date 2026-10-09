@@ -1,24 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialSwapController} from
-    "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialSwapController
+} from "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineStrategyHashLib} from "src/libraries/AlphaEngineStrategyHashLib.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
-import {ConfidentialSwapControllerInvariantHandler} from
-    "test/handlers/ConfidentialSwapControllerInvariantHandler.sol";
+import {
+    ConfidentialSwapControllerInvariantHandler
+} from "test/handlers/ConfidentialSwapControllerInvariantHandler.sol";
 import {MockBoundSwapExecutor} from "test/mocks/MockBoundSwapExecutor.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
@@ -55,6 +62,8 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         outputWrapper = registry.createWrapper(
             address(outputUnderlying), "Encrypted Invariant Output", "eIOUT", ""
         );
+        registry.setWrapperMinimums(inputWrapper, 1000, 1000);
+        registry.setWrapperMinimums(outputWrapper, 1, 1000);
         vm.stopPrank();
 
         controller = _deployController();
@@ -62,6 +71,8 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         executor = new MockBoundSwapExecutor(address(escrow));
         vm.prank(admin);
         controller.setSwapConfiguration(address(escrow), address(executor));
+        vm.prank(admin);
+        registry.setTrustedSwapEscrow(address(escrow));
         vm.prank(admin);
         escrow.unpause();
         vm.prank(admin);
@@ -93,9 +104,15 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         handler.rejectTerminalReplay(0);
         handler.submitAsB(30e6, 45e6, bytes32(uint256(2)));
         handler.refundExpiredActive(0);
+        handler.submitAsA(999, 1, bytes32(uint256(3)));
+        handler.refundExpiredActive(0);
+        handler.submitAsA(1000, 1, bytes32(uint256(4)));
     }
 
     function invariant_nonceEqualsSuccessfulSubmissionsPerTrader() public view {
+        assertEq(controller.swapCooldownUntil(traderA), handler.expectedCooldownUntil(traderA));
+        assertEq(controller.swapCooldownUntil(traderB), handler.expectedCooldownUntil(traderB));
+        assertGt(handler.rejectedCooldowns(), 0);
         assertEq(controller.traderNonces(traderA), handler.successfulSubmissions(traderA));
         assertEq(controller.traderNonces(traderB), handler.successfulSubmissions(traderB));
     }
@@ -148,13 +165,14 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             ConfidentialSwapControllerInvariantHandler.IntentSnapshot memory snapshot =
                 handler.snapshotAt(i);
             IAlphaEngineConfidentialSwapController.SwapIntentStatus controllerStatus =
-                controller.getSwapIntent(snapshot.intentId).status;
+            controller.getSwapIntent(snapshot.intentId).status;
             IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus escrowStatus =
-                escrow.getSwapIntentLock(snapshot.intentId).status;
+            escrow.getSwapIntentLock(snapshot.intentId).status;
             assertEq(uint8(controllerStatus), uint8(snapshot.expectedStatus));
             if (controllerStatus == IAlphaEngineConfidentialSwapController.SwapIntentStatus.Active)
             {
                 expectedLiveLocks += 1;
+                assertEq(controller.activeSwapIntentOf(snapshot.trader), snapshot.intentId);
                 assertEq(
                     uint8(escrowStatus),
                     uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.UnshieldRequested)
@@ -162,11 +180,13 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             } else if (
                 controllerStatus == IAlphaEngineConfidentialSwapController.SwapIntentStatus.Executed
             ) {
+                assertNotEq(controller.activeSwapIntentOf(snapshot.trader), snapshot.intentId);
                 assertEq(
                     uint8(escrowStatus),
                     uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Consumed)
                 );
             } else {
+                assertNotEq(controller.activeSwapIntentOf(snapshot.trader), snapshot.intentId);
                 assertEq(
                     uint8(escrowStatus),
                     uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Refunded)
@@ -174,6 +194,11 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             }
         }
         assertEq(escrow.liveSwapLockCount(), expectedLiveLocks);
+        assertLe(expectedLiveLocks, 2);
+        assertEq(
+            controller.submittedSwapIntentCount(),
+            uint256(handler.successfulSubmissions(traderA)) + handler.successfulSubmissions(traderB)
+        );
     }
 
     function invariant_controllerNeverHoldsTokens() public view {
@@ -210,13 +235,11 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: admin,
                         initialPauser: pauser,
                         initialSwapOperator: operator
-                    })
-                )
+                    }))
             )
         );
         return AlphaEngineConfidentialSwapController(address(proxy));

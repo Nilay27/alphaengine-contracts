@@ -210,6 +210,11 @@
               "internalType": "enum IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus",
               "name": "status",
               "type": "uint8"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "unshieldClaimId",
+              "type": "bytes32"
             }
           ],
           "internalType": "struct IAlphaEngineConfidentialSwapEscrow.SwapIntentLock",
@@ -954,6 +959,12 @@
           "internalType": "euint64",
           "name": "unshieldRequestHandle",
           "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "unshieldClaimId",
+          "type": "bytes32"
         }
       ],
       "name": "SwapIntentUnshieldRequested",
@@ -1065,28 +1076,6 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "target",
-          "type": "address"
-        }
-      ],
-      "name": "AddressEmptyCode",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "AddressInsufficientBalance",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
           "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
@@ -1124,11 +1113,6 @@
     {
       "inputs": [],
       "name": "ExpectedPause",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "FailedInnerCall",
       "type": "error"
     },
     {

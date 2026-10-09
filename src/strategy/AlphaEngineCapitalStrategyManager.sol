@@ -2,19 +2,28 @@
 pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {
-    FHE, InEuint32, InEuint128, euint32, euint128
+    AccessControlDefaultAdminRulesUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {
+    FHE,
+    externalEuint32,
+    externalEuint128,
+    euint32,
+    euint128
 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {IAlphaEngineCapitalStrategyManager} from
-    "../interfaces/IAlphaEngineCapitalStrategyManager.sol";
-import {IAlphaEngineTraderQualificationRegistry} from
-    "../interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {
+    IAlphaEngineCapitalStrategyManager
+} from "../interfaces/IAlphaEngineCapitalStrategyManager.sol";
+import {
+    IAlphaEngineTraderQualificationRegistry
+} from "../interfaces/IAlphaEngineTraderQualificationRegistry.sol";
 import {AlphaEngineExecutionHashLib} from "../libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineStrategyHashLib} from "../libraries/AlphaEngineStrategyHashLib.sol";
 
@@ -93,9 +102,10 @@ contract AlphaEngineCapitalStrategyManager is
     }
 
     struct EvaluationScoreSubmission {
-        InEuint32 realSisterScore;
-        InEuint32 perturbationP25Score;
-        InEuint32 stressP25Score;
+        externalEuint32 realSisterScore;
+        externalEuint32 perturbationP25Score;
+        externalEuint32 stressP25Score;
+        bytes inputProof;
     }
 
     struct EvaluationRecord {
@@ -298,10 +308,11 @@ contract AlphaEngineCapitalStrategyManager is
     }
 
     function submitCapitalIntent(
-        InEuint128 calldata encryptedMarketId,
         bytes32 timeframeKey,
         uint40 deadline,
-        InEuint128[] calldata encryptedComponents
+        externalEuint128 encryptedMarketId,
+        externalEuint128[] calldata encryptedComponents,
+        bytes calldata inputProof
     ) external whenNotPaused nonReentrant returns (bytes32 intentId) {
         if (timeframeKey == bytes32(0)) revert ZeroTimeframeKey();
         if (deadline <= block.timestamp) revert DeadlineNotInFuture(deadline, block.timestamp);
@@ -325,9 +336,9 @@ contract AlphaEngineCapitalStrategyManager is
         );
 
         address operatorAtSubmission = fheOperator;
-        bytes32 marketIdHandle = _internalizeMarket(encryptedMarketId, operatorAtSubmission);
-        bytes32[] memory componentHandles =
-            _internalizeComponents(intentId, encryptedComponents, operatorAtSubmission);
+        (bytes32 marketIdHandle, bytes32[] memory componentHandles) = _internalizeStrategy(
+            intentId, encryptedMarketId, encryptedComponents, inputProof, operatorAtSubmission
+        );
         bytes32 payloadHash = AlphaEngineStrategyHashLib.hashCapitalPayload(
             AlphaEngineStrategyHashLib.CapitalPayloadV1({
                 chainId: block.chainid,
@@ -651,7 +662,9 @@ contract AlphaEngineCapitalStrategyManager is
         view
         returns (IAlphaEngineTraderQualificationRegistry.Qualification memory qualification)
     {
-        if (!qualificationRegistry.existsQualification(trader)) revert TraderNotQualified(trader);
+        if (!qualificationRegistry.existsQualification(trader)) {
+            revert TraderNotQualified(trader);
+        }
         qualification = qualificationRegistry.getQualification(trader);
         if (!qualificationRegistry.isQualifiedAtVersion(trader, qualification.version)) {
             revert QualificationVersionNotActive(trader, qualification.version);
@@ -741,33 +754,34 @@ contract AlphaEngineCapitalStrategyManager is
         if (authorization.evaluationEvidenceHash == bytes32(0)) revert ZeroEvidenceHash();
     }
 
-    function _internalizeMarket(InEuint128 calldata encryptedMarketId, address operator)
-        private
-        returns (bytes32 marketIdHandle)
-    {
-        euint128 internalizedMarketId = FHE.asEuint128(encryptedMarketId);
-        marketIdHandle = FHE.unwrap(internalizedMarketId);
-        if (marketIdHandle == bytes32(0)) revert ZeroEncryptedHandle("marketId", 0);
-        FHE.allowThis(internalizedMarketId);
-        FHE.allow(internalizedMarketId, operator);
-    }
-
-    function _internalizeComponents(
+    /// @dev Verify the market and ordered components under one consumer-bound batch proof.
+    function _internalizeStrategy(
         bytes32 intentId,
-        InEuint128[] calldata encryptedComponents,
+        externalEuint128 encryptedMarketId,
+        externalEuint128[] calldata encryptedComponents,
+        bytes calldata inputProof,
         address operator
-    ) private returns (bytes32[] memory componentHandles) {
+    ) private returns (bytes32 marketIdHandle, bytes32[] memory componentHandles) {
         uint256 componentCount = encryptedComponents.length;
+        externalEuint128[] memory inputs = new externalEuint128[](componentCount + 1);
+        inputs[0] = encryptedMarketId;
+        for (uint256 index = 0; index < componentCount; ++index) {
+            inputs[index + 1] = encryptedComponents[index];
+        }
+        euint128[] memory verified = FHE.asEuint128s(inputs, inputProof);
+        marketIdHandle = FHE.unwrap(verified[0]);
+        if (marketIdHandle == bytes32(0)) revert ZeroEncryptedHandle("marketId", 0);
+        FHE.allowThis(verified[0]);
+        FHE.allow(verified[0], operator);
+
         componentHandles = new bytes32[](componentCount);
         bytes32[] storage storedComponents = _capitalIntentComponents[intentId];
         for (uint256 index = 0; index < componentCount; ++index) {
-            euint128 internalizedComponent = FHE.asEuint128(encryptedComponents[index]);
-            bytes32 componentHandle = FHE.unwrap(internalizedComponent);
-            if (componentHandle == bytes32(0)) {
-                revert ZeroEncryptedHandle("component", index);
-            }
-            FHE.allowThis(internalizedComponent);
-            FHE.allow(internalizedComponent, operator);
+            euint128 component = verified[index + 1];
+            bytes32 componentHandle = FHE.unwrap(component);
+            if (componentHandle == bytes32(0)) revert ZeroEncryptedHandle("component", index);
+            FHE.allowThis(component);
+            FHE.allow(component, operator);
             componentHandles[index] = componentHandle;
             storedComponents.push(componentHandle);
         }
@@ -777,10 +791,13 @@ contract AlphaEngineCapitalStrategyManager is
         private
         returns (bytes32[3] memory scoreHandles)
     {
-        InEuint32[3] memory encryptedScores =
-            [scores.realSisterScore, scores.perturbationP25Score, scores.stressP25Score];
+        externalEuint32[] memory encryptedScores = new externalEuint32[](3);
+        encryptedScores[0] = scores.realSisterScore;
+        encryptedScores[1] = scores.perturbationP25Score;
+        encryptedScores[2] = scores.stressP25Score;
+        euint32[] memory verified = FHE.asEuint32s(encryptedScores, scores.inputProof);
         for (uint256 index = 0; index < encryptedScores.length; ++index) {
-            euint32 internalizedScore = FHE.asEuint32(encryptedScores[index]);
+            euint32 internalizedScore = verified[index];
             bytes32 scoreHandle = FHE.unwrap(internalizedScore);
             if (scoreHandle == bytes32(0)) {
                 revert ZeroEncryptedHandle("evaluationScore", index);
@@ -805,7 +822,9 @@ contract AlphaEngineCapitalStrategyManager is
         CapitalIntentRecord storage intent,
         CapitalIntentStatus expected
     ) private view {
-        if (intent.status != expected) revert InvalidCapitalIntentStatus(intentId, intent.status);
+        if (intent.status != expected) {
+            revert InvalidCapitalIntentStatus(intentId, intent.status);
+        }
     }
 
     function _requireNonZero(address account, bytes32 field) private pure {

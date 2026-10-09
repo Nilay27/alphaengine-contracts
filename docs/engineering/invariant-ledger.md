@@ -81,17 +81,54 @@ replacement state domain. Its combined controller/escrow handler proves:
 - minimum output is enforced against total measured PoolManager output before
   the encrypted-output/dust split.
 
-The Competition Manager handler also exercises randomized, repeated score
-reveal batches. It asserts that a score reveal can only be observed after the
-competition is finalized, that all three component handles for a submission
-receive the same number of decrypt requests, and that the manager is the CoFHE
-requestor. Plaintext results remain asynchronous and are not duplicated in
-manager storage.
+The Competition Manager handler exercises randomized forward score batches and
+explicit rejected replay/pacing attempts. Its independent cursor and clock model
+requires finalization, at most eight submissions per batch, a global five-second
+interval and exactly one public grant per score in the authorized rank prefix.
+All three component handles agree and the manager is the authorizing caller.
+Plaintext readiness remains asynchronous and separate from authorization.
+
+## Fhenix decrypt-pressure lifecycle invariants
+
+- Swap effective input is requested amount when at least the configured minimum,
+  otherwise encrypted zero. Actual transferred/burned amount remains canonical;
+  insufficient balance cannot spend a partial amount. The escrow is granted the
+  effective handle, and the controller never takes custody.
+- Verified zero refund starts the recorded trader's five-minute cooldown. Failed
+  proofs change no status, balance, nonce, active slot or cooldown. Pending and
+  cooldown rejection precede new swap FHE work.
+- Ordinary partial exits share one pending/source/wrapper across both overloads.
+  Zero single/batch completion clears it and starts the source cooldown, never
+  the claimant's or recipient's. Existing claims do not consume admission credit.
+- Ordinary withdrawals share registry credit across wrappers, independent of
+  swaps. The independent unshield handler accounts for refill, spent credit,
+  exact failures, and conservation of confidential balance + pending + paid units.
+- Full exits use only the caller's current balance, bypass the partial minimum,
+  and use the same pending/budget gates plus a cooldown from admission. Later
+  deposits do not change the pending amount. Successful completion pays dust.
+- Wrapper registration verifies the explicit registry binding. Only the bound
+  trusted escrow calling for itself bypasses ordinary gates; concurrent traders
+  do not share an ordinary pending slot or a zero-result cooldown.
+- Configuration changes affect new requests only; historical claims and swap
+  settlement/refund remain usable under their recorded amounts.
 
 The approved second-pass fund design has three stateful domains that must not be
 collapsed: `AlphaEngineFundVault` for custody and shares,
 `AlphaEngineUSDCVaultManager` for USDC deposit/withdrawal and NAV accounting,
 and `AlphaEngineVaultExecutionManager` for Merkle-verified fund deployment.
+
+## CoFHE 0.2 migration invariants
+
+- A batch proof authenticates the ordered input list, its types, sender, chain
+  and consuming contract; a failed verification changes no nonce or stored handle.
+- A token argument/return share is directed, authenticates its sharer and can
+  be consumed only once within the transaction. Escrow persists access to the
+  actual returned locked and burned handles.
+- Every lock pins the unique `unshieldClaimId` in addition to its ciphertext.
+  The wrapper claim must match the ID, escrow recipient and burned handle;
+  later requests cannot redirect or replace an earlier lock's claim.
+- Gateway/escrow request events expose the same claim ID and handle as their
+  return/getter surfaces. Claim proofs bind the handle; claims are looked up by ID.
 
 ## Merkle policy-generation properties
 
@@ -1212,6 +1249,7 @@ event.intentId == id
 event.account == VL[V][id].account
 event.inputWrapper == VL[V][id].wrapper
 euint64.unwrap(event.unshieldRequestHandle) == euint64.unwrap(VL[V][id].unshieldRequestHandle)
+event.unshieldClaimId == VL[V][id].unshieldClaimId // CoFHE 0.2 revision
 ```
 
 For every `SwapIntentLockConsumed` event:

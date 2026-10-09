@@ -11,6 +11,17 @@ discussed with the Fhenix team:
 This is **not** a substitute for AlphaEngine's later full internal and
 independent external security audits.
 
+## Dependency migration following review of `0595ef4`
+
+The dependency/API blocker was addressed in the first commit using released
+CoFHE v0.2.0 and FHERC20 v0.4.0. The complete remediation adds per-wrapper
+minimums, verified-zero cooldowns, independent swap/withdrawal admission budgets,
+a full-balance dust exit and paced, once-per-rank score authorization. See the
+[migration contract](docs/engineering/cofhe-v020-migration.md) and
+[remediation contract](docs/engineering/fhenix-decrypt-pressure-remediation.md)
+for consumer, configuration and fresh-deployment requirements. Live network
+capacity and real CoFHE integration remain release gates.
+
 ## Product in one diagram
 
 ```mermaid
@@ -58,17 +69,17 @@ or FundVault lifecycle.
 
 | Action | Encrypted type | Bounded work in the AlphaEngine contract |
 |---|---|---|
-| Competition submission with `n` components | `1 + n` × `InEuint128`, `1 <= n <= 16` | `1 + n` input verifications; contract and operator ACL grants for each handle; no encrypted arithmetic |
-| Competition evaluation | 3 × `InEuint32` | 3 input verifications; contract and trader ACL grants; no encrypted arithmetic |
-| Public score reveal after finalization | 3 × `euint32` per submission | 3 asynchronous decrypt tasks per submission; at most 32 submissions, therefore 96 tasks per call |
-| Capital-intent submission | `1 + n` × `InEuint128`, `1 <= n <= 16` | Same input verification and ACL pattern as competition; no encrypted arithmetic |
-| Capital evaluation | 3 × `InEuint32` | Same verification and ACL pattern as competition evaluation; no public-decrypt path |
-| Confidential-swap submission | 1 × `InEuint64` | 1 input verification plus contract and recorded escrow ACL grants |
+| Competition submission with `n` components | `1 + n` × `externalEuint128`, `1 <= n <= 16` | One batch verification over `1 + n` inputs; contract and operator ACL grants for each handle; no encrypted arithmetic |
+| Competition evaluation | 3 × `externalEuint32` | One batch verification over 3 inputs; contract and trader ACL grants; no encrypted arithmetic |
+| Public score reveal after finalization | 3 × `euint32` per submission | 3 public ACL grants per submission; at most 8 submissions, therefore 24 handles made publicly decryptable per call; forward cursor and global five-second interval |
+| Capital-intent submission | `1 + n` × `externalEuint128`, `1 <= n <= 16` | Same input verification and ACL pattern as competition; no encrypted arithmetic |
+| Capital evaluation | 3 × `externalEuint32` | Same verification and ACL pattern as competition evaluation; no public-decrypt path |
+| Confidential-swap submission | 1 × `externalEuint64` | 1 batch-of-one verification; `gte`/`select` minimum masking and trivial constants; contract and recorded escrow ACL grants on the effective input |
 | Vault deposit, accounting, Merkle proof, risk check, execution | None | No FHE operations |
 
-`FHE.asEuint128(InEuint128)`, `FHE.asEuint32(InEuint32)`, and
-`FHE.asEuint64(InEuint64)` are input-verification calls in the pinned CoFHE
-package. They validate type, security zone, and verifier signature, append
+`FHE.asEuint128s(inputs, proof)`, `FHE.asEuint32s(inputs, proof)`, and
+`FHE.asEuint64(input, proof)` are input-verification calls in the pinned CoFHE
+package. They bind the ordered inputs to the sender, chain and consuming contract, validate type, security zone and verifier signature, append
 metadata, and create transient ACL authority. They do **not** call
 `createTask` or perform homomorphic arithmetic. This input proof is the pinned
 package's signed-input verification flow; it should not be described as an
@@ -81,7 +92,7 @@ field is not a 128-bit encrypted division.
 ### Inherited FHERC20 work
 
 The swap path uses the official
-`fhenix-confidential-contracts@v0.3.1` FHERC20 implementation. A lock, shield,
+`fhenix-confidential-contracts@v0.4.0` FHERC20 implementation. A lock, shield,
 unshield, settlement, or refund can therefore execute the dependency's bounded
 `euint64` balance logic:
 
@@ -106,16 +117,31 @@ balance arithmetic.
 |---|---|
 | Encrypted components per strategy submission | 16 |
 | Active submissions per competition | 256 |
-| Public score-reveal batch | 32 submissions / 96 decrypt tasks |
+| Public score-reveal batch | 8 submissions / 24 handles; five seconds globally between batches; once per rank |
+| New swap intents | Initially 120 per trailing minute, two tokens refilled per second, 24-request burst, one active per trader |
+| Ordinary unshield | Explicit per-wrapper partial minimum; one pending/source/wrapper; five-minute cooldown after verified zero; shared budget initially 1/s, burst 8 |
+| Full-balance unshield | Caller-only dust exception; same pending/budget gates; five-minute cooldown from admission |
+| Zero swap refund | Verified zero starts five-minute recorded-trader cooldown |
 | Capital execution authorization | Maximum 1 hour |
 | FundVault calls per batch | 16 |
 | Asset limits per vault execution | 16 |
 | Nonzero policy-root activation delay | Minimum 48 hours |
 
-Submission and swap frequency is product-dependent. Role checks and the bounds
-above limit work per call, but there is no global on-chain rate limiter for
-user submissions. Expected production traffic and Fhenix-side task capacity
-should therefore be confirmed during admission review.
+Competition and capital submission frequency remains product-dependent. The
+swap budget is global to this controller and configurable by delayed governance
+only while paused. Its initial values are provisional; production CoFHE task
+capacity and completion latency remain to be measured. Encrypted comparison and
+selection enforce minimum spend policy without revealing an eligibility bit;
+they cannot reject zero/insufficient-balance requests before the first decrypt.
+Ordinary encrypted partial unshield adds the same `gte`/`select` masking.
+All three scores remain: a full competition authorizes 768 handles once across
+32 batches, taking at least 155 seconds from first to last batch.
+
+These budgets cover AlphaEngine claim creation and manager score authorization.
+Inherited shielding, confidential transfers, `requestDiscloseEncryptedAmount`
+and holder calls to Task Manager `allowGlobal` remain part of the wider FHE load
+inventory. They are not bounded by these admission controls. Repeated public ACL
+grants alone do not establish repeated network computation for a cached result.
 
 ## Permissions and decryption
 
@@ -128,13 +154,13 @@ sequenceDiagram
     participant Evaluator
 
     User->>Manager: submit signed encrypted inputs
-    Manager->>TM: verifyInput for every handle
+    Manager->>TM: batchVerifyInputs for market + components
     Manager->>TM: allowThis + allow(operator)
     Operator-->>Operator: decrypt authorized strategy data
     Evaluator->>Manager: submit 3 encrypted scores
-    Manager->>TM: verifyInput + allowThis + allow(trader)
+    Manager->>TM: batchVerifyInputs + allowThis + allow(trader)
     Note over Manager,TM: Competition only: after finalization,
-    Note over Manager,TM: revealer requests bounded public decrypt tasks
+    Note over Manager,TM: revealer grants public access to bounded score handles
 ```
 
 - Operator access is captured at submission; rotating the configured operator
@@ -185,13 +211,13 @@ Reviewers may validate that:
 
 ## Dependencies
 
-The review commit must retain these exact submodule SHAs:
+The migration pins these exact submodule SHAs:
 
 | Dependency | Commit | Version/reference |
 |---|---|---|
-| `cofhe-contracts` | `cb76c99620e1b4acd395e00672be21e48702429f` | `v0.1.3` |
-| `fhenix-confidential-contracts` | `0823e57e320c1c72e0caee7faeebc4d3a0710373` | `v0.3.1` |
-| OpenZeppelin Contracts | `dbb6104ce834628e473d2173bbc9d47f81a9eec3` | v5 lineage |
+| `cofhe-contracts` | `be9ad566b09183230b64aa02d272aad4c07e9f83` | `v0.2.0` |
+| `fhenix-confidential-contracts` | `5138cb8644b19b24a75caf3f383a17457e823e16` | `v0.4.0` |
+| OpenZeppelin Contracts | `acd4ff74de833399287ed6b31b4debf6b2b35527` | `v5.2.0` |
 | OpenZeppelin Upgradeable | `723f8cab09cdae1aca9ec9cc1cfa040c2d4b06c1` | `v5.0.2` |
 | Uniswap v4 core | `e50237c43811bd9b526eff40f26772152a42daba` | `v4.0.0` |
 
@@ -200,9 +226,12 @@ The review commit must retain these exact submodule SHAs:
 - Foundry tests use a repository-owned Task Manager compatibility harness.
   Production Fhenix-network permission/decryption behavior remains a release
   gate.
-- `AlphaEngineFHERC20ERC20Wrapper` temporarily extends the official wrapper
-  with encrypted-handle unshielding; Fhenix compatibility and the replacement
-  trigger require confirmation.
+- Encrypted unshield and single-use `sharedEuint64` transfers use the official
+  wrapper. AlphaEngine's `_unshield` override retains the official claim ID in
+  a constant-time per-recipient view because upstream returns only the burned
+  share. This adapter is covered by the migration tests and disclosure.
+- Wrapper bytecode links the official `ERC20ConfidentialLib`; the deployment
+  manifest records its address and runtime code hash.
 - Stage 17 real-market Pendle enter/hold/exit fork integration is pending.
 - Consolidated X-Ray, Solidity Auditor, final fuzzing/remediation, and external
   audit have not yet been completed.
@@ -212,10 +241,12 @@ The review commit must retain these exact submodule SHAs:
 
 ## Reproduce the current state
 
+PR CI runs `forge fmt --check` on changed Solidity files, leaving unrelated
+baseline formatting out of the review. The release workflow retains its full check.
+
 ```bash
 git submodule update --init --recursive
 forge --version
-forge fmt --check
 forge build --offline
 forge test --offline
 python3 script/reference/alphaengine_listener_surface.py --check

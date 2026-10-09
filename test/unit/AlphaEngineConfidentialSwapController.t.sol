@@ -2,26 +2,33 @@
 pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {AlphaEngineConfidentialAssetGateway} from
-    "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
-import {AlphaEngineConfidentialAssetRegistry} from
-    "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {FHE, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
 import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
-import {IAlphaEngineConfidentialSwapController} from
-    "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineConfidentialSwapController
+} from "src/interfaces/IAlphaEngineConfidentialSwapController.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "src/interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineStrategyHashLib} from "src/libraries/AlphaEngineStrategyHashLib.sol";
-import {AlphaEngineConfidentialSwapController} from
-    "src/swap/AlphaEngineConfidentialSwapController.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 import {MockBoundSwapExecutor} from "test/mocks/MockBoundSwapExecutor.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
+import {MockCoFheTaskManager} from "test/mocks/MockCoFheTaskManager.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 
 contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
@@ -58,6 +65,8 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             registry.createWrapper(address(inputUnderlying), "Encrypted USDC", "eUSDC", "");
         outputWrapper =
             registry.createWrapper(address(outputUnderlying), "Encrypted USDT", "eUSDT", "");
+        registry.setWrapperMinimums(inputWrapper, 1, 1000);
+        registry.setWrapperMinimums(outputWrapper, 1, 1000);
         vm.stopPrank();
 
         implementation = new AlphaEngineConfidentialSwapController();
@@ -66,13 +75,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: admin,
                         initialPauser: pauser,
                         initialSwapOperator: operator
-                    })
-                )
+                    }))
             )
         );
         controller = AlphaEngineConfidentialSwapController(address(controllerProxy));
@@ -82,6 +89,8 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         vm.prank(admin);
         controller.setSwapConfiguration(address(escrow), address(executor));
         vm.prank(admin);
+        registry.setTrustedSwapEscrow(address(escrow));
+        vm.prank(admin);
         escrow.unpause();
         vm.prank(admin);
         controller.unpause();
@@ -89,13 +98,179 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         _shieldInput(trader, 1000e6);
     }
 
+    function testFuzz_swapMinimumAndInsufficientBalanceUseCanonicalZero(uint64 requested) public {
+        vm.prank(admin);
+        registry.setWrapperMinimums(inputWrapper, 1e6, 1000);
+        uint64 expected = requested >= 1e6 && requested <= 1000e6 ? requested : 0;
+        bytes32 id = _submit(
+            trader,
+            requested,
+            uint40(block.timestamp + 1 hours),
+            abi.encode(uint256(1)),
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+        IAlphaEngineConfidentialSwapController.SwapIntentRecord memory record =
+            controller.getSwapIntent(id);
+        assertEq(mockStorage(uint256(record.lockedAmountHandle)), expected);
+        assertEq(mockStorage(uint256(record.unshieldRequestHandle)), expected);
+        assertEq(
+            mockStorage(
+                uint256(
+                    FHE.unwrap(
+                        AlphaEngineFHERC20ERC20Wrapper(inputWrapper).confidentialBalanceOf(trader)
+                    )
+                )
+            ),
+            1000e6 - expected
+        );
+        assertEq(
+            AlphaEngineFHERC20ERC20Wrapper(inputWrapper).pendingUnshieldClaimId(address(escrow)),
+            bytes32(0)
+        );
+        assertEq(registry.availableUnshieldTokens(), 8);
+        _publishInput(id, expected);
+        if (expected == 0) {
+            controller.refundSwapIntent(id, 0, "");
+            assertEq(controller.swapCooldownUntil(trader), block.timestamp + 5 minutes);
+            assertEq(escrow.liveSwapLockCount(), 0);
+        }
+    }
+
+    function test_dustSwapPreclaimCooldownAndOtherTraderIsolation() public {
+        vm.prank(admin);
+        registry.setWrapperMinimums(inputWrapper, 1e6, 1000);
+        bytes memory data = abi.encode(uint256(1));
+        bytes32 id = _submit(
+            trader, 999_999, uint40(block.timestamp + 1 hours), data, 1, MINIMUM_OUTPUT_SALT
+        );
+        _publishInput(id, 0);
+        bytes32 claimId = escrow.getSwapIntentLock(id).unshieldClaimId;
+        vm.prank(outsider);
+        AlphaEngineFHERC20ERC20Wrapper(inputWrapper).claimUnshielded(claimId, 0, "");
+        assertEq(
+            AlphaEngineFHERC20ERC20Wrapper(inputWrapper).unshieldCooldownUntil(address(escrow)), 0
+        );
+        assertEq(controller.activeSwapIntentOf(trader), id);
+        vm.expectEmit(true, false, false, true, address(controller));
+        emit AlphaEngineConfidentialSwapController.SwapCooldownStarted(
+            trader, uint40(block.timestamp + 5 minutes)
+        );
+        vm.prank(outsider);
+        controller.refundSwapIntent(id, 0, "");
+        uint40 until = controller.swapCooldownUntil(trader);
+        IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory next = _submission(
+            trader, 1e6, uint40(block.timestamp + 1 hours), data, 1, MINIMUM_OUTPUT_SALT
+        );
+        uint256 verifications = taskManager.batchVerificationCount();
+        uint256 tasks = taskManager.taskCreationCount();
+        vm.prank(trader);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialSwapController.SwapCooldownActive.selector, trader, until
+            )
+        );
+        controller.submitSwapIntent(next);
+        assertEq(taskManager.batchVerificationCount(), verifications);
+        assertEq(taskManager.taskCreationCount(), tasks);
+        assertEq(controller.traderNonces(trader), 1);
+        _shieldInput(outsider, 1e6);
+        _submit(outsider, 1e6, uint40(block.timestamp + 1 hours), data, 1, MINIMUM_OUTPUT_SALT);
+        vm.warp(until - 1);
+        vm.prank(trader);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialSwapController.SwapCooldownActive.selector, trader, until
+            )
+        );
+        controller.submitSwapIntent(next);
+        vm.warp(until);
+        vm.prank(trader);
+        controller.submitSwapIntent(next);
+        assertEq(escrow.liveSwapLockCount(), 2);
+    }
+
+    function test_policyChangeDoesNotInvalidateAlreadyAdmittedSwap() public {
+        vm.prank(admin);
+        registry.setWrapperMinimums(inputWrapper, 1e6, 1000);
+        bytes memory data = abi.encode(uint256(2e6));
+        bytes32 id =
+            _submit(trader, 1e6, uint40(block.timestamp + 1 hours), data, 1, MINIMUM_OUTPUT_SALT);
+        vm.prank(admin);
+        registry.setWrapperMinimums(inputWrapper, 10e6, 10e6);
+        _publishInput(id, 1e6);
+        vm.prank(operator);
+        controller.executeSwapIntent(id, 1e6, 1, MINIMUM_OUTPUT_SALT, "", data);
+        assertEq(controller.activeSwapIntentOf(trader), bytes32(0));
+        assertEq(controller.swapCooldownUntil(trader), 0);
+        assertEq(escrow.liveSwapLockCount(), 0);
+    }
+
+    function test_unconfiguredSwapMinimumFailsBeforeInputVerification() public {
+        MockERC20 token = new MockERC20("New", "NEW", 6);
+        vm.prank(admin);
+        address unconfigured = registry.createWrapper(address(token), "Encrypted New", "eNEW", "");
+        IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory request = _submission(
+            trader,
+            1e6,
+            uint40(block.timestamp + 1 hours),
+            abi.encode(uint256(1)),
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+        request.inputWrapper = unconfigured;
+        uint256 count = taskManager.batchVerificationCount();
+        vm.prank(trader);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialSwapController.SwapMinimumNotConfigured.selector,
+                unconfigured
+            )
+        );
+        controller.submitSwapIntent(request);
+        assertEq(taskManager.batchVerificationCount(), count);
+        assertEq(controller.traderNonces(trader), 0);
+    }
+
+    function test_registeredExternalWrapperAllowsConcurrentTraders() public {
+        MockERC20 token = new MockERC20("External", "EXT", 6);
+        AlphaEngineFHERC20ERC20Wrapper externalWrapper = new AlphaEngineFHERC20ERC20Wrapper(
+            token, "Encrypted External", "eEXT", "", address(registry)
+        );
+        vm.startPrank(admin);
+        registry.registerWrapper(address(token), address(externalWrapper));
+        registry.setWrapperMinimums(address(externalWrapper), 1000, 1000);
+        vm.stopPrank();
+        token.mint(address(this), 2e6);
+        token.approve(address(externalWrapper), 2e6);
+        externalWrapper.shield(trader, 1e6);
+        externalWrapper.shield(outsider, 1e6);
+        address[2] memory traders = [trader, outsider];
+        for (uint256 i; i < 2; ++i) {
+            IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory request = _submission(
+                traders[i],
+                1e6,
+                uint40(block.timestamp + 1 hours),
+                abi.encode(uint256(1)),
+                1,
+                MINIMUM_OUTPUT_SALT
+            );
+            request.inputWrapper = address(externalWrapper);
+            vm.startPrank(traders[i]);
+            externalWrapper.setOperator(address(escrow), uint48(block.timestamp + 1 days));
+            controller.submitSwapIntent(request);
+            vm.stopPrank();
+        }
+        assertEq(escrow.liveSwapLockCount(), 2);
+        assertEq(externalWrapper.pendingUnshieldClaimId(address(escrow)), bytes32(0));
+        assertEq(registry.availableUnshieldTokens(), 8);
+    }
+
     function test_initializeDisablesImplementationAndSetsSeparatedRolesPaused() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         implementation.initialize(
             AlphaEngineConfidentialSwapController.InitializationParams({
-                initialDefaultAdmin: admin,
-                initialPauser: pauser,
-                initialSwapOperator: operator
+                initialDefaultAdmin: admin, initialPauser: pauser, initialSwapOperator: operator
             })
         );
 
@@ -162,6 +337,14 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         controller.setSwapConfiguration(address(nextEscrow), address(nextExecutor));
         assertEq(controller.swapEscrow(), address(nextEscrow));
         assertEq(controller.swapExecutor(), address(nextExecutor));
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false, address(registry));
+        emit AlphaEngineConfidentialAssetRegistry.TrustedSwapEscrowUpdated(
+            address(escrow), address(nextEscrow)
+        );
+        registry.setTrustedSwapEscrow(address(nextEscrow));
+        assertEq(registry.trustedSwapEscrow(), address(nextEscrow));
     }
 
     function test_submitPinsEveryExecutionAndCustodyFieldWithEventGetterParity() public {
@@ -174,8 +357,9 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         uint40 deadline = uint40(block.timestamp + 1 hours);
 
         vm.recordLogs();
-        bytes32 actualIntentId =
-            _submit(trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT);
+        bytes32 actualIntentId = _submit(
+            trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT
+        );
         assertEq(actualIntentId, intentId);
 
         IAlphaEngineConfidentialSwapController.SwapIntentRecord memory record =
@@ -202,27 +386,168 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         assertTrue(controller.existsSwapIntent(intentId));
         assertTrue(taskManager.isAllowed(uint256(record.lockedAmountHandle), address(escrow)));
 
-        AlphaEngineStrategyHashLib.SwapPayloadV1 memory payload = AlphaEngineStrategyHashLib
-            .SwapPayloadV1({
-            chainId: block.chainid,
-            controller: address(controller),
-            intentId: intentId,
-            trader: trader,
-            traderNonce: 0,
-            escrow: address(escrow),
-            executor: address(executor),
-            inputWrapper: inputWrapper,
-            outputWrapper: outputWrapper,
-            routeKey: ROUTE_KEY,
-            executionDataHash: keccak256(executionData),
-            minimumOutputCommitment: minimumCommitment,
-            deadline: deadline,
-            lockedAmountHandle: record.lockedAmountHandle,
-            unshieldRequestHandle: record.unshieldRequestHandle
-        });
+        AlphaEngineStrategyHashLib.SwapPayloadV1 memory payload =
+            AlphaEngineStrategyHashLib.SwapPayloadV1({
+                chainId: block.chainid,
+                controller: address(controller),
+                intentId: intentId,
+                trader: trader,
+                traderNonce: 0,
+                escrow: address(escrow),
+                executor: address(executor),
+                inputWrapper: inputWrapper,
+                outputWrapper: outputWrapper,
+                routeKey: ROUTE_KEY,
+                executionDataHash: keccak256(executionData),
+                minimumOutputCommitment: minimumCommitment,
+                deadline: deadline,
+                lockedAmountHandle: record.lockedAmountHandle,
+                unshieldRequestHandle: record.unshieldRequestHandle
+            });
         assertEq(record.payloadHash, AlphaEngineStrategyHashLib.hashSwapPayload(payload));
 
         _assertSubmissionEvents(vm.getRecordedLogs(), record);
+    }
+
+    function test_oneActiveIntentPerTraderClearsOnRefund() public {
+        bytes memory executionData = abi.encode(uint256(1));
+        bytes32 first = _submit(
+            trader, 10e6, uint40(block.timestamp + 1 hours), executionData, 1, MINIMUM_OUTPUT_SALT
+        );
+        assertEq(controller.activeSwapIntentOf(trader), first);
+        assertEq(controller.submittedSwapIntentCount(), 1);
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetRegistry.ActiveSwapLocksPresent.selector, 1
+            )
+        );
+        registry.setTrustedSwapEscrow(address(escrow));
+        IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory second = _submission(
+            trader, 10e6, uint40(block.timestamp + 1 hours), executionData, 1, MINIMUM_OUTPUT_SALT
+        );
+        vm.prank(trader);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialSwapController.ActiveSwapIntentExists.selector, trader, first
+            )
+        );
+        controller.submitSwapIntent(second);
+        assertEq(controller.submittedSwapIntentCount(), 1);
+
+        _publishInput(first, 10e6);
+        vm.warp(block.timestamp + 1 hours);
+        controller.refundSwapIntent(first, 10e6, "");
+        assertEq(controller.activeSwapIntentOf(trader), bytes32(0));
+        bytes32 next = _submit(
+            trader,
+            10e6,
+            uint40(vm.getBlockTimestamp() + 1 hours),
+            executionData,
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+        assertNotEq(first, next);
+    }
+
+    function test_swapRateLimitsBoundBurstAndRollingWindow() public {
+        vm.prank(pauser);
+        controller.pause();
+        vm.prank(admin);
+        vm.expectEmit(false, false, false, true, address(controller));
+        emit AlphaEngineConfidentialSwapController.SwapIntentRateLimitUpdated(2, 1, 2);
+        controller.setSwapRateLimits(2, 1, 2);
+        vm.prank(admin);
+        controller.unpause();
+
+        bytes memory executionData = abi.encode(uint256(1));
+        address secondTrader = makeAddr("second-trader");
+        address thirdTrader = makeAddr("third-trader");
+        _shieldInput(secondTrader, 10e6);
+        _shieldInput(thirdTrader, 10e6);
+        _submit(
+            trader, 10e6, uint40(block.timestamp + 1 hours), executionData, 1, MINIMUM_OUTPUT_SALT
+        );
+        _submit(
+            secondTrader,
+            10e6,
+            uint40(block.timestamp + 1 hours),
+            executionData,
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+
+        IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory third = _submission(
+            thirdTrader,
+            10e6,
+            uint40(block.timestamp + 1 hours),
+            executionData,
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+        vm.prank(thirdTrader);
+        vm.expectPartialRevert(
+            AlphaEngineConfidentialSwapController.SwapIntentRateLimitExceeded.selector
+        );
+        controller.submitSwapIntent(third);
+
+        vm.warp(block.timestamp + 60 seconds);
+        _submit(
+            thirdTrader,
+            10e6,
+            uint40(vm.getBlockTimestamp() + 1 hours),
+            executionData,
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+        assertEq(controller.submittedSwapIntentCount(), 3);
+    }
+
+    function test_swapBurstRefillsByElapsedSeconds() public {
+        vm.prank(pauser);
+        controller.pause();
+        vm.prank(admin);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialSwapController.InvalidSwapIntentRateLimit.selector, 0, 1, 1
+            )
+        );
+        controller.setSwapRateLimits(0, 1, 1);
+        vm.prank(admin);
+        controller.setSwapRateLimits(10, 1, 1);
+        vm.prank(admin);
+        controller.unpause();
+
+        address secondTrader = makeAddr("burst-second-trader");
+        _shieldInput(secondTrader, 10e6);
+        bytes memory executionData = abi.encode(uint256(1));
+        _submit(
+            trader, 10e6, uint40(block.timestamp + 1 hours), executionData, 1, MINIMUM_OUTPUT_SALT
+        );
+        IAlphaEngineConfidentialSwapController.SwapIntentSubmission memory second = _submission(
+            secondTrader,
+            10e6,
+            uint40(block.timestamp + 1 hours),
+            executionData,
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+        vm.prank(secondTrader);
+        vm.expectPartialRevert(
+            AlphaEngineConfidentialSwapController.SwapIntentBurstLimitExceeded.selector
+        );
+        controller.submitSwapIntent(second);
+
+        vm.warp(block.timestamp + 1 seconds);
+        _submit(
+            secondTrader,
+            10e6,
+            uint40(vm.getBlockTimestamp() + 1 hours),
+            executionData,
+            1,
+            MINIMUM_OUTPUT_SALT
+        );
+        assertEq(controller.submittedSwapIntentCount(), 2);
     }
 
     function test_submitRejectsInvalidFieldsAndDoesNotAdvanceNonce() public {
@@ -329,6 +654,7 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             uint8(IAlphaEngineConfidentialSwapEscrow.SwapIntentLockStatus.Consumed)
         );
         assertEq(escrow.liveSwapLockCount(), 0);
+        assertEq(controller.activeSwapIntentOf(trader), bytes32(0));
         assertEq(inputUnderlying.balanceOf(address(escrow)), 0);
         assertEq(outputUnderlying.balanceOf(address(escrow)), 0);
         assertEq(inputUnderlying.balanceOf(address(executor)), 0);
@@ -428,8 +754,9 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         uint256 outputAmount = 97e6;
         bytes memory executionData = abi.encode(outputAmount);
         uint40 deadline = uint40(block.timestamp + 1 hours);
-        bytes32 intentId =
-            _submit(trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT);
+        bytes32 intentId = _submit(
+            trader, inputAmount, deadline, executionData, outputAmount, MINIMUM_OUTPUT_SALT
+        );
         _publishInput(intentId, inputAmount);
 
         vm.prank(outsider);
@@ -570,7 +897,7 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         controller.getSwapIntent(unknownIntentId);
     }
 
-    function test_refundTerminatesInitializedEncryptedZeroLockWhilePaused() public {
+    function test_refundTerminatesPublishedZeroBeforeExpiry() public {
         bytes memory executionData = abi.encode(uint256(1));
         bytes32 intentId = _submit(
             trader, 2000e6, uint40(block.timestamp + 1 hours), executionData, 1, MINIMUM_OUTPUT_SALT
@@ -580,8 +907,6 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         assertEq(mockStorage(uint256(record.lockedAmountHandle)), 0);
         _publishInput(intentId, 0);
 
-        vm.prank(pauser);
-        controller.pause();
         vm.prank(outsider);
         bytes32 refundHandle = controller.refundSwapIntent(intentId, 0, "");
         assertEq(refundHandle, bytes32(0));
@@ -590,6 +915,20 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             uint8(IAlphaEngineConfidentialSwapController.SwapIntentStatus.Refunded)
         );
         assertEq(escrow.liveSwapLockCount(), 0);
+        assertEq(controller.activeSwapIntentOf(trader), bytes32(0));
+    }
+
+    function test_earlyZeroRefundCannotClaimNonzeroInput() public {
+        bytes memory executionData = abi.encode(uint256(1));
+        bytes32 intentId = _submit(
+            trader, 10e6, uint40(block.timestamp + 1 hours), executionData, 1, MINIMUM_OUTPUT_SALT
+        );
+        _publishInput(intentId, 10e6);
+        vm.expectPartialRevert(MockCoFheTaskManager.InvalidDecryptResult.selector);
+        controller.refundSwapIntent(intentId, 0, "");
+        assertEq(controller.activeSwapIntentOf(trader), intentId);
+        assertEq(controller.swapCooldownUntil(trader), 0);
+        assertEq(escrow.liveSwapLockCount(), 1);
     }
 
     function testFuzz_nonceAndIntentIdAdvanceExactlyOnceOnSuccessfulSubmission(
@@ -610,10 +949,14 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             MINIMUM_OUTPUT_SALT
         );
         bytes32 expectedSecond = controller.computeSwapIntentId(trader, 1);
+        _publishInput(first, firstAmount);
+        vm.warp(block.timestamp + 1 hours);
+        vm.prank(outsider);
+        controller.refundSwapIntent(first, firstAmount, "");
         bytes32 second = _submit(
             trader,
             secondAmount,
-            uint40(block.timestamp + 1 hours),
+            uint40(vm.getBlockTimestamp() + 1 hours),
             executionData,
             1,
             bytes32(uint256(MINIMUM_OUTPUT_SALT) + 1)
@@ -658,11 +1001,13 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             routeKey: ROUTE_KEY,
             executionDataHash: keccak256(executionData),
             minimumOutputCommitment: AlphaEngineExecutionHashLib.hashSwapMinimumOutput(
-                intentId, minimumOutput, salt
-            ),
-            encryptedInputAmount: createInEuint64(inputAmount, submitter),
+                    intentId, minimumOutput, salt
+                ),
+            encryptedInputAmount: createExternalEuint64(inputAmount, submitter),
+            inputProof: "",
             deadline: deadline
         });
+        submission.inputProof = _inputProof(address(controller), submission.encryptedInputAmount);
     }
 
     function _expectSubmitError(
@@ -684,9 +1029,8 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         vm.startPrank(account);
         inputUnderlying.approve(address(gateway), amount);
         gateway.depositAndShield(address(inputUnderlying), amount, account);
-        AlphaEngineFHERC20ERC20Wrapper(inputWrapper).setOperator(
-            address(escrow), uint48(block.timestamp + 30 days)
-        );
+        AlphaEngineFHERC20ERC20Wrapper(inputWrapper)
+            .setOperator(address(escrow), uint48(block.timestamp + 30 days));
         vm.stopPrank();
     }
 
@@ -697,13 +1041,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: admin,
                         initialPauser: pauser,
                         initialSwapOperator: operator
-                    })
-                )
+                    }))
             )
         );
         return AlphaEngineConfidentialSwapController(address(proxy));
@@ -739,13 +1081,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             proxyAdminOwner,
             abi.encodeCall(
                 AlphaEngineConfidentialSwapController.initialize,
-                (
-                    AlphaEngineConfidentialSwapController.InitializationParams({
+                (AlphaEngineConfidentialSwapController.InitializationParams({
                         initialDefaultAdmin: initialDefaultAdmin,
                         initialPauser: initialPauser,
                         initialSwapOperator: initialOperator
-                    })
-                )
+                    }))
             )
         );
     }
@@ -754,9 +1094,11 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         Vm.Log[] memory logs,
         IAlphaEngineConfidentialSwapController.SwapIntentRecord memory record
     ) private view {
-        bytes32 submissionTopic = keccak256(
-            "ConfidentialSwapSubmitted(bytes32,address,address,address,address,address,bytes32,bytes32,bytes32,uint40,bytes32,uint64)"
-        );
+        bytes32
+            submissionTopic =
+            keccak256(
+                "ConfidentialSwapSubmitted(bytes32,address,address,address,address,address,bytes32,bytes32,bytes32,uint40,bytes32,uint64)"
+            );
         bytes32 commitmentTopic =
             keccak256("ConfidentialSwapExecutionCommitted(bytes32,bytes32,bytes32)");
         bool foundSubmission;
@@ -813,7 +1155,9 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
             "ConfidentialSwapExecuted(bytes32,address,address,address,uint64,uint256,bytes32)"
         );
         for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) continue;
+            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) {
+                continue;
+            }
             assertEq(logs[i].topics[1], intentId);
             assertEq(address(uint160(uint256(logs[i].topics[2]))), trader);
             assertEq(address(uint160(uint256(logs[i].topics[3]))), operator);
@@ -838,10 +1182,13 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
         uint64 inputAmount,
         bytes32 refundHandle
     ) private view {
-        bytes32 eventTopic =
-            keccak256("ConfidentialSwapRefunded(bytes32,address,address,address,uint64,bytes32)");
+        bytes32 eventTopic = keccak256(
+            "ConfidentialSwapRefunded(bytes32,address,address,address,uint64,bytes32)"
+        );
         for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) continue;
+            if (logs[i].emitter != address(controller) || logs[i].topics[0] != eventTopic) {
+                continue;
+            }
             assertEq(logs[i].topics[1], intentId);
             assertEq(address(uint160(uint256(logs[i].topics[2]))), trader);
             assertEq(address(uint160(uint256(logs[i].topics[3]))), outsider);

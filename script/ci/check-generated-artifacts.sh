@@ -178,6 +178,9 @@ check_runtime_size \
     out/AlphaEngineFHERC20ERC20Wrapper.sol/AlphaEngineFHERC20ERC20Wrapper.json \
     fherc20-wrapper
 check_runtime_size \
+    out/ERC20ConfidentialLib.sol/ERC20ConfidentialLib.json \
+    fherc20-linked-library
+check_runtime_size \
     out/AlphaEngineV4SwapExecutor.sol/AlphaEngineV4SwapExecutor.json \
     v4-swap-executor
 check_runtime_size \

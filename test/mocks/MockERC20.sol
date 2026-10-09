@@ -6,9 +6,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract MockERC20 is ERC20 {
     uint8 private immutable _customDecimals;
 
-    constructor(string memory name_, string memory symbol_, uint8 decimals_)
-        ERC20(name_, symbol_)
-    {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
         _customDecimals = decimals_;
     }
 
@@ -60,5 +58,18 @@ contract MockStickyAllowanceERC20 is MockERC20 {
     function approve(address spender, uint256 value) public override returns (bool) {
         if (ignoreZeroApproval && value == 0) return true;
         return super.approve(spender, value);
+    }
+}
+
+contract MockZeroTransferRevertingERC20 is MockERC20 {
+    error ZeroTransfer();
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_)
+        MockERC20(name_, symbol_, decimals_)
+    {}
+
+    function _update(address from, address to, uint256 value) internal override {
+        if (from != address(0) && to != address(0) && value == 0) revert ZeroTransfer();
+        super._update(from, to, value);
     }
 }

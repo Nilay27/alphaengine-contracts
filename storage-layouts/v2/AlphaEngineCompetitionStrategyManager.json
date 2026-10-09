@@ -81,12 +81,28 @@
       "type": "t_mapping(t_bytes32,t_mapping(t_uint16,t_bytes32))"
     },
     {
+      "astId": 99936,
+      "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
+      "label": "scoreRevealedThrough",
+      "offset": 0,
+      "slot": "9",
+      "type": "t_mapping(t_bytes32,t_uint16)"
+    },
+    {
+      "astId": 99938,
+      "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
+      "label": "nextScoreRevealAt",
+      "offset": 0,
+      "slot": "10",
+      "type": "t_uint40"
+    },
+    {
       "astId": 65512,
       "contract": "src/strategy/AlphaEngineCompetitionStrategyManager.sol:AlphaEngineCompetitionStrategyManager",
       "label": "__gap",
       "offset": 0,
-      "slot": "9",
-      "type": "t_array(t_uint256)41_storage"
+      "slot": "11",
+      "type": "t_array(t_uint256)39_storage"
     }
   ],
   "types": {
@@ -101,11 +117,11 @@
       "label": "bytes32[]",
       "numberOfBytes": "32"
     },
-    "t_array(t_uint256)41_storage": {
+    "t_array(t_uint256)39_storage": {
       "base": "t_uint256",
       "encoding": "inplace",
-      "label": "uint256[41]",
-      "numberOfBytes": "1312"
+      "label": "uint256[39]",
+      "numberOfBytes": "1248"
     },
     "t_bool": {
       "encoding": "inplace",
@@ -187,6 +203,13 @@
       "label": "mapping(bytes32 => struct AlphaEngineCompetitionStrategyManager.SubmissionRecord)",
       "numberOfBytes": "32",
       "value": "t_struct(SubmissionRecord)65128_storage"
+    },
+    "t_mapping(t_bytes32,t_uint16)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => uint16)",
+      "numberOfBytes": "32",
+      "value": "t_uint16"
     },
     "t_mapping(t_uint16,t_bytes32)": {
       "encoding": "mapping",

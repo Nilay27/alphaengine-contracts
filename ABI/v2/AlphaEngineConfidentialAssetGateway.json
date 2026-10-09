@@ -110,6 +110,11 @@
           "internalType": "euint64",
           "name": "unshieldRequestHandle",
           "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "unshieldClaimId",
+          "type": "bytes32"
         }
       ],
       "stateMutability": "nonpayable",
@@ -215,32 +220,16 @@
           "internalType": "euint64",
           "name": "unshieldRequestHandle",
           "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "unshieldClaimId",
+          "type": "bytes32"
         }
       ],
       "name": "UnshieldRequested",
       "type": "event"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "target",
-          "type": "address"
-        }
-      ],
-      "name": "AddressEmptyCode",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        }
-      ],
-      "name": "AddressInsufficientBalance",
-      "type": "error"
     },
     {
       "inputs": [
@@ -272,11 +261,6 @@
         }
       ],
       "name": "AmountNotMultipleOfRate",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "FailedInnerCall",
       "type": "error"
     },
     {
