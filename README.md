@@ -73,7 +73,7 @@ FundVault capital and can be deployed or paused separately.
 
 ## FHE boundary
 
-- Strategy contracts verify encrypted `euint128` inputs, register access, and
+- Strategy contracts verify `externalEuint128` batches with one proof, register access, and
   store encrypted `euint32` evaluation scores. They perform no encrypted
   arithmetic or encrypted division.
 - Competition scores can be requested for asynchronous public decryption only
@@ -86,6 +86,10 @@ FundVault capital and can be deployed or paused separately.
 
 See [FHENIX_REVIEW.md](FHENIX_REVIEW.md) for the operation inventory, limits,
 permission graph, dependencies, and reproduction commands.
+
+The current dependency revision uses CoFHE v0.2.0 and FHERC20 v0.4.0. Encrypted
+input ABIs, handle sharing and wrapper claim IDs require consumer migration;
+see the [migration notes](docs/engineering/cofhe-v020-migration.md).
 
 ## Implementation status
 

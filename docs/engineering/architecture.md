@@ -4,6 +4,13 @@
 
 `alphaengine-contracts` owns AlphaEngine’s Solidity entrypoint contracts and their upgrade, event, and storage semantics.
 
+## CoFHE dependency revision
+
+The current v2 input/claim API uses CoFHE v0.2.0 and FHERC20 v0.4.0.
+[Migration requirements](cofhe-v020-migration.md) define batched external inputs,
+consumer-bound proofs, shared token handles, unique wrapper claim IDs, and
+linked-library deployment. Stored strategy handles and hash domains are retained.
+
 ## Current shape
 
 - The active source tree contains independent competition, capital, confidential
@@ -120,7 +127,9 @@ Implemented replacement contracts through Stage 8:
   scheduling, confidential submissions, evaluation/ranking, finalization, and
   qualification publication. After finalization, a dedicated score-revealer
   role can request asynchronous CoFHE decryption of all three evaluation-score
-  handles in bounded rank-order batches. The manager stores no duplicate
+  handles in rank-order batches of at most eight submissions, with a five-second
+  interval across competitions and a forward-only revealed-through cursor.
+  Qualification does not wait for public scores. The manager stores no duplicate
   plaintext score state; its public getter reads verified results from the
   CoFHE task manager and returns an independent readiness flag for each score.
 - `AlphaEngineCapitalStrategyManager` accepts a fresh confidential intent only
@@ -133,11 +142,26 @@ Implemented replacement contracts through Stage 8:
   combined controller's storage.
 - `AlphaEngineConfidentialAssetRegistry` is an append-only, non-upgradeable
   wrapper/underlying registry. It may create or validate a wrapper, but cannot
-  hold user balances or participate in settlement.
+  hold user balances or participate in settlement. Its owner binds one trusted
+  swap escrow for the wrapper's narrow swap-unshield exception, and cannot
+  rotate it while live swap locks remain.
 - `AlphaEngineConfidentialAssetGateway` pins one registry and exposes ordinary
   deposit/shield and request/claim-unshield convenience calls. Exact balance
   deltas reject fee-on-transfer behavior, approvals reset to zero, and the
   gateway retains no underlying token after a successful call.
+- The registry owns explicit per-wrapper swap and partial-unshield minimums in
+  confidential base units and a separate ordinary-withdrawal budget, initially
+  one request per second with burst eight across all wrappers. Unconfigured
+  minimums block new swaps and partial exits.
+- The wrapper rejects below-minimum plaintext amounts and masks below-minimum
+  encrypted amounts to zero before burning. One pending claim per source and
+  wrapper spans both overloads. Verified zero completion starts a five-minute
+  source cooldown; single and batch claims remain available during limits.
+- Caller-only `unshieldAll` snapshots the entire encrypted balance, including
+  dust, independently of the partial minimum. It shares the admission/pending
+  gates and starts a five-minute cooldown on admission. Later deposits remain
+  outside that claim. The explicitly registry-bound escrow is exempt from
+  ordinary withdrawal gates because controller admission covers its traders.
 - `AlphaEngineConfidentialSwapEscrow` is a fresh, initially paused transparent
   proxy domain. It owns only temporary FHERC20 locks, immediate encrypted
   unshield requests, exact settlement/refund accounting, and controller/registry
@@ -148,7 +172,8 @@ Implemented replacement contracts through Stage 8:
   divisibility, wrapper reserve deltas, and zeroed wrapper approvals.
 - Privacy-preserving insufficient-balance transfers can return initialized
   encrypted zero. The escrow therefore permits a verified zero-value refund to
-  terminate the record without executing or re-shielding zero.
+  terminate the record without executing or re-shielding zero. The controller
+  permits this verified zero refund before expiry to release the active slot.
 - Wrapper claims are permissionless but pay the claim's fixed recipient. If a
   claim is executed before the controller's settlement/refund transaction, the
   escrow verifies the exact claim and consumes the already-received underlying
@@ -162,6 +187,17 @@ Implemented replacement contracts through Stage 8:
   deadline, canonical locked handle, and unshield-request handle. The operator
   reveals but cannot substitute execution calldata, output wrapper, executor,
   or minimum output.
+- Before input proof verification and escrow unshield, submissions must satisfy
+  one active intent per trader and the global rolling 60-second budget plus
+  token-bucket burst budget. Initial limits are 120/minute, two/second refill
+  and a 24-request burst. Delayed governance may tune limits while paused;
+  settlement/refund never consumes admission budget. Encrypted `gte`/`select`
+  masks requests below the input wrapper's minimum to zero before escrow transfer.
+  The canonical actual transfer still resolves to zero for insufficient balance.
+  Verified zero refunds start a five-minute cooldown on the recorded trader.
+  These controls bound protocol claim creation; inherited disclosure and direct
+  holder ACL grants remain outside this admission budget. See the
+  [remediation contract](fhenix-decrypt-pressure-remediation.md).
 - Controller state is marked terminal before escrow interaction and rolls back
   atomically if settlement fails. Refund remains permissionless after expiry or
   while either the controller or recorded escrow is paused. The controller
@@ -327,12 +363,18 @@ encrypted value that differs from the requested encrypted value, so escrow lock
 state and future swap-controller events use the actual returned handle as
 canonical.
 
-Until Fhenix publishes official encrypted-amount unshield support, `AlphaEngineFHERC20ERC20Wrapper` carries a temporary `unshield(address from, address to, euint64 amount)` overload. This is an integration bridge for swap settlement only: it burns/requests unshield against the actual vault-held locked eUSDC handle and stores a claim for the returned actual unshield handle. Do not replace this with a direct release of underlying ERC20 based only on the pre-burn locked handle.
+`AlphaEngineFHERC20ERC20Wrapper` inherits official encrypted unshielding with
+`sharedEuint64` inputs and returns. Its `_unshield` hook retains the official
+`_createClaim` return value as `latestUnshieldClaimId[recipient]`, allowing the
+gateway/escrow to capture the ID atomically without enumerating pending claims.
+The escrow stores this ID separately from the returned burned handle and checks
+both against the official claim before claiming or reconciling a preclaim.
+The underlying balance is released only against that claim's verified result.
 
 Fresh controller/escrow semantics are intentionally narrow:
 - the controller atomically configures a reciprocal escrow/executor pair while
   paused, and every intent stores the pair used at submission;
-- `submitSwapIntent(...)` verifies the user's `InEuint64` while `msg.sender` is
+- `submitSwapIntent(...)` verifies the user's `externalEuint64` plus batch proof while `msg.sender` is
   still the user, grants the recorded escrow access, and immediately locks and
   requests unshield through that escrow;
 - the record additionally binds the output wrapper, exact execution-data hash,

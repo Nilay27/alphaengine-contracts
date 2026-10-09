@@ -2,23 +2,25 @@
 pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {
+    AccessControlDefaultAdminRulesUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {
     FHE,
-    InEuint32,
-    InEuint128,
-    TASK_MANAGER_ADDRESS,
+    externalEuint32,
+    externalEuint128,
     euint32,
     euint128
 } from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {ITaskManager} from "@fhenixprotocol/cofhe-contracts/ICofhe.sol";
-import {IAlphaEngineTraderQualificationRegistry} from
-    "../interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {
+    IAlphaEngineTraderQualificationRegistry
+} from "../interfaces/IAlphaEngineTraderQualificationRegistry.sol";
 import {AlphaEngineStrategyHashLib} from "../libraries/AlphaEngineStrategyHashLib.sol";
 
 /// @title AlphaEngineCompetitionStrategyManager
@@ -33,7 +35,8 @@ contract AlphaEngineCompetitionStrategyManager is
     uint48 public constant DEFAULT_ADMIN_DELAY = 48 hours;
     uint256 public constant MAX_COMPONENT_COUNT = 16;
     uint16 public constant MAX_ACTIVE_SUBMISSIONS = 256;
-    uint16 public constant MAX_SCORE_REVEAL_BATCH = 32;
+    uint16 public constant MAX_SCORE_REVEAL_BATCH = 8;
+    uint256 public constant SCORE_REVEAL_INTERVAL = 5 seconds;
 
     bytes32 public constant COMPETITION_CREATOR_ROLE = keccak256("COMPETITION_CREATOR_ROLE");
     bytes32 public constant COMPETITION_CANCELLER_ROLE = keccak256("COMPETITION_CANCELLER_ROLE");
@@ -122,9 +125,10 @@ contract AlphaEngineCompetitionStrategyManager is
     }
 
     struct EvaluationScoreSubmission {
-        InEuint32 realSisterScore;
-        InEuint32 perturbationP25Score;
-        InEuint32 stressP25Score;
+        externalEuint32 realSisterScore;
+        externalEuint32 perturbationP25Score;
+        externalEuint32 stressP25Score;
+        bytes inputProof;
     }
 
     struct EvaluationRecord {
@@ -146,6 +150,8 @@ contract AlphaEngineCompetitionStrategyManager is
     error ZeroInitializationAddress(bytes32 field);
     error InvalidQualificationRegistry(address registry);
     error ZeroFheOperator();
+    error ScoreRevealCursorMismatch(bytes32 competitionId, uint16 supplied, uint16 expected);
+    error ScoreRevealNotAvailable(uint256 nextAvailableAt);
     error ZeroRulesHash();
     error ZeroTimeframeKey();
     error ZeroEvidenceHash();
@@ -177,7 +183,9 @@ contract AlphaEngineCompetitionStrategyManager is
         bytes32 competitionId, CompetitionStatus status, uint256 currentTimestamp
     );
     error MaximumActiveSubmissionsReached(bytes32 competitionId);
-    error ActiveSubmissionAlreadyExists(bytes32 competitionId, address trader, bytes32 submissionId);
+    error ActiveSubmissionAlreadyExists(
+        bytes32 competitionId, address trader, bytes32 submissionId
+    );
     error SubmissionNotFound(bytes32 submissionId);
     error SubmissionNotSubmitted(bytes32 submissionId, SubmissionStatus status);
     error UnauthorizedSubmissionCancellation(address actor, bytes32 submissionId);
@@ -265,8 +273,11 @@ contract AlphaEngineCompetitionStrategyManager is
     mapping(bytes32 competitionId => mapping(uint16 rank => bytes32 submissionId)) private
         _submissionByRank;
 
-    /// @dev Nine repository-owned storage slots above plus this gap reserve 50 slots.
-    uint256[41] private __gap;
+    mapping(bytes32 competitionId => uint16 rank) public scoreRevealedThrough;
+    uint40 public nextScoreRevealAt;
+
+    /// @dev Eleven repository-owned storage slots above plus this gap reserve 50 slots.
+    uint256[39] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -351,9 +362,10 @@ contract AlphaEngineCompetitionStrategyManager is
 
     function submitCompetitionStrategy(
         bytes32 competitionId,
-        InEuint128 calldata encryptedMarketId,
         bytes32 timeframeKey,
-        InEuint128[] calldata encryptedComponents
+        externalEuint128 encryptedMarketId,
+        externalEuint128[] calldata encryptedComponents,
+        bytes calldata inputProof
     ) external whenNotPaused nonReentrant returns (bytes32 submissionId) {
         CompetitionRecord storage competition = _getCompetition(competitionId);
         if (competition.status != CompetitionStatus.Active) {
@@ -389,9 +401,9 @@ contract AlphaEngineCompetitionStrategyManager is
         );
 
         address operatorAtSubmission = fheOperator;
-        bytes32 marketIdHandle = _internalizeMarket(encryptedMarketId, operatorAtSubmission);
-        bytes32[] memory componentHandles =
-            _internalizeComponents(submissionId, encryptedComponents, operatorAtSubmission);
+        (bytes32 marketIdHandle, bytes32[] memory componentHandles) = _internalizeStrategy(
+            submissionId, encryptedMarketId, encryptedComponents, inputProof, operatorAtSubmission
+        );
         bytes32 payloadHash = AlphaEngineStrategyHashLib.hashCompetitionPayload(
             AlphaEngineStrategyHashLib.CompetitionPayloadV1({
                 chainId: block.chainid,
@@ -588,24 +600,28 @@ contract AlphaEngineCompetitionStrategyManager is
         if (maxSubmissions == 0 || maxSubmissions > MAX_SCORE_REVEAL_BATCH) {
             revert InvalidScoreRevealBatchSize(maxSubmissions, MAX_SCORE_REVEAL_BATCH);
         }
+        uint16 expectedRank = scoreRevealedThrough[competitionId] + 1;
+        if (startRank != expectedRank) {
+            revert ScoreRevealCursorMismatch(competitionId, startRank, expectedRank);
+        }
+        if (block.timestamp < nextScoreRevealAt) revert ScoreRevealNotAvailable(nextScoreRevealAt);
 
         uint16 endRankExclusive = startRank + maxSubmissions;
         uint16 competitionEndRankExclusive = competition.activeSubmissionCount + 1;
         if (endRankExclusive > competitionEndRankExclusive) {
             endRankExclusive = competitionEndRankExclusive;
         }
+        scoreRevealedThrough[competitionId] = endRankExclusive - 1;
+        nextScoreRevealAt = uint40(block.timestamp + SCORE_REVEAL_INTERVAL);
 
-        ITaskManager taskManager = ITaskManager(TASK_MANAGER_ADDRESS);
         for (uint16 rank = startRank; rank < endRankExclusive; ++rank) {
             bytes32 submissionId = _submissionByRank[competitionId][rank];
             SubmissionRecord storage submission = _submissions[submissionId];
             EvaluationRecord storage evaluation = _evaluations[submissionId];
 
-            taskManager.createDecryptTask(uint256(evaluation.realSisterScoreHandle), address(this));
-            taskManager.createDecryptTask(
-                uint256(evaluation.perturbationP25ScoreHandle), address(this)
-            );
-            taskManager.createDecryptTask(uint256(evaluation.stressP25ScoreHandle), address(this));
+            FHE.allowPublic(FHE.wrapEuint32(evaluation.realSisterScoreHandle));
+            FHE.allowPublic(FHE.wrapEuint32(evaluation.perturbationP25ScoreHandle));
+            FHE.allowPublic(FHE.wrapEuint32(evaluation.stressP25ScoreHandle));
 
             emit CompetitionScoreRevealRequested(
                 competitionId,
@@ -686,10 +702,9 @@ contract AlphaEngineCompetitionStrategyManager is
     function cancelExpiredCompetition(bytes32 competitionId) external {
         CompetitionRecord storage competition = _getCompetition(competitionId);
         if (
-            (
-                competition.status != CompetitionStatus.Active
-                    && competition.status != CompetitionStatus.Evaluating
-            ) || block.timestamp <= competition.evaluationDeadline
+            (competition.status != CompetitionStatus.Active
+                    && competition.status != CompetitionStatus.Evaluating)
+                || block.timestamp <= competition.evaluationDeadline
         ) {
             revert CompetitionCancellationNotAvailable(
                 competitionId, competition.status, block.timestamp
@@ -845,35 +860,34 @@ contract AlphaEngineCompetitionStrategyManager is
         }
     }
 
-    function _internalizeMarket(InEuint128 calldata encryptedMarketId, address operator)
-        private
-        returns (bytes32 marketIdHandle)
-    {
-        euint128 internalizedMarketId = FHE.asEuint128(encryptedMarketId);
-        marketIdHandle = FHE.unwrap(internalizedMarketId);
-        if (marketIdHandle == bytes32(0)) {
-            revert ZeroEncryptedHandle("marketId", 0);
-        }
-        FHE.allowThis(internalizedMarketId);
-        FHE.allow(internalizedMarketId, operator);
-    }
-
-    function _internalizeComponents(
+    /// @dev Verify the market and ordered components under one consumer-bound batch proof.
+    function _internalizeStrategy(
         bytes32 submissionId,
-        InEuint128[] calldata encryptedComponents,
+        externalEuint128 encryptedMarketId,
+        externalEuint128[] calldata encryptedComponents,
+        bytes calldata inputProof,
         address operator
-    ) private returns (bytes32[] memory componentHandles) {
+    ) private returns (bytes32 marketIdHandle, bytes32[] memory componentHandles) {
         uint256 componentCount = encryptedComponents.length;
+        externalEuint128[] memory inputs = new externalEuint128[](componentCount + 1);
+        inputs[0] = encryptedMarketId;
+        for (uint256 index = 0; index < componentCount; ++index) {
+            inputs[index + 1] = encryptedComponents[index];
+        }
+        euint128[] memory verified = FHE.asEuint128s(inputs, inputProof);
+        marketIdHandle = FHE.unwrap(verified[0]);
+        if (marketIdHandle == bytes32(0)) revert ZeroEncryptedHandle("marketId", 0);
+        FHE.allowThis(verified[0]);
+        FHE.allow(verified[0], operator);
+
         componentHandles = new bytes32[](componentCount);
         bytes32[] storage storedComponents = _submissionComponents[submissionId];
         for (uint256 index = 0; index < componentCount; ++index) {
-            euint128 internalizedComponent = FHE.asEuint128(encryptedComponents[index]);
-            bytes32 componentHandle = FHE.unwrap(internalizedComponent);
-            if (componentHandle == bytes32(0)) {
-                revert ZeroEncryptedHandle("component", index);
-            }
-            FHE.allowThis(internalizedComponent);
-            FHE.allow(internalizedComponent, operator);
+            euint128 component = verified[index + 1];
+            bytes32 componentHandle = FHE.unwrap(component);
+            if (componentHandle == bytes32(0)) revert ZeroEncryptedHandle("component", index);
+            FHE.allowThis(component);
+            FHE.allow(component, operator);
             componentHandles[index] = componentHandle;
             storedComponents.push(componentHandle);
         }
@@ -883,10 +897,13 @@ contract AlphaEngineCompetitionStrategyManager is
         private
         returns (bytes32[3] memory scoreHandles)
     {
-        InEuint32[3] memory encryptedScores =
-            [scores.realSisterScore, scores.perturbationP25Score, scores.stressP25Score];
+        externalEuint32[] memory encryptedScores = new externalEuint32[](3);
+        encryptedScores[0] = scores.realSisterScore;
+        encryptedScores[1] = scores.perturbationP25Score;
+        encryptedScores[2] = scores.stressP25Score;
+        euint32[] memory verified = FHE.asEuint32s(encryptedScores, scores.inputProof);
         for (uint256 index = 0; index < encryptedScores.length; ++index) {
-            euint32 internalizedScore = FHE.asEuint32(encryptedScores[index]);
+            euint32 internalizedScore = verified[index];
             bytes32 scoreHandle = FHE.unwrap(internalizedScore);
             if (scoreHandle == bytes32(0)) {
                 revert ZeroEncryptedHandle("evaluationScore", index);

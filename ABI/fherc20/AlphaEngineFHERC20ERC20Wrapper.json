@@ -22,9 +22,27 @@
           "name": "contractURI_",
           "type": "string",
           "internalType": "string"
+        },
+        {
+          "name": "registry_",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "UNSHIELD_COOLDOWN",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -111,7 +129,7 @@
       "name": "claimUnshielded",
       "inputs": [
         {
-          "name": "ctHash",
+          "name": "id",
           "type": "bytes32",
           "internalType": "bytes32"
         },
@@ -134,7 +152,7 @@
       "name": "claimUnshieldedBatch",
       "inputs": [
         {
-          "name": "ctHashes",
+          "name": "ids",
           "type": "bytes32[]",
           "internalType": "bytes32[]"
         },
@@ -194,16 +212,21 @@
           "internalType": "address"
         },
         {
-          "name": "amount",
+          "name": "encryptedAmount",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "externalEuint64"
+        },
+        {
+          "name": "inputProof",
+          "type": "bytes",
+          "internalType": "bytes"
         }
       ],
       "outputs": [
         {
           "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -218,38 +241,16 @@
           "internalType": "address"
         },
         {
-          "name": "encryptedAmount",
-          "type": "tuple",
-          "internalType": "struct InEuint64",
-          "components": [
-            {
-              "name": "ctHash",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "securityZone",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "utype",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "signature",
-              "type": "bytes",
-              "internalType": "bytes"
-            }
-          ]
+          "name": "sharedAmount",
+          "type": "bytes32",
+          "internalType": "sharedEuint64"
         }
       ],
       "outputs": [
         {
           "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -264,9 +265,9 @@
           "internalType": "address"
         },
         {
-          "name": "amount",
+          "name": "sharedAmount",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         },
         {
           "name": "data",
@@ -276,9 +277,9 @@
       ],
       "outputs": [
         {
-          "name": "transferred",
+          "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -294,30 +295,13 @@
         },
         {
           "name": "encryptedAmount",
-          "type": "tuple",
-          "internalType": "struct InEuint64",
-          "components": [
-            {
-              "name": "ctHash",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "securityZone",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "utype",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "signature",
-              "type": "bytes",
-              "internalType": "bytes"
-            }
-          ]
+          "type": "bytes32",
+          "internalType": "externalEuint64"
+        },
+        {
+          "name": "inputProof",
+          "type": "bytes",
+          "internalType": "bytes"
         },
         {
           "name": "data",
@@ -327,9 +311,9 @@
       ],
       "outputs": [
         {
-          "name": "transferred",
+          "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -350,37 +334,20 @@
         },
         {
           "name": "encryptedAmount",
-          "type": "tuple",
-          "internalType": "struct InEuint64",
-          "components": [
-            {
-              "name": "ctHash",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "securityZone",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "utype",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "signature",
-              "type": "bytes",
-              "internalType": "bytes"
-            }
-          ]
+          "type": "bytes32",
+          "internalType": "externalEuint64"
+        },
+        {
+          "name": "inputProof",
+          "type": "bytes",
+          "internalType": "bytes"
         }
       ],
       "outputs": [
         {
-          "name": "transferred",
+          "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -400,50 +367,16 @@
           "internalType": "address"
         },
         {
-          "name": "amount",
+          "name": "sharedAmount",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "outputs": [
         {
-          "name": "transferred",
+          "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
-        }
-      ],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "confidentialTransferFromAndCall",
-      "inputs": [
-        {
-          "name": "from",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "to",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "bytes32",
-          "internalType": "euint64"
-        },
-        {
-          "name": "data",
-          "type": "bytes",
-          "internalType": "bytes"
-        }
-      ],
-      "outputs": [
-        {
-          "name": "transferred",
-          "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -464,30 +397,13 @@
         },
         {
           "name": "encryptedAmount",
-          "type": "tuple",
-          "internalType": "struct InEuint64",
-          "components": [
-            {
-              "name": "ctHash",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "securityZone",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "utype",
-              "type": "uint8",
-              "internalType": "uint8"
-            },
-            {
-              "name": "signature",
-              "type": "bytes",
-              "internalType": "bytes"
-            }
-          ]
+          "type": "bytes32",
+          "internalType": "externalEuint64"
+        },
+        {
+          "name": "inputProof",
+          "type": "bytes",
+          "internalType": "bytes"
         },
         {
           "name": "data",
@@ -497,9 +413,43 @@
       ],
       "outputs": [
         {
-          "name": "transferred",
+          "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "confidentialTransferFromAndCall",
+      "inputs": [
+        {
+          "name": "from",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "sharedAmount",
+          "type": "bytes32",
+          "internalType": "sharedEuint64"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -558,7 +508,7 @@
       "name": "getClaim",
       "inputs": [
         {
-          "name": "ctHash",
+          "name": "id",
           "type": "bytes32",
           "internalType": "bytes32"
         }
@@ -567,8 +517,13 @@
         {
           "name": "",
           "type": "tuple",
-          "internalType": "struct FHERC20WrapperClaimHelper.Claim",
+          "internalType": "struct ERC20ConfidentialLib.Claim",
           "components": [
+            {
+              "name": "id",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
             {
               "name": "to",
               "type": "address",
@@ -578,11 +533,6 @@
               "name": "ctHash",
               "type": "bytes32",
               "internalType": "bytes32"
-            },
-            {
-              "name": "requestedAmount",
-              "type": "uint64",
-              "internalType": "uint64"
             },
             {
               "name": "decryptedAmount",
@@ -611,10 +561,15 @@
       ],
       "outputs": [
         {
-          "name": "userClaims",
+          "name": "",
           "type": "tuple[]",
-          "internalType": "struct FHERC20WrapperClaimHelper.Claim[]",
+          "internalType": "struct ERC20ConfidentialLib.Claim[]",
           "components": [
+            {
+              "name": "id",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
             {
               "name": "to",
               "type": "address",
@@ -624,11 +579,6 @@
               "name": "ctHash",
               "type": "bytes32",
               "internalType": "bytes32"
-            },
-            {
-              "name": "requestedAmount",
-              "type": "uint64",
-              "internalType": "uint64"
             },
             {
               "name": "decryptedAmount",
@@ -697,6 +647,25 @@
     },
     {
       "type": "function",
+      "name": "latestUnshieldClaimId",
+      "inputs": [
+        {
+          "name": "recipient",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "claimId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "maxTotalSupply",
       "inputs": [],
       "outputs": [
@@ -704,6 +673,19 @@
           "name": "",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "minimumUnshieldAmount",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64",
+          "internalType": "uint64"
         }
       ],
       "stateMutability": "view"
@@ -754,6 +736,25 @@
         }
       ],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "pendingUnshieldClaimId",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "claimId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -825,7 +826,7 @@
         {
           "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -965,7 +966,7 @@
         {
           "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
@@ -985,19 +986,70 @@
           "internalType": "address"
         },
         {
-          "name": "amount",
+          "name": "sharedAmount",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "outputs": [
         {
-          "name": "unshieldAmount",
+          "name": "",
           "type": "bytes32",
-          "internalType": "euint64"
+          "internalType": "sharedEuint64"
         }
       ],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unshieldAll",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "sharedEuint64"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unshieldCooldownUntil",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "availableAt",
+          "type": "uint40",
+          "internalType": "uint40"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "wrapperRegistry",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "event",
@@ -1120,6 +1172,31 @@
     },
     {
       "type": "event",
+      "name": "FullBalanceUnshieldRequested",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "recipient",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "claimId",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "OperatorSet",
       "inputs": [
         {
@@ -1170,6 +1247,25 @@
     },
     {
       "type": "event",
+      "name": "UnshieldCooldownStarted",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "availableAt",
+          "type": "uint40",
+          "indexed": false,
+          "internalType": "uint40"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "Unshielded",
       "inputs": [
         {
@@ -1189,29 +1285,12 @@
     },
     {
       "type": "error",
-      "name": "AddressEmptyCode",
-      "inputs": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "AddressInsufficientBalance",
-      "inputs": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
       "name": "AlreadyClaimed",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ClaimBatchLengthMismatch",
       "inputs": []
     },
     {
@@ -1307,27 +1386,6 @@
     },
     {
       "type": "error",
-      "name": "FailedInnerCall",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "InvalidEncryptedInput",
-      "inputs": [
-        {
-          "name": "got",
-          "type": "uint8",
-          "internalType": "uint8"
-        },
-        {
-          "name": "expected",
-          "type": "uint8",
-          "internalType": "uint8"
-        }
-      ]
-    },
-    {
-      "type": "error",
       "name": "InvalidUnderlying",
       "inputs": [
         {
@@ -1339,7 +1397,34 @@
     },
     {
       "type": "error",
-      "name": "LengthMismatch",
+      "name": "InvalidWrapperRegistry",
+      "inputs": [
+        {
+          "name": "registry",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "PendingUnshieldClaim",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "claimId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ReentrancyGuardReentrantCall",
       "inputs": []
     },
     {
@@ -1379,6 +1464,43 @@
           "internalType": "int32"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "UnshieldAmountBelowMinimum",
+      "inputs": [
+        {
+          "name": "supplied",
+          "type": "uint64",
+          "internalType": "uint64"
+        },
+        {
+          "name": "minimum",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "UnshieldCooldownActive",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "nextAvailableAt",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "UnshieldMinimumNotConfigured",
+      "inputs": []
     },
     {
       "type": "error",

@@ -12,9 +12,10 @@ or any custody path.
 3. Use official Fhenix FHERC20/confidential-token contracts.
 4. When documentation and the installed pinned package disagree, the installed
    Solidity interface is authoritative and docs/tests must be updated together.
-5. For `fhenix-confidential-contracts@v0.3.1`, the installed
-   `confidentialTransferFrom(...)` and `setOperator(...)` surface is
-   authoritative over untagged permit terminology.
+5. For `fhenix-confidential-contracts@v0.4.0`, the installed
+   `confidentialTransferFrom(...)`, `sharedEuint64`, unique claim-ID and
+   `setOperator(...)` surfaces are authoritative. Follow the documented
+   CoFHE 0.2 migration rather than old bare-handle or `InEuint*` assumptions.
 6. If Foundry mocks lack production parity, document the integration debt; do
    not downgrade production dependencies or switch the repository to Hardhat.
 

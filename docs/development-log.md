@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-09-25 — Fhenix review remediation
+
+- CoFHE 0.2 / FHERC20 0.4 migration: external inputs with batch proofs, shared
+  handles, distinct claim IDs, public score authorization and linked-library
+  deployment metadata. [Migration/adapter ownership](engineering/cofhe-v020-migration.md).
+- Completed minimums, swap/withdrawal budgets, verified-zero cooldowns, full-balance
+  dust exits and once-per-rank score pacing. [Policy and validation](engineering/fhenix-decrypt-pressure-remediation.md).
+  Custody, canonical handles, scoring and qualification are preserved.
+- Checkpoints passed 315, 323, then 345 tests; final coverage is 93.42% lines.
+  One new test's optimized timestamp assertion was corrected before the final
+  passing run. ABI/layout/hash/size/hygiene checks passed; existing proxy fields
+  and reserved end slots are preserved. Live CoFHE/consumer cutover remains pending.
+- Review cleanup restores 23 whitespace-only files to main, retains every test,
+  trims duplicate documentation and limits layout diffs to actual state changes.
+  CI formats changed Solidity files to avoid unrelated baseline churn; all other
+  validation gates remain in place. Cleanup revalidation passed all 345 tests,
+  artifact/layout/size checks and hygiene; coverage evidence remains `90297de`.
+
 ## 2026-09-01 — Fhenix reviewer documentation
 
 - Replaced the stale root README with a Stage 16 system map that distinguishes

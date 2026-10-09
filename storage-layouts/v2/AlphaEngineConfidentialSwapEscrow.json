@@ -96,7 +96,7 @@
           "label": "lockedAmount",
           "offset": 0,
           "slot": "2",
-          "type": "t_userDefinedValueType(euint64)25"
+          "type": "t_userDefinedValueType(euint64)19"
         },
         {
           "astId": 70729,
@@ -104,7 +104,7 @@
           "label": "unshieldRequestHandle",
           "offset": 0,
           "slot": "3",
-          "type": "t_userDefinedValueType(euint64)25"
+          "type": "t_userDefinedValueType(euint64)19"
         },
         {
           "astId": 70732,
@@ -113,16 +113,24 @@
           "offset": 0,
           "slot": "4",
           "type": "t_enum(SwapIntentLockStatus)70719"
+        },
+        {
+          "astId": 96697,
+          "contract": "src/swap/AlphaEngineConfidentialSwapEscrow.sol:AlphaEngineConfidentialSwapEscrow",
+          "label": "unshieldClaimId",
+          "offset": 0,
+          "slot": "5",
+          "type": "t_bytes32"
         }
       ],
-      "numberOfBytes": "160"
+      "numberOfBytes": "192"
     },
     "t_uint256": {
       "encoding": "inplace",
       "label": "uint256",
       "numberOfBytes": "32"
     },
-    "t_userDefinedValueType(euint64)25": {
+    "t_userDefinedValueType(euint64)19": {
       "encoding": "inplace",
       "label": "euint64",
       "numberOfBytes": "32"

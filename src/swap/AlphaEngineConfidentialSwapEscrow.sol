@@ -2,25 +2,36 @@
 pragma solidity 0.8.26;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {
+    AccessControlDefaultAdminRulesUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
-import {IFHERC20ERC20Wrapper} from
-    "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
+import {FHE, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    IFHERC20ERC20Wrapper
+} from "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
 import {IERC7984} from "fhenix-confidential-contracts/interfaces/IERC7984.sol";
-import {IAlphaEngineEncryptedUnshieldFHERC20Wrapper} from
-    "../interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
-import {IAlphaEngineConfidentialAssetRegistry} from
-    "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
-import {IAlphaEngineConfidentialSwapEscrow} from
-    "../interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
+import {
+    IAlphaEngineEncryptedUnshieldFHERC20Wrapper
+} from "../interfaces/IAlphaEngineEncryptedUnshieldFHERC20Wrapper.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
+import {
+    IAlphaEngineConfidentialSwapEscrow
+} from "../interfaces/IAlphaEngineConfidentialSwapEscrow.sol";
 import {IAlphaEngineSwapExecutor} from "../interfaces/IAlphaEngineSwapExecutor.sol";
+
+import {
+    ERC20ConfidentialLib
+} from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
 
 /// @title AlphaEngineConfidentialSwapEscrow
 /// @notice Temporary FHERC20 custody and settlement boundary for confidential swaps.
@@ -100,7 +111,8 @@ contract AlphaEngineConfidentialSwapEscrow is
         bytes32 indexed intentId,
         address indexed account,
         address indexed inputWrapper,
-        euint64 unshieldRequestHandle
+        euint64 unshieldRequestHandle,
+        bytes32 unshieldClaimId
     );
     event SwapIntentSettled(
         bytes32 indexed intentId,
@@ -247,8 +259,14 @@ contract AlphaEngineConfidentialSwapEscrow is
             revert SwapIntentLockAlreadyExists(intentId);
         }
 
-        lockedAmount =
-            IERC7984(wrapper).confidentialTransferFrom(account, address(this), requestedAmount);
+        lockedAmount = FHE.receiveEuint64FromCall(
+            IERC7984(wrapper)
+                .confidentialTransferFrom(
+                    account, address(this), FHE.shareEuint64(requestedAmount, wrapper)
+                ),
+            wrapper
+        );
+        FHE.allowThis(lockedAmount);
         if (euint64.unwrap(lockedAmount) == bytes32(0)) {
             revert UninitializedEncryptedAmount();
         }
@@ -258,7 +276,8 @@ contract AlphaEngineConfidentialSwapEscrow is
             wrapper: wrapper,
             lockedAmount: lockedAmount,
             unshieldRequestHandle: euint64.wrap(bytes32(0)),
-            status: SwapIntentLockStatus.Locked
+            status: SwapIntentLockStatus.Locked,
+            unshieldClaimId: bytes32(0)
         });
         liveSwapLockCount += 1;
 
@@ -399,11 +418,14 @@ contract AlphaEngineConfidentialSwapEscrow is
     ) private {
         IERC20 inputToken = IERC20(inputUnderlying);
         uint256 balanceBefore = inputToken.balanceOf(address(this));
-        bytes32 requestId = euint64.unwrap(intentLock.unshieldRequestHandle);
-        IAlphaEngineEncryptedUnshieldFHERC20Wrapper.UnshieldClaim memory claim =
+        bytes32 requestId = intentLock.unshieldClaimId;
+        ERC20ConfidentialLib.Claim memory claim =
             IAlphaEngineEncryptedUnshieldFHERC20Wrapper(intentLock.wrapper).getClaim(requestId);
 
-        if (claim.to != address(this) || claim.ctHash != requestId) {
+        if (
+            claim.id != requestId || claim.to != address(this)
+                || claim.ctHash != euint64.unwrap(intentLock.unshieldRequestHandle)
+        ) {
             revert InvalidUnshieldClaim(
                 requestId, address(this), claim.to, decryptedInputAmount, claim.decryptedAmount
             );
@@ -423,9 +445,8 @@ contract AlphaEngineConfidentialSwapEscrow is
             return;
         }
 
-        IFHERC20ERC20Wrapper(intentLock.wrapper).claimUnshielded(
-            requestId, decryptedInputAmount, decryptionProof
-        );
+        IFHERC20ERC20Wrapper(intentLock.wrapper)
+            .claimUnshielded(requestId, decryptedInputAmount, decryptionProof);
 
         uint256 balanceAfter = inputToken.balanceOf(address(this));
         uint256 actualUnderlyingAmount =
@@ -448,18 +469,20 @@ contract AlphaEngineConfidentialSwapEscrow is
         IERC20 outputToken = IERC20(outputUnderlying);
         uint256 outputBalanceBefore = outputToken.balanceOf(address(this));
 
-        outputUnderlyingAmount = IAlphaEngineSwapExecutor(executor).executeExactInput(
-            inputUnderlying,
-            outputUnderlying,
-            inputAmount,
-            minOutputAmount,
-            address(this),
-            executionData
-        );
+        outputUnderlyingAmount = IAlphaEngineSwapExecutor(executor)
+            .executeExactInput(
+                inputUnderlying,
+                outputUnderlying,
+                inputAmount,
+                minOutputAmount,
+                address(this),
+                executionData
+            );
 
         uint256 outputBalanceAfter = outputToken.balanceOf(address(this));
-        uint256 actualOutputUnderlyingAmount =
-            outputBalanceAfter >= outputBalanceBefore ? outputBalanceAfter - outputBalanceBefore : 0;
+        uint256 actualOutputUnderlyingAmount = outputBalanceAfter >= outputBalanceBefore
+            ? outputBalanceAfter - outputBalanceBefore
+            : 0;
         if (actualOutputUnderlyingAmount != outputUnderlyingAmount) {
             revert UnexpectedSettlementOutputAmount(
                 outputUnderlying, outputUnderlyingAmount, actualOutputUnderlyingAmount
@@ -473,18 +496,35 @@ contract AlphaEngineConfidentialSwapEscrow is
     function _requestSwapIntentUnshield(bytes32 intentId, SwapIntentLock storage intentLock)
         private
     {
-        euint64 unshieldRequestHandle = IAlphaEngineEncryptedUnshieldFHERC20Wrapper(
-            intentLock.wrapper
-        ).unshield(address(this), address(this), intentLock.lockedAmount);
+        address wrapper = intentLock.wrapper;
+        euint64 unshieldRequestHandle = FHE.receiveEuint64FromCall(
+            IFHERC20ERC20Wrapper(wrapper)
+                .unshield(
+                    address(this), address(this), FHE.shareEuint64(intentLock.lockedAmount, wrapper)
+                ),
+            wrapper
+        );
+        FHE.allowThis(unshieldRequestHandle);
+        bytes32 claimId = IAlphaEngineEncryptedUnshieldFHERC20Wrapper(wrapper)
+            .latestUnshieldClaimId(address(this));
+        ERC20ConfidentialLib.Claim memory claim =
+            IAlphaEngineEncryptedUnshieldFHERC20Wrapper(wrapper).getClaim(claimId);
+        if (
+            claimId == bytes32(0) || claim.id != claimId || claim.to != address(this)
+                || claim.ctHash != euint64.unwrap(unshieldRequestHandle) || claim.claimed
+        ) {
+            revert InvalidUnshieldClaim(claimId, address(this), claim.to, 0, claim.decryptedAmount);
+        }
         if (euint64.unwrap(unshieldRequestHandle) == bytes32(0)) {
             revert UninitializedEncryptedAmount();
         }
 
         intentLock.unshieldRequestHandle = unshieldRequestHandle;
+        intentLock.unshieldClaimId = claimId;
         intentLock.status = SwapIntentLockStatus.UnshieldRequested;
 
         emit SwapIntentUnshieldRequested(
-            intentId, intentLock.account, intentLock.wrapper, unshieldRequestHandle
+            intentId, intentLock.account, intentLock.wrapper, unshieldRequestHandle, claimId
         );
     }
 
@@ -521,7 +561,10 @@ contract AlphaEngineConfidentialSwapEscrow is
 
         if (shieldableAmount != 0) {
             outputToken.forceApprove(outputWrapper, shieldableAmount);
-            shieldedAmount = IFHERC20ERC20Wrapper(outputWrapper).shield(recipient, shieldableAmount);
+            shieldedAmount = FHE.receiveEuint64FromCall(
+                IFHERC20ERC20Wrapper(outputWrapper).shield(recipient, shieldableAmount),
+                outputWrapper
+            );
             outputToken.forceApprove(outputWrapper, 0);
         }
         if (dustAmount != 0) {

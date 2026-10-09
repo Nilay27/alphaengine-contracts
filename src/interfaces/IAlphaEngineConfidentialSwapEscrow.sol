@@ -20,6 +20,7 @@ interface IAlphaEngineConfidentialSwapEscrow {
         euint64 lockedAmount;
         euint64 unshieldRequestHandle;
         SwapIntentLockStatus status;
+        bytes32 unshieldClaimId;
     }
 
     function swapController() external view returns (address);

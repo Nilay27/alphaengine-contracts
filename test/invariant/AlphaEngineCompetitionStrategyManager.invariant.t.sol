@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {AlphaEngineCompetitionStrategyManager} from
-    "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
-import {CompetitionManagerInvariantHandler} from
-    "test/handlers/CompetitionManagerInvariantHandler.sol";
+import {
+    AlphaEngineCompetitionStrategyManager
+} from "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    CompetitionManagerInvariantHandler
+} from "test/handlers/CompetitionManagerInvariantHandler.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 
 contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, MockCoFheTest {
@@ -75,6 +79,10 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         assertEq(competition.activeSubmissionCount, handler.trackedActiveSubmissionCount());
         assertEq(competition.evaluatedCount, handler.trackedEvaluatedCount());
         assertEq(competition.publishedQualificationCount, handler.trackedPublishedCount());
+        assertEq(manager.scoreRevealedThrough(competitionId), handler.trackedRevealedThrough());
+        if (handler.successfulRevealBatches() != 0) {
+            assertEq(manager.nextScoreRevealAt(), uint256(handler.lastRevealAt()) + 5);
+        }
         assertLe(competition.activeSubmissionCount, manager.MAX_ACTIVE_SUBMISSIONS());
         assertLe(competition.evaluatedCount, competition.activeSubmissionCount);
         assertLe(competition.publishedQualificationCount, competition.qualificationSlots);
@@ -164,12 +172,14 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
             AlphaEngineCompetitionStrategyManager.EvaluationRecord memory evaluation =
                 manager.getEvaluation(submissionId);
             uint256 realSisterRequests =
-                taskManager.decryptRequestCount(uint256(evaluation.realSisterScoreHandle));
+                taskManager.publicAllowCount(uint256(evaluation.realSisterScoreHandle));
             uint256 perturbationRequests =
-                taskManager.decryptRequestCount(uint256(evaluation.perturbationP25ScoreHandle));
+                taskManager.publicAllowCount(uint256(evaluation.perturbationP25ScoreHandle));
             uint256 stressRequests =
-                taskManager.decryptRequestCount(uint256(evaluation.stressP25ScoreHandle));
+                taskManager.publicAllowCount(uint256(evaluation.stressP25ScoreHandle));
 
+            assertLe(realSisterRequests, 1);
+            assertEq(realSisterRequests, state.rank <= handler.trackedRevealedThrough() ? 1 : 0);
             assertEq(realSisterRequests, perturbationRequests);
             assertEq(realSisterRequests, stressRequests);
             if (realSisterRequests > 0) {
@@ -178,7 +188,7 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
                     uint8(AlphaEngineCompetitionStrategyManager.CompetitionStatus.Finalized)
                 );
                 assertEq(
-                    taskManager.lastDecryptRequestor(uint256(evaluation.realSisterScoreHandle)),
+                    taskManager.lastPublicAllower(uint256(evaluation.realSisterScoreHandle)),
                     address(manager)
                 );
             }
@@ -202,12 +212,12 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         AlphaEngineCompetitionStrategyManager implementation =
             new AlphaEngineCompetitionStrategyManager();
         AlphaEngineCompetitionStrategyManager.InitializationParams memory params =
-        AlphaEngineCompetitionStrategyManager.InitializationParams({
-            initialDefaultAdmin: admin,
-            initialPauser: pauser,
-            initialFheOperator: operator,
-            qualificationRegistry: address(registry)
-        });
+            AlphaEngineCompetitionStrategyManager.InitializationParams({
+                initialDefaultAdmin: admin,
+                initialPauser: pauser,
+                initialFheOperator: operator,
+                qualificationRegistry: address(registry)
+            });
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
             admin,

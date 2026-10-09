@@ -163,6 +163,19 @@
     },
     {
       "inputs": [],
+      "name": "SCORE_REVEAL_INTERVAL",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "acceptDefaultAdminTransfer",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -826,6 +839,19 @@
     },
     {
       "inputs": [],
+      "name": "nextScoreRevealAt",
+      "outputs": [
+        {
+          "internalType": "uint40",
+          "name": "",
+          "type": "uint40"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "owner",
       "outputs": [
         {
@@ -935,85 +961,24 @@
         {
           "components": [
             {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "ctHash",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "securityZone",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "utype",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "signature",
-                  "type": "bytes"
-                }
-              ],
-              "internalType": "struct InEuint32",
+              "internalType": "externalEuint32",
               "name": "realSisterScore",
-              "type": "tuple"
+              "type": "bytes32"
             },
             {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "ctHash",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "securityZone",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "utype",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "signature",
-                  "type": "bytes"
-                }
-              ],
-              "internalType": "struct InEuint32",
+              "internalType": "externalEuint32",
               "name": "perturbationP25Score",
-              "type": "tuple"
+              "type": "bytes32"
             },
             {
-              "components": [
-                {
-                  "internalType": "uint256",
-                  "name": "ctHash",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "securityZone",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "uint8",
-                  "name": "utype",
-                  "type": "uint8"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "signature",
-                  "type": "bytes"
-                }
-              ],
-              "internalType": "struct InEuint32",
+              "internalType": "externalEuint32",
               "name": "stressP25Score",
-              "type": "tuple"
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes",
+              "name": "inputProof",
+              "type": "bytes"
             }
           ],
           "internalType": "struct AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission",
@@ -1119,6 +1084,25 @@
           "internalType": "bytes32",
           "name": "competitionId",
           "type": "bytes32"
+        }
+      ],
+      "name": "scoreRevealedThrough",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "rank",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
         },
         {
           "internalType": "uint16",
@@ -1145,63 +1129,24 @@
           "type": "bytes32"
         },
         {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "ctHash",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint8",
-              "name": "securityZone",
-              "type": "uint8"
-            },
-            {
-              "internalType": "uint8",
-              "name": "utype",
-              "type": "uint8"
-            },
-            {
-              "internalType": "bytes",
-              "name": "signature",
-              "type": "bytes"
-            }
-          ],
-          "internalType": "struct InEuint128",
-          "name": "encryptedMarketId",
-          "type": "tuple"
-        },
-        {
           "internalType": "bytes32",
           "name": "timeframeKey",
           "type": "bytes32"
         },
         {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "ctHash",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint8",
-              "name": "securityZone",
-              "type": "uint8"
-            },
-            {
-              "internalType": "uint8",
-              "name": "utype",
-              "type": "uint8"
-            },
-            {
-              "internalType": "bytes",
-              "name": "signature",
-              "type": "bytes"
-            }
-          ],
-          "internalType": "struct InEuint128[]",
+          "internalType": "externalEuint128",
+          "name": "encryptedMarketId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "externalEuint128[]",
           "name": "encryptedComponents",
-          "type": "tuple[]"
+          "type": "bytes32[]"
+        },
+        {
+          "internalType": "bytes",
+          "name": "inputProof",
+          "type": "bytes"
         }
       ],
       "name": "submitCompetitionStrategy",
@@ -2134,22 +2079,6 @@
       "type": "error"
     },
     {
-      "inputs": [
-        {
-          "internalType": "uint8",
-          "name": "got",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "expected",
-          "type": "uint8"
-        }
-      ],
-      "name": "InvalidEncryptedInput",
-      "type": "error"
-    },
-    {
       "inputs": [],
       "name": "InvalidInitialization",
       "type": "error"
@@ -2301,6 +2230,38 @@
         }
       ],
       "name": "SafeCastOverflowedUintDowncast",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "supplied",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "expected",
+          "type": "uint16"
+        }
+      ],
+      "name": "ScoreRevealCursorMismatch",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "nextAvailableAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "ScoreRevealNotAvailable",
       "type": "error"
     },
     {

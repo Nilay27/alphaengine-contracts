@@ -93,7 +93,9 @@ contract GenerateAlphaEngineManageRoot is Script {
         PolicyMetadata memory metadata,
         LabeledManageLeafV1[] memory definitions
     ) public returns (bytes32 root) {
-        if (bytes(outputPath).length == 0) revert EmptyOutputPath();
+        if (bytes(outputPath).length == 0) {
+            revert EmptyOutputPath();
+        }
         GeneratedPolicy memory policy = _generatePolicy(metadata, definitions);
         vm.writeJson(renderPolicyArtifact(policy), outputPath);
         root = policy.root;
@@ -128,7 +130,9 @@ contract GenerateAlphaEngineManageRoot is Script {
                 decoderCodeHash: keccak256(bytes(string.concat("reference-decoder-code-", index))),
                 target: targets[i],
                 targetCodeHash: keccak256(bytes(string.concat("reference-target-code-", index))),
-                selector: bytes4(keccak256(bytes(string.concat("referenceAction", index, "(address)")))),
+                selector: bytes4(
+                    keccak256(bytes(string.concat("referenceAction", index, "(address)")))
+                ),
                 maxNativeValue: 0,
                 sanitizedArguments: abi.encode(argumentAddresses[i])
             });

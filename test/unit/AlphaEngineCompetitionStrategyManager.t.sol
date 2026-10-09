@@ -2,18 +2,23 @@
 pragma solidity 0.8.26;
 
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {externalEuint32, externalEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 import {Utils} from "@fhenixprotocol/cofhe-contracts/ICofhe.sol";
 import {AlphaEngineStrategyHashLib} from "src/libraries/AlphaEngineStrategyHashLib.sol";
-import {AlphaEngineCompetitionStrategyManager} from
-    "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineCompetitionStrategyManager
+} from "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {MockCoFheTaskManager} from "test/mocks/MockCoFheTaskManager.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 
 contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
@@ -252,15 +257,20 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
 
     function test_submitStoresCanonicalHandlesPermissionsPayloadAndNonce() public {
         bytes32 competitionId = _createCompetition(2);
-        InEuint128 memory market = createInEuint128(7, trader);
-        InEuint128[] memory components = _components(trader, 100, 200);
+        externalEuint128 market = createExternalEuint128(7, trader);
+        externalEuint128[] memory components = _components(trader, 100, 200);
         bytes32 expectedSubmissionId = AlphaEngineStrategyHashLib.hashCompetitionSubmissionId(
             block.chainid, address(manager), competitionId, trader, 0
         );
 
         vm.prank(trader);
-        bytes32 submissionId =
-            manager.submitCompetitionStrategy(competitionId, market, TIMEFRAME_KEY, components);
+        bytes32 submissionId = manager.submitCompetitionStrategy(
+            competitionId,
+            TIMEFRAME_KEY,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
+        );
 
         assertEq(submissionId, expectedSubmissionId);
         assertEq(manager.traderNonces(trader), 1);
@@ -273,10 +283,10 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         bytes32[] memory handles = manager.getSubmissionComponents(submissionId);
         assertEq(identity.trader, trader);
         assertEq(identity.operatorAtSubmission, fheOperator);
-        assertEq(identity.marketIdHandle, bytes32(market.ctHash));
+        assertEq(identity.marketIdHandle, externalEuint128.unwrap(market));
         assertEq(state.componentCount, 2);
-        assertEq(handles[0], bytes32(components[0].ctHash));
-        assertEq(handles[1], bytes32(components[1].ctHash));
+        assertEq(handles[0], externalEuint128.unwrap(components[0]));
+        assertEq(handles[1], externalEuint128.unwrap(components[1]));
 
         bytes32 expectedPayloadHash = AlphaEngineStrategyHashLib.hashCompetitionPayload(
             AlphaEngineStrategyHashLib.CompetitionPayloadV1({
@@ -286,7 +296,7 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
                 competitionId: competitionId,
                 trader: trader,
                 traderNonce: 0,
-                marketIdHandle: bytes32(market.ctHash),
+                marketIdHandle: externalEuint128.unwrap(market),
                 timeframeKey: TIMEFRAME_KEY,
                 evaluationDeadline: manager.getCompetition(competitionId).evaluationDeadline,
                 componentsHash: AlphaEngineStrategyHashLib.hashComponents(handles)
@@ -294,10 +304,82 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         );
         assertEq(identity.payloadHash, expectedPayloadHash);
 
-        assertTrue(taskManager.isAllowed(market.ctHash, address(manager)));
-        assertTrue(taskManager.isAllowed(market.ctHash, fheOperator));
-        assertTrue(taskManager.isAllowed(components[0].ctHash, address(manager)));
-        assertTrue(taskManager.isAllowed(components[0].ctHash, fheOperator));
+        assertTrue(
+            taskManager.isAllowed(uint256(externalEuint128.unwrap(market)), address(manager))
+        );
+        assertTrue(taskManager.isAllowed(uint256(externalEuint128.unwrap(market)), fheOperator));
+        assertTrue(
+            taskManager.isAllowed(uint256(externalEuint128.unwrap(components[0])), address(manager))
+        );
+        assertTrue(
+            taskManager.isAllowed(uint256(externalEuint128.unwrap(components[0])), fheOperator)
+        );
+    }
+
+    function test_maximumSubmissionUsesOneBatchAndScoresUseOneBatch() public {
+        bytes32 competitionId = _createCompetition(1);
+        externalEuint128 market = createExternalEuint128(7, trader);
+        externalEuint128[] memory components = new externalEuint128[](16);
+        for (uint256 i; i < 16; ++i) {
+            components[i] = createExternalEuint128(uint128(i + 1), trader);
+        }
+        vm.recordLogs();
+        vm.prank(trader);
+        bytes32 submissionId = manager.submitCompetitionStrategy(
+            competitionId,
+            TIMEFRAME_KEY,
+            market,
+            components,
+            _strategyProof(address(manager), market, components)
+        );
+        assertEq(taskManager.batchVerificationCount(), 1);
+        assertEq(taskManager.lastBatchSize(), 17);
+        assertEq(manager.getSubmissionComponents(submissionId).length, 16);
+        assertGt(vm.getRecordedLogs().length, 0);
+
+        _beginEvaluation(competitionId);
+        AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission memory scores =
+            _scores(90, 80, 70);
+        vm.prank(evaluator);
+        manager.recordEvaluation(submissionId, scores, 1, EVIDENCE_HASH);
+        assertEq(taskManager.batchVerificationCount(), 2);
+        assertEq(taskManager.lastBatchSize(), 3);
+        assertFalse(
+            taskManager.isPubliclyAllowed(uint256(externalEuint32.unwrap(scores.realSisterScore)))
+        );
+    }
+
+    function test_batchProofRejectsWrongConsumerOrderAndChainWithoutPartialState() public {
+        bytes32 competitionId = _createCompetition(1);
+        externalEuint128 market = createExternalEuint128(7, trader);
+        externalEuint128[] memory components = _components(trader, 100, 200);
+        bytes memory wrongConsumerProof =
+            _strategyProof(address(implementation), market, components);
+        vm.prank(trader);
+        vm.expectPartialRevert(MockCoFheTaskManager.InvalidSigner.selector);
+        manager.submitCompetitionStrategy(
+            competitionId, TIMEFRAME_KEY, market, components, wrongConsumerProof
+        );
+
+        bytes memory proof = _strategyProof(address(manager), market, components);
+        (components[0], components[1]) = (components[1], components[0]);
+        vm.prank(trader);
+        vm.expectPartialRevert(MockCoFheTaskManager.InvalidSigner.selector);
+        manager.submitCompetitionStrategy(competitionId, TIMEFRAME_KEY, market, components, proof);
+        (components[0], components[1]) = (components[1], components[0]);
+
+        uint256 originalChainId = block.chainid;
+        vm.chainId(originalChainId + 1);
+        vm.prank(trader);
+        vm.expectPartialRevert(MockCoFheTaskManager.InvalidSigner.selector);
+        manager.submitCompetitionStrategy(competitionId, TIMEFRAME_KEY, market, components, proof);
+        vm.chainId(originalChainId);
+        assertEq(manager.traderNonces(trader), 0);
+        assertEq(manager.activeSubmissionByTrader(competitionId, trader), bytes32(0));
+        assertEq(taskManager.batchVerificationCount(), 0);
+        assertFalse(
+            taskManager.isAllowed(uint256(externalEuint128.unwrap(market)), address(manager))
+        );
     }
 
     function test_cancelWhilePausedClearsActiveSlotAndAllowsFreshNonce() public {
@@ -327,8 +409,8 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
     function test_duplicateActiveSubmissionAndInvalidSubmissionInputsRevert() public {
         bytes32 competitionId = _createCompetition(1);
         bytes32 submissionId = _submit(competitionId, trader, 1, 10);
-        InEuint128 memory duplicateMarket = createInEuint128(2, trader);
-        InEuint128[] memory duplicateComponents = _components(trader, 20, 30);
+        externalEuint128 duplicateMarket = createExternalEuint128(2, trader);
+        externalEuint128[] memory duplicateComponents = _components(trader, 20, 30);
 
         vm.prank(trader);
         vm.expectRevert(
@@ -340,37 +422,48 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
             )
         );
         manager.submitCompetitionStrategy(
-            competitionId, duplicateMarket, TIMEFRAME_KEY, duplicateComponents
+            competitionId,
+            TIMEFRAME_KEY,
+            duplicateMarket,
+            duplicateComponents,
+            _strategyProof(address(manager), duplicateMarket, duplicateComponents)
         );
 
-        InEuint128 memory secondMarket = createInEuint128(2, secondTrader);
-        InEuint128[] memory secondComponents = _components(secondTrader, 20, 30);
+        externalEuint128 secondMarket = createExternalEuint128(2, secondTrader);
+        externalEuint128[] memory secondComponents = _components(secondTrader, 20, 30);
         vm.prank(secondTrader);
         vm.expectRevert(AlphaEngineCompetitionStrategyManager.ZeroTimeframeKey.selector);
-        manager.submitCompetitionStrategy(competitionId, secondMarket, bytes32(0), secondComponents);
+        manager.submitCompetitionStrategy(
+            competitionId,
+            bytes32(0),
+            secondMarket,
+            secondComponents,
+            _strategyProof(address(manager), secondMarket, secondComponents)
+        );
 
-        InEuint128[] memory noComponents = new InEuint128[](0);
-        InEuint128 memory thirdMarket = createInEuint128(3, secondTrader);
+        externalEuint128[] memory noComponents = new externalEuint128[](0);
+        externalEuint128 thirdMarket = createExternalEuint128(3, secondTrader);
         vm.prank(secondTrader);
         vm.expectRevert(
             abi.encodeWithSelector(
                 AlphaEngineCompetitionStrategyManager.InvalidComponentCount.selector, 0
             )
         );
-        manager.submitCompetitionStrategy(competitionId, thirdMarket, TIMEFRAME_KEY, noComponents);
+        manager.submitCompetitionStrategy(
+            competitionId,
+            TIMEFRAME_KEY,
+            thirdMarket,
+            noComponents,
+            _strategyProof(address(manager), thirdMarket, noComponents)
+        );
     }
 
     function test_zeroCanonicalHandleFailsLoudly() public {
         bytes32 competitionId = _createCompetition(1);
-        bytes memory signature = abi.encode(trader, uint128(7), uint256(0));
-        taskManager.registerInput(0, trader, 0, Utils.EUINT128_TFHE, 7, signature);
-        InEuint128 memory zeroHandleInput = InEuint128({
-            ctHash: 0,
-            securityZone: 0,
-            utype: Utils.EUINT128_TFHE,
-            signature: signature
-        });
-        InEuint128[] memory components = _components(trader, 1, 2);
+        taskManager.registerInput(0, trader, 0, Utils.EUINT128_TFHE, 7);
+        _inputSenders[bytes32(0)] = trader;
+        externalEuint128 zeroHandleInput = externalEuint128.wrap(bytes32(0));
+        externalEuint128[] memory components = _components(trader, 1, 2);
 
         vm.prank(trader);
         vm.expectRevert(
@@ -380,7 +473,13 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
                 0
             )
         );
-        manager.submitCompetitionStrategy(competitionId, zeroHandleInput, TIMEFRAME_KEY, components);
+        manager.submitCompetitionStrategy(
+            competitionId,
+            TIMEFRAME_KEY,
+            zeroHandleInput,
+            components,
+            _strategyProof(address(manager), zeroHandleInput, components)
+        );
     }
 
     function test_evaluationLifecycleStoresScoresPermissionsAndUniqueRank() public {
@@ -396,9 +495,9 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
             competitionId,
             trader,
             1,
-            bytes32(scores.realSisterScore.ctHash),
-            bytes32(scores.perturbationP25Score.ctHash),
-            bytes32(scores.stressP25Score.ctHash),
+            externalEuint32.unwrap(scores.realSisterScore),
+            externalEuint32.unwrap(scores.perturbationP25Score),
+            externalEuint32.unwrap(scores.stressP25Score),
             EVIDENCE_HASH
         );
         vm.prank(evaluator);
@@ -406,11 +505,17 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
 
         AlphaEngineCompetitionStrategyManager.EvaluationRecord memory evaluation =
             manager.getEvaluation(submissionId);
-        assertEq(evaluation.realSisterScoreHandle, bytes32(scores.realSisterScore.ctHash));
+        assertEq(evaluation.realSisterScoreHandle, externalEuint32.unwrap(scores.realSisterScore));
         assertEq(evaluation.evidenceHash, EVIDENCE_HASH);
         assertEq(manager.submissionByRank(competitionId, 1), submissionId);
-        assertTrue(taskManager.isAllowed(scores.realSisterScore.ctHash, address(manager)));
-        assertTrue(taskManager.isAllowed(scores.realSisterScore.ctHash, trader));
+        assertTrue(
+            taskManager.isAllowed(
+                uint256(externalEuint32.unwrap(scores.realSisterScore)), address(manager)
+            )
+        );
+        assertTrue(
+            taskManager.isAllowed(uint256(externalEuint32.unwrap(scores.realSisterScore)), trader)
+        );
     }
 
     function test_rankMustBeBoundedUniqueAndEvaluationOneShot() public {
@@ -481,6 +586,151 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         manager.finalizeCompetition(competitionId);
     }
 
+    function test_scoreRevealPacingIsGlobalAndQualificationDoesNotWait() public {
+        bytes32 firstCompetition = _createCompetition(1);
+        bytes32 secondCompetition = _createCompetition(1);
+        bytes32 first = _submit(firstCompetition, trader, 1, 10);
+        bytes32 second = _submit(secondCompetition, secondTrader, 2, 20);
+        _beginEvaluation(firstCompetition);
+        _beginEvaluation(secondCompetition);
+        _evaluate(first, 1, 100);
+        _evaluate(second, 1, 200);
+        vm.startPrank(finalizer);
+        manager.finalizeCompetition(firstCompetition);
+        manager.finalizeCompetition(secondCompetition);
+        vm.stopPrank();
+        vm.prank(qualifier);
+        manager.publishTraderQualification(second);
+        assertTrue(manager.getSubmissionState(second).qualificationPublished);
+        assertEq(manager.scoreRevealedThrough(secondCompetition), 0);
+        vm.prank(scoreRevealer);
+        manager.requestCompetitionScoreReveal(firstCompetition, 1, 1);
+        uint40 available = manager.nextScoreRevealAt();
+        assertEq(available, block.timestamp + 5 seconds);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
+                firstCompetition,
+                1,
+                2
+            )
+        );
+        manager.requestCompetitionScoreReveal(firstCompetition, 1, 1);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealNotAvailable.selector, available
+            )
+        );
+        manager.requestCompetitionScoreReveal(secondCompetition, 1, 1);
+        assertEq(manager.scoreRevealedThrough(secondCompetition), 0);
+        vm.warp(available - 1);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealNotAvailable.selector, available
+            )
+        );
+        manager.requestCompetitionScoreReveal(secondCompetition, 1, 1);
+        vm.warp(available);
+        vm.prank(scoreRevealer);
+        manager.requestCompetitionScoreReveal(secondCompetition, 1, 1);
+        assertEq(manager.scoreRevealedThrough(secondCompetition), 1);
+    }
+
+    function test_fullCompetitionRevealsEachScoreOnceIn32PacedBatches() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32[] memory submissions = new bytes32[](256);
+        for (uint16 i; i < 256; ++i) {
+            submissions[i] = _submit(
+                competitionId, address(uint160(0x7000 + i)), uint128(i + 1), uint128(i + 10)
+            );
+        }
+        _beginEvaluation(competitionId);
+        for (uint16 i; i < 256; ++i) {
+            _evaluate(submissions[i], i + 1, uint32(i + 100));
+        }
+        vm.prank(finalizer);
+        manager.finalizeCompetition(competitionId);
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
+                competitionId,
+                2,
+                1
+            )
+        );
+        manager.requestCompetitionScoreReveal(competitionId, 2, 8);
+        uint256 firstAt = vm.getBlockTimestamp();
+        for (uint16 start = 1; start <= 256; start += 8) {
+            if (block.timestamp < manager.nextScoreRevealAt()) {
+                vm.warp(manager.nextScoreRevealAt());
+            }
+            vm.prank(scoreRevealer);
+            (uint16 next, uint16 count) =
+                manager.requestCompetitionScoreReveal(competitionId, start, 8);
+            assertEq(next, start + 8);
+            assertEq(count, 8);
+            assertEq(manager.scoreRevealedThrough(competitionId), next - 1);
+        }
+        assertEq(vm.getBlockTimestamp() - firstAt, 155);
+        for (uint16 i; i < 256; ++i) {
+            AlphaEngineCompetitionStrategyManager.EvaluationRecord memory evaluation =
+                manager.getEvaluation(submissions[i]);
+            assertEq(taskManager.publicAllowCount(uint256(evaluation.realSisterScoreHandle)), 1);
+            assertEq(
+                taskManager.publicAllowCount(uint256(evaluation.perturbationP25ScoreHandle)), 1
+            );
+            assertEq(taskManager.publicAllowCount(uint256(evaluation.stressP25ScoreHandle)), 1);
+        }
+        vm.prank(scoreRevealer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
+                competitionId,
+                1,
+                257
+            )
+        );
+        manager.requestCompetitionScoreReveal(competitionId, 1, 8);
+    }
+
+    function test_failedRevealRollsBackCursorPacingAndEarlierGrants() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 submission = _submit(competitionId, trader, 1, 10);
+        _beginEvaluation(competitionId);
+        _evaluate(submission, 1, 100);
+        vm.prank(finalizer);
+        manager.finalizeCompetition(competitionId);
+        AlphaEngineCompetitionStrategyManager.EvaluationRecord memory evaluation =
+            manager.getEvaluation(submission);
+        bytes memory failure = abi.encodeWithSignature(
+            "SenderNotAllowed(uint256,address)",
+            uint256(evaluation.stressP25ScoreHandle),
+            address(manager)
+        );
+        vm.mockCallRevert(
+            address(taskManager),
+            abi.encodeWithSelector(
+                taskManager.allowGlobal.selector, uint256(evaluation.stressP25ScoreHandle)
+            ),
+            failure
+        );
+        vm.prank(scoreRevealer);
+        vm.expectRevert(failure);
+        manager.requestCompetitionScoreReveal(competitionId, 1, 1);
+        assertEq(manager.scoreRevealedThrough(competitionId), 0);
+        assertEq(manager.nextScoreRevealAt(), 0);
+        assertEq(taskManager.publicAllowCount(uint256(evaluation.realSisterScoreHandle)), 0);
+        assertEq(taskManager.publicAllowCount(uint256(evaluation.perturbationP25ScoreHandle)), 0);
+        vm.clearMockedCalls();
+        vm.prank(scoreRevealer);
+        manager.requestCompetitionScoreReveal(competitionId, 1, 1);
+        assertEq(manager.scoreRevealedThrough(competitionId), 1);
+    }
+
     function test_scoreRevealRequestsAsyncDecryptionsAndExposesPublishedResults() public {
         bytes32 competitionId = _createCompetition(1);
         bytes32 submissionId = _submit(competitionId, trader, 1, 10);
@@ -498,21 +748,38 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
             submissionId,
             trader,
             1,
-            bytes32(encryptedScores.realSisterScore.ctHash),
-            bytes32(encryptedScores.perturbationP25Score.ctHash),
-            bytes32(encryptedScores.stressP25Score.ctHash)
+            externalEuint32.unwrap(encryptedScores.realSisterScore),
+            externalEuint32.unwrap(encryptedScores.perturbationP25Score),
+            externalEuint32.unwrap(encryptedScores.stressP25Score)
         );
         vm.prank(scoreRevealer);
         (uint16 nextRank, uint16 requestedCount) =
-            manager.requestCompetitionScoreReveal(competitionId, 1, 32);
+            manager.requestCompetitionScoreReveal(competitionId, 1, 8);
 
         assertEq(nextRank, 2);
         assertEq(requestedCount, 1);
-        assertEq(taskManager.decryptRequestCount(encryptedScores.realSisterScore.ctHash), 1);
-        assertEq(taskManager.decryptRequestCount(encryptedScores.perturbationP25Score.ctHash), 1);
-        assertEq(taskManager.decryptRequestCount(encryptedScores.stressP25Score.ctHash), 1);
         assertEq(
-            taskManager.lastDecryptRequestor(encryptedScores.realSisterScore.ctHash),
+            taskManager.publicAllowCount(
+                uint256(externalEuint32.unwrap(encryptedScores.realSisterScore))
+            ),
+            1
+        );
+        assertEq(
+            taskManager.publicAllowCount(
+                uint256(externalEuint32.unwrap(encryptedScores.perturbationP25Score))
+            ),
+            1
+        );
+        assertEq(
+            taskManager.publicAllowCount(
+                uint256(externalEuint32.unwrap(encryptedScores.stressP25Score))
+            ),
+            1
+        );
+        assertEq(
+            taskManager.lastPublicAllower(
+                uint256(externalEuint32.unwrap(encryptedScores.realSisterScore))
+            ),
             address(manager)
         );
 
@@ -522,7 +789,9 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         assertFalse(pendingScores.perturbationP25ScoreReady);
         assertFalse(pendingScores.stressP25ScoreReady);
 
-        taskManager.publishDecryptResult(encryptedScores.realSisterScore.ctHash, 115, "");
+        taskManager.publishDecryptResult(
+            uint256(externalEuint32.unwrap(encryptedScores.realSisterScore)), 115, ""
+        );
         AlphaEngineCompetitionStrategyManager.PublicEvaluationScores memory partialScores =
             manager.getPublicEvaluationScores(submissionId);
         assertEq(partialScores.realSisterScore, 115);
@@ -531,8 +800,8 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         assertFalse(partialScores.stressP25ScoreReady);
 
         uint256[] memory handles = new uint256[](2);
-        handles[0] = encryptedScores.perturbationP25Score.ctHash;
-        handles[1] = encryptedScores.stressP25Score.ctHash;
+        handles[0] = uint256(externalEuint32.unwrap(encryptedScores.perturbationP25Score));
+        handles[1] = uint256(externalEuint32.unwrap(encryptedScores.stressP25Score));
         uint256[] memory plaintextScores = new uint256[](2);
         plaintextScores[0] = 82;
         plaintextScores[1] = 74;
@@ -609,17 +878,17 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 0, 32
+                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 0, 8
             )
         );
         manager.requestCompetitionScoreReveal(competitionId, 1, 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 33, 32
+                AlphaEngineCompetitionStrategyManager.InvalidScoreRevealBatchSize.selector, 9, 8
             )
         );
-        manager.requestCompetitionScoreReveal(competitionId, 1, 33);
+        manager.requestCompetitionScoreReveal(competitionId, 1, 9);
         vm.stopPrank();
 
         bytes32 secondCompetitionId = _createCompetition(1);
@@ -664,15 +933,31 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
             manager.requestCompetitionScoreReveal(competitionId, 1, 1);
         assertEq(nextRank, 2);
         assertEq(requestedCount, 1);
-        assertEq(taskManager.decryptRequestCount(firstRankScores.realSisterScore.ctHash), 1);
-        assertEq(taskManager.decryptRequestCount(secondRankScores.realSisterScore.ctHash), 0);
+        assertEq(
+            taskManager.publicAllowCount(
+                uint256(externalEuint32.unwrap(firstRankScores.realSisterScore))
+            ),
+            1
+        );
+        assertEq(
+            taskManager.publicAllowCount(
+                uint256(externalEuint32.unwrap(secondRankScores.realSisterScore))
+            ),
+            0
+        );
 
+        vm.warp(manager.nextScoreRevealAt());
         vm.prank(scoreRevealer);
         (nextRank, requestedCount) =
-            manager.requestCompetitionScoreReveal(competitionId, nextRank, 32);
+            manager.requestCompetitionScoreReveal(competitionId, nextRank, 8);
         assertEq(nextRank, 3);
         assertEq(requestedCount, 1);
-        assertEq(taskManager.decryptRequestCount(secondRankScores.realSisterScore.ctHash), 1);
+        assertEq(
+            taskManager.publicAllowCount(
+                uint256(externalEuint32.unwrap(secondRankScores.realSisterScore))
+            ),
+            1
+        );
     }
 
     function test_publishQualificationOnlyAfterFinalizationAndOnlyForEligibleRank() public {
@@ -765,9 +1050,7 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         manager.cancelCompetition(competitionId);
     }
 
-    function test_operatorRotationRequiresPausedGovernanceAndOnlyAffectsFutureSubmissions()
-        public
-    {
+    function test_operatorRotationRequiresPausedGovernanceAndOnlyAffectsFutureSubmissions() public {
         bytes32 competitionId = _createCompetition(1);
         bytes32 firstSubmissionId = _submit(competitionId, trader, 1, 10);
 
@@ -847,10 +1130,7 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         });
     }
 
-    function _createCompetition(uint16 qualificationSlots)
-        private
-        returns (bytes32 competitionId)
-    {
+    function _createCompetition(uint16 qualificationSlots) private returns (bytes32 competitionId) {
         vm.prank(creator);
         return manager.createCompetition(_config(qualificationSlots));
     }
@@ -859,32 +1139,41 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         private
         returns (bytes32 submissionId)
     {
-        InEuint128 memory encryptedMarket = createInEuint128(market, account);
-        InEuint128[] memory encryptedComponents = _components(account, component, component ^ 1);
+        externalEuint128 encryptedMarket = createExternalEuint128(market, account);
+        externalEuint128[] memory encryptedComponents =
+            _components(account, component, component ^ 1);
         vm.prank(account);
         return manager.submitCompetitionStrategy(
-            competitionId, encryptedMarket, TIMEFRAME_KEY, encryptedComponents
+            competitionId,
+            TIMEFRAME_KEY,
+            encryptedMarket,
+            encryptedComponents,
+            _strategyProof(address(manager), encryptedMarket, encryptedComponents)
         );
     }
 
     function _components(address account, uint128 first, uint128 second)
         private
-        returns (InEuint128[] memory components)
+        returns (externalEuint128[] memory components)
     {
-        components = new InEuint128[](2);
-        components[0] = createInEuint128(first, account);
-        components[1] = createInEuint128(second, account);
+        components = new externalEuint128[](2);
+        components[0] = createExternalEuint128(first, account);
+        components[1] = createExternalEuint128(second, account);
     }
 
     function _scores(uint32 first, uint32 second, uint32 third)
         private
         returns (AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission memory scores)
     {
-        return AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission({
-            realSisterScore: createInEuint32(first, evaluator),
-            perturbationP25Score: createInEuint32(second, evaluator),
-            stressP25Score: createInEuint32(third, evaluator)
-        });
+        return _withScoreProof(
+            address(manager),
+            AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission({
+                realSisterScore: createExternalEuint32(first, evaluator),
+                perturbationP25Score: createExternalEuint32(second, evaluator),
+                stressP25Score: createExternalEuint32(third, evaluator),
+                inputProof: ""
+            })
+        );
     }
 
     function _beginEvaluation(bytes32 competitionId) private {

@@ -1,5 +1,17 @@
 # AlphaEngine Strategy Manager, Confidential Swap, and FundVault Plan
 
+## Fhenix review amendments (2026-09-25)
+
+The owner approved the CoFHE 0.2 / FHERC20 0.4 migration and completing findings
+2–4. The [migration contract](cofhe-v020-migration.md) and
+[remediation contract](fhenix-decrypt-pressure-remediation.md) supersede older
+input, claim and reveal descriptions below and define the approved behavior.
+They cover batch proofs, shared handles, unique claim IDs, per-wrapper minimums,
+separate swap/withdrawal admission budgets, verified-zero cooldowns, caller-owned
+full-balance exits, and once-per-rank score authorization (8 submissions every
+5 seconds). Custody ownership, scoring components and qualification are preserved.
+Limits are provisional; inherited holder disclosure is outside workflow budgets.
+
 ## 1. Summary and deliverable status
 
 The recommended architecture uses independent contracts for competition, capital deployment, confidential swaps, and custody:
@@ -147,7 +159,7 @@ The legacy combined proxy and escrow must not be upgraded into any new component
 | `AlphaEngineConfidentialAssetGateway` | Non-upgradeable/stateless | User deposit/shield and ordinary request/claim convenience surface |
 | `AlphaEngineConfidentialSwapController` | Fresh transparent proxy | Bound confidential swap submission, execution, refund, nonce, operator, and pause lifecycle |
 | `AlphaEngineConfidentialSwapEscrow` | Fresh transparent proxy | FHERC20 lock, unshield, settlement, refund, and custody accounting |
-| `AlphaEngineFHERC20ERC20Wrapper` | Existing non-upgradeable pattern | Temporary encrypted-amount unshield bridge |
+| `AlphaEngineFHERC20ERC20Wrapper` | Existing non-upgradeable pattern | Official shared-handle unshield plus constant-time claim ID lookup |
 | `AlphaEngineV4SwapExecutor` | Fresh non-upgradeable deployment | Bounded Uniswap v4 exact-input execution |
 
 ### Second pass
@@ -640,13 +652,13 @@ retains no remainder.
 
 For competition and capital submissions:
 
-1. Internalize every `InEuint128` using `FHE.asEuint128`.
+1. Internalize `[market, ...components]` external uint128 handles with one `FHE.asEuint128s` batch proof bound to this manager.
 2. Reject zero/uninitialized resulting handles.
 3. Call `FHE.allowThis` for every handle.
 4. Grant access to the manager’s `fheOperator` snapshot.
 5. Store and emit only canonical `bytes32` handles.
 6. Store `operatorAtSubmission`.
-7. Internalize evaluator-provided `InEuint32` scores.
+7. Internalize the three evaluator-provided external uint32 scores with one `FHE.asEuint32s` batch proof.
 8. Grant score-handle access to the contract and submitting trader.
 9. Assert permissions directly against the Fhenix task manager in tests.
 
@@ -749,7 +761,7 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Finalization is impossible until every active submission is evaluated.
 - Qualification publication is impossible before finalization or above the qualification cutoff.
 - Score-decryption requests are impossible before finalization, process all
-  three score components together, and are bounded to 32 submissions per call.
+  three score components together, and are bounded to eight submissions per call, once per rank and paced across competitions.
 - No token or arbitrary-call surface exists.
 
 ### Capital Manager
@@ -1262,12 +1274,11 @@ them:
    the guarded gateway. Add a regression test proving that fee-on-transfer,
    rebasing, or otherwise non-exact-transfer assets cannot undercollateralize a
    wrapper.
-2. **Zero-value claim compatibility.** The inherited wrapper claim path may
-   call the underlying ERC20 with `transfer(..., 0)`. Decide whether the
-   AlphaEngine wrapper should skip the transfer after a verified zero claim or
-   reject ERC20s that do not accept zero transfers. Add an end-to-end test that
-   an initialized encrypted-zero swap lock remains refundable for a
-   zero-transfer-reverting token.
+2. **Zero-value claim compatibility.** The AlphaEngine wrapper now skips the
+   underlying `transfer(..., 0)` after a verified zero claim, with a focused
+   wrapper regression for a zero-transfer-reverting token. Stage 18 still
+   needs an end-to-end swap test showing that an initialized encrypted-zero
+   lock remains refundable with that token.
 3. **Uniswap v4 signed amount domain.** A sufficiently high wrapper rate and
    confidential amount can produce an underlying exact-input amount outside
    the PoolManager `int128` delta domain. Add an explicit supported-decimal or

@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {InEuint32, InEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
+import {externalEuint32, externalEuint128} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
 
-import {AlphaEngineERC20DecoderAndSanitizer} from
-    "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
+import {
+    AlphaEngineERC20DecoderAndSanitizer
+} from "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
 import {IAlphaEngineFundVault} from "src/interfaces/IAlphaEngineFundVault.sol";
 import {AlphaEngineExecutionHashLib} from "src/libraries/AlphaEngineExecutionHashLib.sol";
 import {AlphaEngineManageLeafHashLib} from "src/libraries/AlphaEngineManageLeafHashLib.sol";
-import {AlphaEngineCapitalStrategyManager} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineCapitalStrategyManager
+} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
 import {AlphaEngineFundVault} from "src/vault/AlphaEngineFundVault.sol";
 import {AlphaEngineVaultExecutionManager} from "src/vault/AlphaEngineVaultExecutionManager.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
@@ -111,33 +116,36 @@ contract AlphaEngineCapitalVaultExecutionIntegrationTest is MockCoFheTest {
             capitalManager.getCapitalIntentState(intentId);
         (,, uint64 policyVersion) = executionManager.activePolicies(executor);
         AlphaEngineExecutionHashLib.ExecutionCommitmentV1 memory authorization =
-        AlphaEngineExecutionHashLib.ExecutionCommitmentV1({
-            chainId: block.chainid,
-            capitalStrategyManager: address(capitalManager),
-            vaultExecutionManager: address(executionManager),
-            fundVault: address(fundVault),
-            intentId: intentId,
-            trader: trader,
-            qualificationVersion: intentState.qualificationVersion,
-            executor: executor,
-            authorizationNonce: capitalManager.nextAuthorizationNonce(),
-            validAfter: uint40(block.timestamp),
-            deadline: uint40(block.timestamp + 1 hours),
-            policyRoot: policyRoot,
-            policyVersion: policyVersion,
-            callsHash: AlphaEngineExecutionHashLib.hashCalls(calls),
-            riskEnvelopeHash: AlphaEngineExecutionHashLib.hashRiskEnvelope(limits),
-            riskPolicyVersion: executionManager.riskPolicyVersion(),
-            submissionPayloadHash: identity.payloadHash,
-            evaluationEvidenceHash: keccak256("evaluation evidence")
-        });
+            AlphaEngineExecutionHashLib.ExecutionCommitmentV1({
+                chainId: block.chainid,
+                capitalStrategyManager: address(capitalManager),
+                vaultExecutionManager: address(executionManager),
+                fundVault: address(fundVault),
+                intentId: intentId,
+                trader: trader,
+                qualificationVersion: intentState.qualificationVersion,
+                executor: executor,
+                authorizationNonce: capitalManager.nextAuthorizationNonce(),
+                validAfter: uint40(block.timestamp),
+                deadline: uint40(block.timestamp + 1 hours),
+                policyRoot: policyRoot,
+                policyVersion: policyVersion,
+                callsHash: AlphaEngineExecutionHashLib.hashCalls(calls),
+                riskEnvelopeHash: AlphaEngineExecutionHashLib.hashRiskEnvelope(limits),
+                riskPolicyVersion: executionManager.riskPolicyVersion(),
+                submissionPayloadHash: identity.payloadHash,
+                evaluationEvidenceHash: keccak256("evaluation evidence")
+            });
 
-        AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission memory scores =
-        AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
-            realSisterScore: createInEuint32(88, evaluator),
-            perturbationP25Score: createInEuint32(77, evaluator),
-            stressP25Score: createInEuint32(66, evaluator)
-        });
+        AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission memory scores = _withScoreProof(
+            address(capitalManager),
+            AlphaEngineCapitalStrategyManager.EvaluationScoreSubmission({
+                realSisterScore: createExternalEuint32(88, evaluator),
+                perturbationP25Score: createExternalEuint32(77, evaluator),
+                stressP25Score: createExternalEuint32(66, evaluator),
+                inputProof: ""
+            })
+        );
         vm.prank(evaluator);
         bytes32 commitment = capitalManager.approveCapitalIntent(intentId, scores, authorization);
 
@@ -160,9 +168,7 @@ contract AlphaEngineCapitalVaultExecutionIntegrationTest is MockCoFheTest {
         AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[] memory riskInputs =
             new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](1);
         riskInputs[0] = AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetIn),
-            maxSpendPerExecution: 200e6,
-            maxSpendPer24Hours: 500e6
+            asset: address(assetIn), maxSpendPerExecution: 200e6, maxSpendPer24Hours: 500e6
         });
         vm.prank(admin);
         executionManager.setTraderAssetRiskLimits(trader, riskInputs);
@@ -190,13 +196,17 @@ contract AlphaEngineCapitalVaultExecutionIntegrationTest is MockCoFheTest {
     }
 
     function _submitCapitalIntent() private returns (bytes32 intentId) {
-        InEuint128 memory encryptedMarket = createInEuint128(7, trader);
-        InEuint128[] memory components = new InEuint128[](2);
-        components[0] = createInEuint128(11, trader);
-        components[1] = createInEuint128(22, trader);
+        externalEuint128 encryptedMarket = createExternalEuint128(7, trader);
+        externalEuint128[] memory components = new externalEuint128[](2);
+        components[0] = createExternalEuint128(11, trader);
+        components[1] = createExternalEuint128(22, trader);
         vm.prank(trader);
         intentId = capitalManager.submitCapitalIntent(
-            encryptedMarket, keccak256("1h"), uint40(block.timestamp + 2 days), components
+            keccak256("1h"),
+            uint40(block.timestamp + 2 days),
+            encryptedMarket,
+            components,
+            _strategyProof(address(capitalManager), encryptedMarket, components)
         );
     }
 
@@ -234,17 +244,13 @@ contract AlphaEngineCapitalVaultExecutionIntegrationTest is MockCoFheTest {
 
         limits = new AlphaEngineExecutionHashLib.AssetDeltaLimitV1[](2);
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1 memory inputLimit =
-        AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-            asset: address(assetIn),
-            maxSpend: amountIn,
-            minReceive: 0
-        });
+            AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
+                asset: address(assetIn), maxSpend: amountIn, minReceive: 0
+            });
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1 memory outputLimit =
-        AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
-            asset: address(assetOut),
-            maxSpend: 0,
-            minReceive: amountOut
-        });
+            AlphaEngineExecutionHashLib.AssetDeltaLimitV1({
+                asset: address(assetOut), maxSpend: 0, minReceive: amountOut
+            });
         if (address(assetIn) < address(assetOut)) {
             limits[0] = inputLimit;
             limits[1] = outputLimit;
@@ -301,12 +307,12 @@ contract AlphaEngineCapitalVaultExecutionIntegrationTest is MockCoFheTest {
     function _deployCapitalManager() private returns (AlphaEngineCapitalStrategyManager deployed) {
         AlphaEngineCapitalStrategyManager implementation = new AlphaEngineCapitalStrategyManager();
         AlphaEngineCapitalStrategyManager.InitializationParams memory params =
-        AlphaEngineCapitalStrategyManager.InitializationParams({
-            initialDefaultAdmin: admin,
-            initialPauser: pauser,
-            initialFheOperator: fheOperator,
-            qualificationRegistry: address(registry)
-        });
+            AlphaEngineCapitalStrategyManager.InitializationParams({
+                initialDefaultAdmin: admin,
+                initialPauser: pauser,
+                initialFheOperator: fheOperator,
+                qualificationRegistry: address(registry)
+            });
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(implementation),
             admin,

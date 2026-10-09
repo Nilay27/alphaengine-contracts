@@ -12,6 +12,26 @@
       "type": "constructor"
     },
     {
+      "inputs": [],
+      "name": "availableUnshieldTokens",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "consumeUnshieldAdmission",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
@@ -84,6 +104,44 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        }
+      ],
+      "name": "minimumSwapInput",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "minimum",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        }
+      ],
+      "name": "minimumUnshieldAmount",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "minimum",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "owner",
       "outputs": [
@@ -125,6 +183,60 @@
       "inputs": [
         {
           "internalType": "address",
+          "name": "newEscrow",
+          "type": "address"
+        }
+      ],
+      "name": "setTrustedSwapEscrow",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "perSecond",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "burst",
+          "type": "uint16"
+        }
+      ],
+      "name": "setUnshieldRateLimits",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "swapMinimum",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "unshieldMinimum",
+          "type": "uint64"
+        }
+      ],
+      "name": "setWrapperMinimums",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
           "name": "newOwner",
           "type": "address"
         }
@@ -132,6 +244,19 @@
       "name": "transferOwnership",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "trustedSwapEscrow",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -148,6 +273,45 @@
           "internalType": "address",
           "name": "underlying",
           "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unshieldBurst",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unshieldRequestsPerSecond",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unshieldTokensUpdatedAt",
+      "outputs": [
+        {
+          "internalType": "uint40",
+          "name": "",
+          "type": "uint40"
         }
       ],
       "stateMutability": "view",
@@ -211,6 +375,110 @@
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousEscrow",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newEscrow",
+          "type": "address"
+        }
+      ],
+      "name": "TrustedSwapEscrowUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "remainingTokens",
+          "type": "uint16"
+        }
+      ],
+      "name": "UnshieldAdmissionConsumed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "perSecond",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "burst",
+          "type": "uint16"
+        }
+      ],
+      "name": "UnshieldRateLimitsUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "swapMinimum",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "unshieldMinimum",
+          "type": "uint64"
+        }
+      ],
+      "name": "WrapperMinimumsUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "count",
+          "type": "uint256"
+        }
+      ],
+      "name": "ActiveSwapLocksPresent",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "escrow",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidSwapEscrow",
+      "type": "error"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
@@ -224,12 +492,44 @@
     {
       "inputs": [
         {
+          "internalType": "uint16",
+          "name": "perSecond",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "burst",
+          "type": "uint16"
+        }
+      ],
+      "name": "InvalidUnshieldRateLimits",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "wrapper",
           "type": "address"
         }
       ],
       "name": "InvalidWrapper",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "swapMinimum",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "unshieldMinimum",
+          "type": "uint64"
+        }
+      ],
+      "name": "InvalidWrapperMinimums",
       "type": "error"
     },
     {
@@ -257,6 +557,17 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "nextAvailableAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "UnshieldRateLimitExceeded",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "underlying",
           "type": "address"
@@ -268,6 +579,38 @@
         }
       ],
       "name": "WrapperAlreadyRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        }
+      ],
+      "name": "WrapperNotRegistered",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "wrapper",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "expected",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "actual",
+          "type": "address"
+        }
+      ],
+      "name": "WrapperRegistryMismatch",
       "type": "error"
     },
     {
