@@ -47,6 +47,9 @@ addresses and replaying saved cases rather than discarding them. The
   finalization, deterministic eligibility, trader-level qualification
   publication, role-gated rank pagination, asynchronous score readiness, and
   post-finalization public retrieval of all three score components.
+  Admission/replacement tests cover exact expiry, cross-market/competition
+  budgets, cancellation, proof rollback, configuration, history wrap, full
+  capacity, supersession events and final-entry qualification.
 - Capital Manager tests cover active-version submission, exact execution-field
   mutation, immutable approval, rejection/cancellation/revocation/expiry,
   allowlisted consumption, replay markers, downstream rollback, explicit

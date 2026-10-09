@@ -136,6 +136,9 @@ Implemented replacement contracts through Stage 8:
   Qualification does not wait for public scores. The manager stores no duplicate
   plaintext score state; its public getter reads verified results from the
   CoFHE task manager and returns an independent readiness flag for each score.
+  Wallet admission defaults to 3 successes per rolling 5 minutes before FHE
+  processing. Only the latest successful entry per trader/competition is ranked;
+  the backend owns historical results, not on-chain best-score selection.
 - `AlphaEngineCapitalStrategyManager` accepts a fresh confidential intent only
   at an active qualification version, records one independent encrypted
   evaluation, and may approve only one exact execution commitment.

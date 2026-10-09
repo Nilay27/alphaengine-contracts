@@ -637,6 +637,30 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        }
+      ],
+      "name": "getSubmissionAllowance",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "allowed",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "nextAllowedAt",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes32",
           "name": "submissionId",
           "type": "bytes32"
@@ -1122,6 +1146,32 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "submissionLimit",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "submissionWindowSeconds",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "bytes32",
@@ -1214,6 +1264,24 @@
         }
       ],
       "name": "updateFheOperator",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint16",
+          "name": "limit",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint32",
+          "name": "windowSeconds",
+          "type": "uint32"
+        }
+      ],
+      "name": "updateSubmissionLimits",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1541,6 +1609,37 @@
     },
     {
       "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "previousSubmissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "replacementSubmissionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        }
+      ],
+      "name": "CompetitionStrategySuperseded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
       "inputs": [],
       "name": "DefaultAdminDelayChangeCanceled",
       "type": "event"
@@ -1707,6 +1806,25 @@
         }
       ],
       "name": "RoleRevoked",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "limit",
+          "type": "uint16"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint32",
+          "name": "windowSeconds",
+          "type": "uint32"
+        }
+      ],
+      "name": "SubmissionLimitsUpdated",
       "type": "event"
     },
     {
@@ -2166,6 +2284,22 @@
     {
       "inputs": [
         {
+          "internalType": "uint16",
+          "name": "limit",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint32",
+          "name": "windowSeconds",
+          "type": "uint32"
+        }
+      ],
+      "name": "InvalidSubmissionLimits",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes32",
           "name": "competitionId",
           "type": "bytes32"
@@ -2262,6 +2396,22 @@
         }
       ],
       "name": "ScoreRevealNotAvailable",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "nextAllowedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "SubmissionAllowanceExceeded",
       "type": "error"
     },
     {

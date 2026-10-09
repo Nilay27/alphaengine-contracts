@@ -245,13 +245,19 @@ Submission lifecycle:
 
 ```text
 Unset → Submitted → Cancelled
+                  → Superseded (successful replacement before deadline)
                   → Evaluated
 ```
 
 Rules:
 
 - Maximum 256 active submissions per competition.
-- One active submission per trader per competition; cancellation permits a fresh resubmission with a new nonce.
+- Owner revision, 9 October 2026: latest successful entry per trader/competition
+  replaces the old entry as `Superseded`; only final entries are ranked/revealed.
+  Initial admission is 3 successes per wallet per rolling 5 minutes across
+  encrypted markets/competitions, without cancellation refunds. Paused admin
+  can configure allowance/window without clearing history; traders select their
+  final best by resubmitting it. Failed replacements preserve the old entry.
 - Maximum 16 encrypted strategy components.
 - Evaluation is terminal and can occur once.
 - Ranks are plaintext, nonzero, unique, and bounded by active submission count.
@@ -753,7 +759,8 @@ The same production signer must not simultaneously control admin, evaluator, roo
 ### Competition Manager
 
 - Nonce exactness and identifier uniqueness.
-- One active submission per trader per competition.
+- Only the latest entry per trader/competition is active; superseded attempts
+  cannot be ranked. Wallet rolling allowance is checked before FHE processing.
 - Component count equals stored handle count and stays in `[1,16]`.
 - Stored handles retain manager and operator permissions.
 - Evaluation is one-shot and terminal.

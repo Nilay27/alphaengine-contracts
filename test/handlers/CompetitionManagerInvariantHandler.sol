@@ -22,6 +22,8 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
     uint40 public lastRevealAt;
     uint256 public successfulRevealBatches;
     uint256 public rejectedRevealAttempts;
+    uint256 public rejectedSubmissionAttempts;
+    uint256 public successfulReplacements;
 
     constructor(AlphaEngineCompetitionStrategyManager manager, bytes32 competitionId) {
         MANAGER = manager;
@@ -40,26 +42,51 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
         }
 
         address trader = traderAt(traderSeed);
-        if (MANAGER.activeSubmissionByTrader(COMPETITION_ID, trader) != bytes32(0)) {
-            return;
-        }
+        bytes32 previousSubmission = MANAGER.activeSubmissionByTrader(COMPETITION_ID, trader);
 
         externalEuint128 encryptedMarket = createExternalEuint128(market, trader);
         externalEuint128[] memory components = new externalEuint128[](2);
         components[0] = createExternalEuint128(component, trader);
         components[1] = createExternalEuint128(component ^ 1, trader);
 
+        (bool allowed, uint256 nextAllowedAt) = MANAGER.getSubmissionAllowance(trader);
+        bytes memory proof = _strategyProof(address(MANAGER), encryptedMarket, components);
+        if (!allowed) {
+            uint256 verifiedBefore = taskManager.batchVerificationCount();
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineCompetitionStrategyManager.SubmissionAllowanceExceeded.selector,
+                    trader,
+                    nextAllowedAt
+                )
+            );
+            vm.prank(trader);
+            MANAGER.submitCompetitionStrategy(
+                COMPETITION_ID, keccak256("1h"), encryptedMarket, components, proof
+            );
+            assertEq(taskManager.batchVerificationCount(), verifiedBefore);
+            rejectedSubmissionAttempts += 1;
+            return;
+        }
         vm.prank(trader);
         bytes32 submissionId = MANAGER.submitCompetitionStrategy(
-            COMPETITION_ID,
-            keccak256("1h"),
-            encryptedMarket,
-            components,
-            _strategyProof(address(MANAGER), encryptedMarket, components)
+            COMPETITION_ID, keccak256("1h"), encryptedMarket, components, proof
         );
         _submissionIds.push(submissionId);
         successfulSubmissions[trader] += 1;
-        trackedActiveSubmissionCount += 1;
+        if (previousSubmission == bytes32(0)) {
+            trackedActiveSubmissionCount += 1;
+        } else {
+            assertEq(
+                uint8(MANAGER.getSubmissionState(previousSubmission).status),
+                uint8(AlphaEngineCompetitionStrategyManager.SubmissionStatus.Superseded)
+            );
+            successfulReplacements += 1;
+        }
+    }
+
+    function advanceTime(uint32 secondsSeed) external {
+        vm.warp(block.timestamp + secondsSeed % 301);
     }
 
     function cancel(uint256 submissionSeed) external {

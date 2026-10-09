@@ -124,7 +124,8 @@ balance arithmetic.
 | Boundary | On-chain bound |
 |---|---|
 | Encrypted components per strategy submission | 16 |
-| Active submissions per competition | 256 |
+| Final active entries per competition | 256 distinct traders; latest successful entry per trader |
+| Competition attempt allowance | Initially 3 successes per wallet per exact rolling 5 minutes across markets/competitions; checked before input verification; cancellation does not refund |
 | Public score-reveal batch | 8 submissions / 24 handles; five seconds globally between batches; once per rank |
 | New swap intents | Initially 120 per trailing minute, two tokens refilled per second, 24-request burst, one active per trader |
 | Ordinary unshield | Explicit per-wrapper partial minimum; one pending/source/wrapper; five-minute cooldown after verified zero; shared budget initially 1/s, burst 8 |
@@ -135,7 +136,9 @@ balance arithmetic.
 | Asset limits per vault execution | 16 |
 | Nonzero policy-root activation delay | Minimum 48 hours |
 
-Competition and capital submission frequency remains product-dependent. The
+Paused governance can configure competition admission without clearing history.
+Replaced attempts retain FHE permissions; the 256 final-entry cap does not bound
+historical attempts or Sybil load. Capital frequency remains product-dependent. The
 swap budget is global to this controller and configurable by delayed governance
 only while paused. Its initial values are provisional; production CoFHE task
 capacity and completion latency remain to be measured. Encrypted comparison and

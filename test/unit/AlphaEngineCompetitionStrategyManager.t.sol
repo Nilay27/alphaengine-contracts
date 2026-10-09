@@ -98,6 +98,13 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         bytes32 evidenceHash
     );
     event FheOperatorUpdated(address indexed previousOperator, address indexed newOperator);
+    event SubmissionLimitsUpdated(uint16 limit, uint32 windowSeconds);
+    event CompetitionStrategySuperseded(
+        bytes32 indexed previousSubmissionId,
+        bytes32 indexed replacementSubmissionId,
+        bytes32 indexed competitionId,
+        address trader
+    );
 
     function setUp() public {
         _installMockTaskManager();
@@ -147,6 +154,8 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         assertEq(freshManager.fheOperator(), fheOperator);
         assertEq(freshManager.defaultAdmin(), admin);
         assertEq(freshManager.defaultAdminDelay(), 48 hours);
+        assertEq(freshManager.submissionLimit(), 3);
+        assertEq(freshManager.submissionWindowSeconds(), 5 minutes);
         assertTrue(freshManager.hasRole(freshManager.PAUSER_ROLE(), pauser));
         assertFalse(freshManager.hasRole(freshManager.COMPETITION_CREATOR_ROLE(), creator));
         assertFalse(freshManager.hasRole(freshManager.COMPETITION_CANCELLER_ROLE(), canceller));
@@ -406,28 +415,286 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         assertEq(manager.traderNonces(trader), 2);
     }
 
-    function test_duplicateActiveSubmissionAndInvalidSubmissionInputsRevert() public {
+    function test_replacementPreservesHistoryAndOnlyLatestCanBeRanked() public {
         bytes32 competitionId = _createCompetition(1);
-        bytes32 submissionId = _submit(competitionId, trader, 1, 10);
-        externalEuint128 duplicateMarket = createExternalEuint128(2, trader);
-        externalEuint128[] memory duplicateComponents = _components(trader, 20, 30);
-
+        bytes32 first = _submit(competitionId, trader, 1, 10);
+        bytes32 oldPayload = manager.getSubmissionIdentity(first).payloadHash;
+        bytes32 expectedReplacement = AlphaEngineStrategyHashLib.hashCompetitionSubmissionId(
+            block.chainid, address(manager), competitionId, trader, 1
+        );
+        externalEuint128 market = createExternalEuint128(2, trader);
+        externalEuint128[] memory components = _components(trader, 20, 30);
+        bytes memory proof = _strategyProof(address(manager), market, components);
+        vm.expectEmit(true, true, true, true);
+        emit CompetitionStrategySuperseded(first, expectedReplacement, competitionId, trader);
         vm.prank(trader);
+        bytes32 latest = manager.submitCompetitionStrategy(
+            competitionId, TIMEFRAME_KEY, market, components, proof
+        );
+        assertEq(latest, expectedReplacement);
+        assertEq(manager.activeSubmissionByTrader(competitionId, trader), latest);
+        assertEq(manager.getCompetition(competitionId).activeSubmissionCount, 1);
+        assertEq(
+            uint8(manager.getSubmissionState(first).status),
+            uint8(AlphaEngineCompetitionStrategyManager.SubmissionStatus.Superseded)
+        );
+        assertEq(manager.getSubmissionIdentity(first).payloadHash, oldPayload);
+        assertEq(manager.getSubmissionComponents(first).length, 2);
+
+        _beginEvaluation(competitionId);
+        AlphaEngineCompetitionStrategyManager.EvaluationScoreSubmission memory scores =
+            _scores(1, 2, 3);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineCompetitionStrategyManager.ActiveSubmissionAlreadyExists.selector,
-                competitionId,
-                trader,
-                submissionId
+                AlphaEngineCompetitionStrategyManager.SubmissionNotSubmitted.selector,
+                first,
+                AlphaEngineCompetitionStrategyManager.SubmissionStatus.Superseded
             )
         );
-        manager.submitCompetitionStrategy(
-            competitionId,
-            TIMEFRAME_KEY,
-            duplicateMarket,
-            duplicateComponents,
-            _strategyProof(address(manager), duplicateMarket, duplicateComponents)
+        vm.prank(evaluator);
+        manager.recordEvaluation(first, scores, 1, EVIDENCE_HASH);
+        vm.prank(evaluator);
+        manager.recordEvaluation(latest, scores, 1, EVIDENCE_HASH);
+        vm.prank(finalizer);
+        manager.finalizeCompetition(competitionId);
+        vm.prank(qualifier);
+        manager.publishTraderQualification(latest);
+        assertEq(manager.getCompetition(competitionId).evaluatedCount, 1);
+        assertEq(manager.getCompetition(competitionId).publishedQualificationCount, 1);
+        assertTrue(registry.isQualified(trader));
+    }
+
+    function test_threeImmediateSubmissionsAcrossMarketsThenRejectBeforeFhe() public {
+        bytes32 competitionId = _createCompetition(1);
+        for (uint128 i = 1; i <= 3; ++i) {
+            _submit(competitionId, trader, i, i * 10);
+        }
+        (bool allowed, uint256 nextAllowedAt) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(nextAllowedAt, block.timestamp + 5 minutes);
+        uint256 verified = taskManager.batchVerificationCount();
+        externalEuint128[] memory components = new externalEuint128[](1);
+        // Invalid FHE handles/proof would fail if admission reached the Task Manager.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.SubmissionAllowanceExceeded.selector,
+                trader,
+                nextAllowedAt
+            )
         );
+        vm.prank(trader);
+        manager.submitCompetitionStrategy(
+            competitionId, TIMEFRAME_KEY, externalEuint128.wrap(bytes32(0)), components, ""
+        );
+        assertEq(taskManager.batchVerificationCount(), verified);
+        assertEq(manager.traderNonces(trader), 3);
+        assertEq(manager.getCompetition(competitionId).activeSubmissionCount, 1);
+        _submit(competitionId, secondTrader, 1, 10);
+    }
+
+    function test_rollingWindowExpiresOneSlotAtExactBoundary() public {
+        bytes32 competitionId = _createCompetition(1);
+        uint256 start = vm.getBlockTimestamp();
+        _submit(competitionId, trader, 1, 10);
+        vm.warp(start + 100);
+        _submit(competitionId, trader, 1, 20);
+        vm.warp(start + 200);
+        _submit(competitionId, trader, 1, 30);
+        vm.warp(start + 299);
+        (bool allowed, uint256 nextAllowedAt) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(nextAllowedAt, start + 300);
+        vm.warp(start + 300);
+        (allowed, nextAllowedAt) = manager.getSubmissionAllowance(trader);
+        assertTrue(allowed);
+        assertEq(nextAllowedAt, 0);
+        _submit(competitionId, trader, 1, 40);
+        (allowed, nextAllowedAt) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(nextAllowedAt, start + 400);
+    }
+
+    function test_cancellationAndCompetitionSwitchDoNotRestoreAllowance() public {
+        bytes32 firstCompetition = _createCompetition(1);
+        bytes32 first = _submit(firstCompetition, trader, 1, 10);
+        vm.prank(trader);
+        manager.cancelCompetitionSubmission(first);
+        bytes32 secondCompetition = _createCompetition(1);
+        _submit(secondCompetition, trader, 2, 20);
+        _submit(secondCompetition, trader, 3, 30);
+        (bool allowed,) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(manager.getCompetition(firstCompetition).activeSubmissionCount, 0);
+        assertEq(manager.getCompetition(secondCompetition).activeSubmissionCount, 1);
+    }
+
+    function test_supersededCancellationCannotClearLatestSlot() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 first = _submit(competitionId, trader, 1, 10);
+        bytes32 latest = _submit(competitionId, trader, 2, 20);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.SubmissionNotSubmitted.selector,
+                first,
+                AlphaEngineCompetitionStrategyManager.SubmissionStatus.Superseded
+            )
+        );
+        vm.prank(trader);
+        manager.cancelCompetitionSubmission(first);
+        assertEq(manager.activeSubmissionByTrader(competitionId, trader), latest);
+        vm.prank(trader);
+        manager.cancelCompetitionSubmission(latest);
+        assertEq(manager.activeSubmissionByTrader(competitionId, trader), bytes32(0));
+        (bool allowed,) = manager.getSubmissionAllowance(trader);
+        assertTrue(allowed);
+    }
+
+    function test_failedReplacementPreservesSlotNonceAndAllowance() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 first = _submit(competitionId, trader, 1, 10);
+        externalEuint128 market = createExternalEuint128(2, trader);
+        externalEuint128[] memory components = _components(trader, 20, 30);
+        bytes memory proof = _strategyProof(address(implementation), market, components);
+        vm.expectPartialRevert(MockCoFheTaskManager.InvalidSigner.selector);
+        vm.prank(trader);
+        manager.submitCompetitionStrategy(competitionId, TIMEFRAME_KEY, market, components, proof);
+        assertEq(manager.activeSubmissionByTrader(competitionId, trader), first);
+        assertEq(
+            uint8(manager.getSubmissionState(first).status),
+            uint8(AlphaEngineCompetitionStrategyManager.SubmissionStatus.Submitted)
+        );
+        assertEq(manager.traderNonces(trader), 1);
+        (bool allowed,) = manager.getSubmissionAllowance(trader);
+        assertTrue(allowed);
+        assertEq(taskManager.batchVerificationCount(), 1);
+    }
+
+    function test_limitsAreConfiguredWhilePausedWithoutResettingHistory() public {
+        bytes32 competitionId = _createCompetition(1);
+        _submit(competitionId, trader, 1, 10);
+        _submit(competitionId, trader, 2, 20);
+        vm.prank(admin);
+        vm.expectRevert(PausableUpgradeable.ExpectedPause.selector);
+        manager.updateSubmissionLimits(4, 300);
+        vm.prank(pauser);
+        manager.pause();
+        vm.expectEmit(false, false, false, true);
+        emit SubmissionLimitsUpdated(1, 600);
+        vm.prank(admin);
+        manager.updateSubmissionLimits(1, 600);
+        (bool allowed, uint256 nextAllowedAt) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(nextAllowedAt, block.timestamp + 600);
+        vm.prank(admin);
+        manager.updateSubmissionLimits(4, 300);
+        (allowed,) = manager.getSubmissionAllowance(trader);
+        assertTrue(allowed);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.InvalidSubmissionLimits.selector,
+                uint16(0),
+                uint32(300)
+            )
+        );
+        vm.prank(admin);
+        manager.updateSubmissionLimits(0, 300);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.InvalidSubmissionLimits.selector,
+                uint16(257),
+                uint32(300)
+            )
+        );
+        vm.prank(admin);
+        manager.updateSubmissionLimits(257, 300);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.InvalidSubmissionLimits.selector,
+                uint16(3),
+                uint32(0)
+            )
+        );
+        vm.prank(admin);
+        manager.updateSubmissionLimits(3, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, bytes32(0)
+            )
+        );
+        vm.prank(stranger);
+        manager.updateSubmissionLimits(3, 300);
+    }
+
+    function test_submissionHistoryWrapsWithoutLosingRollingLimit() public {
+        vm.prank(pauser);
+        manager.pause();
+        vm.prank(admin);
+        manager.updateSubmissionLimits(3, 1);
+        vm.prank(admin);
+        manager.unpause();
+        bytes32 competitionId = _createCompetition(1);
+        for (uint128 i; i < 270; ++i) {
+            if (i % 3 == 0) vm.warp(vm.getBlockTimestamp() + 1);
+            _submit(competitionId, trader, 1, i + 1);
+        }
+        (bool allowed, uint256 nextAllowedAt) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(nextAllowedAt, block.timestamp + 1);
+        assertEq(manager.getCompetition(competitionId).activeSubmissionCount, 1);
+    }
+
+    function test_existingTraderCanReplaceAtCompetitionCapacity() public {
+        bytes32 competitionId = _createCompetition(1);
+        for (uint16 i; i < 256; ++i) {
+            _submit(competitionId, address(uint160(0x1000 + i)), 1, i + 1);
+        }
+        address firstTrader = address(0x1000);
+        bytes32 previous = manager.activeSubmissionByTrader(competitionId, firstTrader);
+        bytes32 latest = _submit(competitionId, firstTrader, 2, 42);
+        assertEq(manager.getCompetition(competitionId).activeSubmissionCount, 256);
+        assertEq(manager.activeSubmissionByTrader(competitionId, firstTrader), latest);
+        assertEq(
+            uint8(manager.getSubmissionState(previous).status),
+            uint8(AlphaEngineCompetitionStrategyManager.SubmissionStatus.Superseded)
+        );
+        externalEuint128[] memory components = new externalEuint128[](1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.MaximumActiveSubmissionsReached.selector,
+                competitionId
+            )
+        );
+        vm.prank(stranger);
+        manager.submitCompetitionStrategy(
+            competitionId, TIMEFRAME_KEY, externalEuint128.wrap(bytes32(0)), components, ""
+        );
+    }
+
+    function test_deadlineFreezesFinalEntryBeforeFheVerification() public {
+        bytes32 competitionId = _createCompetition(1);
+        _submit(competitionId, trader, 1, 10);
+        bytes32 latest = _submit(competitionId, trader, 2, 20);
+        uint40 deadline = manager.getCompetition(competitionId).submissionDeadline;
+        vm.warp(deadline);
+        externalEuint128[] memory components = new externalEuint128[](1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.CompetitionSubmissionClosed.selector,
+                competitionId,
+                deadline,
+                uint256(deadline)
+            )
+        );
+        vm.prank(trader);
+        manager.submitCompetitionStrategy(
+            competitionId, TIMEFRAME_KEY, externalEuint128.wrap(bytes32(0)), components, ""
+        );
+        assertEq(manager.activeSubmissionByTrader(competitionId, trader), latest);
+        assertEq(taskManager.batchVerificationCount(), 2);
+    }
+
+    function test_invalidSubmissionInputsRevert() public {
+        bytes32 competitionId = _createCompetition(1);
 
         externalEuint128 secondMarket = createExternalEuint128(2, secondTrader);
         externalEuint128[] memory secondComponents = _components(secondTrader, 20, 30);
@@ -456,6 +723,43 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
             noComponents,
             _strategyProof(address(manager), thirdMarket, noComponents)
         );
+    }
+
+    function test_unconfiguredUpgradeAllowanceFailsClosed() public {
+        // New packed configuration occupies the first slot after the timestamp mapping.
+        vm.store(address(manager), bytes32(uint256(12)), bytes32(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.InvalidSubmissionLimits.selector,
+                uint16(0),
+                uint32(0)
+            )
+        );
+        manager.getSubmissionAllowance(trader);
+    }
+
+    function test_legacyNonceDoesNotInventAdmissionHistory() public {
+        vm.store(address(manager), keccak256(abi.encode(trader, uint256(6))), bytes32(uint256(300)));
+        (bool allowed,) = manager.getSubmissionAllowance(trader);
+        assertTrue(allowed);
+        bytes32 competitionId = _createCompetition(1);
+        for (uint128 i; i < 3; ++i) {
+            _submit(competitionId, trader, i + 1, i + 1);
+        }
+        (allowed,) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(manager.traderNonces(trader), 303);
+    }
+
+    function test_zeroTimestampRemainsARealAdmissionRecord() public {
+        vm.warp(0);
+        bytes32 competitionId = _createCompetition(1);
+        for (uint128 i; i < 3; ++i) {
+            _submit(competitionId, trader, i + 1, i + 1);
+        }
+        (bool allowed, uint256 nextAllowedAt) = manager.getSubmissionAllowance(trader);
+        assertFalse(allowed);
+        assertEq(nextAllowedAt, 300);
     }
 
     function test_zeroCanonicalHandleFailsLoudly() public {

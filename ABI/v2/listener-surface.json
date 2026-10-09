@@ -615,6 +615,10 @@
           "signature": "InvalidScoreRevealStartRank(bytes32,uint16,uint16)"
         },
         {
+          "selector": "0x757cb6c0",
+          "signature": "InvalidSubmissionLimits(uint16,uint32)"
+        },
+        {
           "selector": "0xe595893d",
           "signature": "MaximumActiveSubmissionsReached(bytes32)"
         },
@@ -645,6 +649,10 @@
         {
           "selector": "0x1acd3abc",
           "signature": "ScoreRevealNotAvailable(uint256)"
+        },
+        {
+          "selector": "0x840ae16c",
+          "signature": "SubmissionAllowanceExceeded(address,uint256)"
         },
         {
           "selector": "0x5a0e05d3",
@@ -729,6 +737,10 @@
           "topic0": "0xec4bddcc88d412b1a6e90599e418af02f9bfb18897109e0c46a7dc8fb5d202f1"
         },
         {
+          "signature": "CompetitionStrategySuperseded(bytes32,bytes32,bytes32,address)",
+          "topic0": "0xfbb1d413f3815be3252012ad2f5ec39a70e654dfae24a37ab6f976c2c42b18aa"
+        },
+        {
           "signature": "DefaultAdminDelayChangeCanceled()",
           "topic0": "0x2b1fa2edafe6f7b9e97c1a9e0c3660e645beb2dcaa2d45bdbf9beaf5472e1ec5"
         },
@@ -767,6 +779,10 @@
         {
           "signature": "RoleRevoked(bytes32,address,address)",
           "topic0": "0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b"
+        },
+        {
+          "signature": "SubmissionLimitsUpdated(uint16,uint32)",
+          "topic0": "0xea3d84939cf1d34ce728563b11705b53d087565f765ce4ed39b05e6e71cc58ec"
         },
         {
           "signature": "TraderQualificationPublished(bytes32,bytes32,address,uint16,uint64,uint40,bytes32)",
@@ -919,6 +935,10 @@
           "signature": "getRoleAdmin(bytes32)"
         },
         {
+          "selector": "0x126445f6",
+          "signature": "getSubmissionAllowance(address)"
+        },
+        {
           "selector": "0x763dd600",
           "signature": "getSubmissionComponents(bytes32)"
         },
@@ -1003,6 +1023,14 @@
           "signature": "submissionByRank(bytes32,uint16)"
         },
         {
+          "selector": "0xe09a5b5d",
+          "signature": "submissionLimit()"
+        },
+        {
+          "selector": "0x0f8b5457",
+          "signature": "submissionWindowSeconds()"
+        },
+        {
           "selector": "0x306d9957",
           "signature": "submitCompetitionStrategy(bytes32,bytes32,bytes32,bytes32[],bytes)"
         },
@@ -1021,6 +1049,10 @@
         {
           "selector": "0x5aa649af",
           "signature": "updateFheOperator(address)"
+        },
+        {
+          "selector": "0x2574b0f9",
+          "signature": "updateSubmissionLimits(uint16,uint32)"
         }
       ]
     },

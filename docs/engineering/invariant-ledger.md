@@ -88,6 +88,15 @@ interval and exactly one public grant per score in the authorized rank prefix.
 All three component handles agree and the manager is the authorizing caller.
 Plaintext readiness remains asynchronous and separate from authorization.
 
+## Competition admission and final entries
+
+- Three successes per wallet per rolling five minutes initially, shared across
+  markets/competitions; cancellation does not refund. Rejection precedes FHE.
+- Replacement atomically supersedes the old entry; only the latest can be ranked
+  or qualified. Failure preserves the previous entry, nonce and allowance.
+- Paused limit/window changes retain timestamps; existing nonces index bounded
+  history. Stateful tests reconstruct the allowance independently from attempts.
+
 ## Fhenix decrypt-pressure lifecycle invariants
 
 - Swap effective input is requested amount when at least the configured minimum,

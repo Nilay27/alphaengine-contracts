@@ -22,6 +22,7 @@ import {
     IAlphaEngineTraderQualificationRegistry
 } from "../interfaces/IAlphaEngineTraderQualificationRegistry.sol";
 import {AlphaEngineStrategyHashLib} from "../libraries/AlphaEngineStrategyHashLib.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title AlphaEngineCompetitionStrategyManager
 /// @notice Runs confidential strategy competitions and publishes trader-level qualification.
@@ -58,7 +59,8 @@ contract AlphaEngineCompetitionStrategyManager is
         Unset,
         Submitted,
         Cancelled,
-        Evaluated
+        Evaluated,
+        Superseded
     }
 
     struct InitializationParams {
@@ -199,6 +201,8 @@ contract AlphaEngineCompetitionStrategyManager is
     error InvalidScoreRevealBatchSize(uint16 requestedSize, uint16 maximumSize);
     error CompetitionNonceExhausted();
     error TraderNonceExhausted(address trader);
+    error InvalidSubmissionLimits(uint16 limit, uint32 windowSeconds);
+    error SubmissionAllowanceExceeded(address trader, uint256 nextAllowedAt);
 
     event CompetitionCreated(
         bytes32 indexed competitionId,
@@ -258,6 +262,13 @@ contract AlphaEngineCompetitionStrategyManager is
         bytes32 evidenceHash
     );
     event FheOperatorUpdated(address indexed previousOperator, address indexed newOperator);
+    event SubmissionLimitsUpdated(uint16 limit, uint32 windowSeconds);
+    event CompetitionStrategySuperseded(
+        bytes32 indexed previousSubmissionId,
+        bytes32 indexed replacementSubmissionId,
+        bytes32 indexed competitionId,
+        address trader
+    );
 
     IAlphaEngineTraderQualificationRegistry public qualificationRegistry;
     address public fheOperator;
@@ -276,8 +287,13 @@ contract AlphaEngineCompetitionStrategyManager is
     mapping(bytes32 competitionId => uint16 rank) public scoreRevealedThrough;
     uint40 public nextScoreRevealAt;
 
-    /// @dev Eleven repository-owned storage slots above plus this gap reserve 50 slots.
-    uint256[39] private __gap;
+    /// @dev Timestamp + 1 distinguishes unused slots; existing trader nonces index the ring.
+    mapping(address trader => uint40[256] timestamps) private _submissionTimestamps;
+    uint16 public submissionLimit;
+    uint32 public submissionWindowSeconds;
+
+    /// @dev Thirteen repository-owned storage slots above plus this gap reserve 50 slots.
+    uint256[37] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -295,7 +311,45 @@ contract AlphaEngineCompetitionStrategyManager is
         qualificationRegistry =
             IAlphaEngineTraderQualificationRegistry(params.qualificationRegistry);
         fheOperator = params.initialFheOperator;
+        submissionLimit = 3;
+        submissionWindowSeconds = 5 minutes;
+        emit SubmissionLimitsUpdated(3, 5 minutes);
         _pause();
+    }
+
+    /// @notice Configure the wallet allowance across every market and competition.
+    /// @dev Set the limit to the supported market count. Existing timestamps are never reset.
+    function updateSubmissionLimits(uint16 limit, uint32 windowSeconds)
+        external
+        whenPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (limit == 0 || limit > MAX_ACTIVE_SUBMISSIONS || windowSeconds == 0) {
+            revert InvalidSubmissionLimits(limit, windowSeconds);
+        }
+        submissionLimit = limit;
+        submissionWindowSeconds = windowSeconds;
+        emit SubmissionLimitsUpdated(limit, windowSeconds);
+    }
+
+    /// @notice Check wallet admission; nextAllowedAt is zero when admission is available.
+    function getSubmissionAllowance(address trader)
+        public
+        view
+        returns (bool allowed, uint256 nextAllowedAt)
+    {
+        uint16 limit = submissionLimit;
+        uint32 windowSeconds = submissionWindowSeconds;
+        if (limit == 0 || windowSeconds == 0) {
+            revert InvalidSubmissionLimits(limit, windowSeconds);
+        }
+        uint256 nonce = traderNonces[trader];
+        if (nonce < limit) return (true, 0);
+        uint256 timestamp = _submissionTimestamps[trader][(nonce - limit) % MAX_ACTIVE_SUBMISSIONS];
+        if (timestamp == 0) return (true, 0);
+        nextAllowedAt = timestamp - 1 + windowSeconds;
+        if (block.timestamp >= nextAllowedAt) return (true, 0);
+        return (false, nextAllowedAt);
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {
@@ -383,13 +437,16 @@ contract AlphaEngineCompetitionStrategyManager is
         if (componentCount == 0 || componentCount > MAX_COMPONENT_COUNT) {
             revert InvalidComponentCount(componentCount);
         }
-        if (competition.activeSubmissionCount >= MAX_ACTIVE_SUBMISSIONS) {
+        bytes32 activeSubmissionId = _activeSubmissionByTrader[competitionId][msg.sender];
+        if (
+            activeSubmissionId == bytes32(0)
+                && competition.activeSubmissionCount >= MAX_ACTIVE_SUBMISSIONS
+        ) {
             revert MaximumActiveSubmissionsReached(competitionId);
         }
-
-        bytes32 activeSubmissionId = _activeSubmissionByTrader[competitionId][msg.sender];
-        if (activeSubmissionId != bytes32(0)) {
-            revert ActiveSubmissionAlreadyExists(competitionId, msg.sender, activeSubmissionId);
+        (bool allowed, uint256 nextAllowedAt) = getSubmissionAllowance(msg.sender);
+        if (!allowed) {
+            revert SubmissionAllowanceExceeded(msg.sender, nextAllowedAt);
         }
 
         uint64 traderNonce = traderNonces[msg.sender];
@@ -435,8 +492,17 @@ contract AlphaEngineCompetitionStrategyManager is
             qualificationPublished: false
         });
         _activeSubmissionByTrader[competitionId][msg.sender] = submissionId;
-        competition.activeSubmissionCount += 1;
+        if (activeSubmissionId == bytes32(0)) {
+            competition.activeSubmissionCount += 1;
+        } else {
+            _submissions[activeSubmissionId].status = SubmissionStatus.Superseded;
+            emit CompetitionStrategySuperseded(
+                activeSubmissionId, submissionId, competitionId, msg.sender
+            );
+        }
         traderNonces[msg.sender] = traderNonce + 1;
+        _submissionTimestamps[msg.sender][traderNonce % MAX_ACTIVE_SUBMISSIONS] =
+            SafeCast.toUint40(block.timestamp + 1);
 
         emit CompetitionStrategySubmitted(
             submissionId,

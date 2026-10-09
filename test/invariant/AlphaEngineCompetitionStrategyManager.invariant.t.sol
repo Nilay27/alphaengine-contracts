@@ -61,7 +61,7 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         manager.grantRole(manager.SCORE_REVEALER_ROLE(), address(handler));
         vm.stopPrank();
 
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = handler.submit.selector;
         selectors[1] = handler.cancel.selector;
         selectors[2] = handler.beginEvaluation.selector;
@@ -69,6 +69,7 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         selectors[4] = handler.finalize.selector;
         selectors[5] = handler.publishNextQualification.selector;
         selectors[6] = handler.requestScoreReveal.selector;
+        selectors[7] = handler.advanceTime.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
     }
@@ -107,7 +108,11 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
                 manager.getSubmissionState(submissionId);
             assertEq(manager.getSubmissionComponents(submissionId).length, state.componentCount);
 
-            if (state.status == AlphaEngineCompetitionStrategyManager.SubmissionStatus.Cancelled) {
+            if (
+                state.status == AlphaEngineCompetitionStrategyManager.SubmissionStatus.Cancelled
+                    || state.status
+                        == AlphaEngineCompetitionStrategyManager.SubmissionStatus.Superseded
+            ) {
                 assertNotEq(
                     manager.activeSubmissionByTrader(competitionId, identity.trader), submissionId
                 );
@@ -155,6 +160,26 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
 
     function invariant_managerHasNoNativeCustody() public view {
         assertEq(address(manager).balance, 0);
+    }
+
+    function invariant_rollingAllowanceMatchesSubmissionHistory() public view {
+        for (uint256 traderIndex; traderIndex < handler.TRADER_COUNT(); ++traderIndex) {
+            address trader = handler.traderAt(traderIndex);
+            uint256 used;
+            uint256 oldest = type(uint256).max;
+            for (uint256 i; i < handler.submissionCount(); ++i) {
+                bytes32 id = handler.submissionAt(i);
+                if (manager.getSubmissionIdentity(id).trader != trader) continue;
+                uint256 createdAt = manager.getSubmissionState(id).createdAt;
+                if (createdAt + 5 minutes <= block.timestamp) continue;
+                ++used;
+                if (createdAt < oldest) oldest = createdAt;
+            }
+            assertLe(used, 3);
+            (bool allowed, uint256 nextAllowedAt) = manager.getSubmissionAllowance(trader);
+            assertEq(allowed, used < 3);
+            assertEq(nextAllowedAt, used == 3 ? oldest + 5 minutes : 0);
+        }
     }
 
     function invariant_scoreRevealIsFinalizedAndRequestsAllComponentsTogether() public view {

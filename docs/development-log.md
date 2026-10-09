@@ -1,5 +1,14 @@
 # Development Log
 
+## 2026-10-09 — Rolling competition submissions
+
+- Allow 3 successes per wallet per rolling 5 minutes across encrypted markets;
+  paused admin can configure the limits. Cancellation does not refund admission.
+- Only the latest entry per trader/competition is ranked; replacement supersedes
+  the previous entry atomically. ABI additions and two reserved slots are captured.
+- All 28 suites, coverage (93.64% lines overall), ABI/storage, size and hygiene
+  checks passed. Deployment and consumer preflight/history updates remain pending.
+
 ## 2026-10-09 — Local competition-v2 integration checkpoint
 
 - The recorded Competition Manager proxy has an active competition and a

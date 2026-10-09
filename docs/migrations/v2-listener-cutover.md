@@ -49,6 +49,20 @@ public score readiness. See the
 
 ## Required listener behavior
 
+### Competition latest-entry revision — 9 October 2026
+
+Submission ABI and hashes are unchanged. Consume `CompetitionStrategySuperseded`
+and appended status `Superseded = 4`; retain attempt history, but evaluate only
+`activeSubmissionByTrader` after the deadline. Replace the old active-entry
+preflight with click-only `getSubmissionAllowance` and decode
+`SubmissionAllowanceExceeded`. Consumer updates are pending; nothing is deployed.
+Two new slots consume the storage gap. An existing proxy must be paused, upgraded,
+configured through `updateSubmissionLimits`, and held paused for a full configured
+window before admission resumes; old admission history is not reconstructed.
+Fresh proxies default to 3/300 seconds. No global wallet/Sybil budget is added.
+
+### General listener requirements
+
 1. Allowlist the exact chain, manifest schema, contract address, and ABI family before decoding a log. Unknown addresses or schema versions fail closed.
 2. Start each v2 listener at the deployment block recorded in the v2 manifest. Record the final indexed block for the legacy contracts separately.
 3. During cutover, dual-read legacy and v2 logs only for the documented bounded overlap. Deduplicate exclusively by `(chainId, contractAddress, transactionHash, logIndex)`.

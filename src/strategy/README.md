@@ -35,7 +35,10 @@ flowchart LR
 ```
 
 Competition states are `Active -> Evaluating -> Finalized` or `Cancelled`.
-A submission ends as `Cancelled` or `Evaluated`. Capital intents end as
+A submission ends as `Cancelled`, `Superseded`, or `Evaluated`. Only the latest
+successful entry per trader/competition is ranked; the deadline freezes it.
+Previous attempts remain historical, and traders must resubmit their best if
+it is not the latest. Capital intents end as
 `Cancelled`, `Rejected`, `Consumed`, `Revoked`, or `Expired` after their
 applicable transition.
 
@@ -90,7 +93,8 @@ Capital scores have no public-reveal path.
 |---|---|
 | Components per submission | 1 to 16 |
 | Active submissions per competition | 256 |
-| Active submission per trader/competition | One; cancellation allows a new nonce |
+| Final entry per trader/competition | Latest successful submission; earlier attempts are superseded |
+| Wallet submission allowance | Initially 3 per exact rolling 5 minutes across all markets/competitions; cancellation does not refund |
 | Score-reveal request | 8 submissions / 24 handles maximum; once per rank; five-second global interval |
 | Capital authorization window | 1 hour maximum |
 | Qualification | Versioned, expiring and revocable |
