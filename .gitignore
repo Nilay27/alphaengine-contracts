@@ -4,6 +4,8 @@ out/
 lib/
 broadcast/
 coverage/
+crytic-export/
+echidna-corpus/
 *.gas-snapshot
 .env
 x-ray/

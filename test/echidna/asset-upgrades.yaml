@@ -1,0 +1,18 @@
+testMode: assertion
+testLimit: 10000
+seqLen: 32
+workers: 1
+seed: 16
+timeout: 180
+corpusDir: echidna-corpus/asset-upgrades
+format: text
+disableSlither: true
+solcLibs: [ERC20ConfidentialLib]
+filterBlacklist: false
+filterFunctions:
+  - AlphaEngineUnshieldAdmissionInvariantTest.exercise(uint8,uint256,uint64)
+cryticArgs:
+  - --foundry-compile-all
+  - --foundry-ignore-compile
+  - --foundry-out-directory
+  - out/echidna

@@ -13,6 +13,7 @@ contract FundVaultExecutionInvariantHandler {
     uint256 public ghostSuccessfulTotal;
     uint256 public successfulBatches;
     uint256 public failedBatches;
+    uint256 public protectedCalls;
     bool public rollbackViolation;
     bool public protectedTargetViolation;
 
@@ -76,6 +77,7 @@ contract FundVaultExecutionInvariantHandler {
         {
             protectedTargetViolation = true;
         }
+        protectedCalls += 1;
     }
 
     function _selector(bytes memory revertData) private pure returns (bytes4 selector) {

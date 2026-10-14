@@ -57,6 +57,21 @@ contract AlphaEngineCapitalStrategyManagerInvariantTest is StdInvariant, MockCoF
             );
         }
 
+        // Every campaign exercises rollback, consumption and both qualification gates.
+        handler.submit(0, 1, 1);
+        handler.approve(0, 1);
+        handler.attemptFailingConsume(0);
+        handler.consume(0);
+        handler.submit(1, 2, 2);
+        handler.approve(1, 2);
+        handler.revokeQualification(1);
+        handler.attemptInvalidQualificationProgress(1, 2);
+        handler.submit(2, 3, 3);
+        handler.revokeQualification(2);
+        handler.attemptInvalidQualificationProgress(2, 3);
+        handler.requalify(1, 30 days);
+        handler.requalify(2, 30 days);
+
         bytes4[] memory selectors = new bytes4[](10);
         selectors[0] = handler.submit.selector;
         selectors[1] = handler.cancel.selector;
@@ -130,6 +145,8 @@ contract AlphaEngineCapitalStrategyManagerInvariantTest is StdInvariant, MockCoF
 
     function invariant_consumptionAndReplayStateStayInParity() public view {
         assertFalse(handler.downstreamRollbackViolation());
+        assertGt(handler.verifiedRollbacks(), 0);
+        assertGt(handler.successfulConsumptions(), 0);
         uint256 length = handler.intentCount();
         for (uint256 index = 0; index < length; ++index) {
             bytes32 intentId = handler.intentAt(index);
@@ -146,6 +163,8 @@ contract AlphaEngineCapitalStrategyManagerInvariantTest is StdInvariant, MockCoF
 
     function invariant_supersededQualificationNeverAuthorizesOldIntent() public view {
         assertFalse(handler.invalidQualificationProgressed());
+        assertGt(handler.rejectedQualificationApprovals(), 0);
+        assertGt(handler.rejectedQualificationConsumptions(), 0);
         uint256 length = handler.intentCount();
         for (uint256 index = 0; index < length; ++index) {
             bytes32 intentId = handler.intentAt(index);

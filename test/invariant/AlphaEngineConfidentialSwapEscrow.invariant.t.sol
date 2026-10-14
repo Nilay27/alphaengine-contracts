@@ -28,6 +28,7 @@ import {
 } from "test/handlers/ConfidentialSwapEscrowInvariantHandler.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
     uint256 private constant USER_STARTING_UNDERLYING = 1_000_000_000e6;
@@ -88,19 +89,41 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         _fundAndAuthorize(userA);
         _fundAndAuthorize(userB);
 
+        address[4] memory assetProxies =
+            [address(registry), address(gateway), inputWrapper, outputWrapper];
+        for (uint256 i; i < 4; ++i) {
+            ProxyAdmin(
+                    address(
+                        uint160(
+                            uint256(
+                                vm.load(
+                                    assetProxies[i],
+                                    0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103
+                                )
+                            )
+                        )
+                    )
+                )
+                .transferOwnership(address(handler));
+        }
+
         handler.depositAsA(200e6);
         handler.lockAsA(40e6);
         handler.preclaimLock(0);
+        handler.upgradeAsset(3);
+        handler.upgradeAsset(0);
         handler.settleLock(0);
         handler.depositAsB(200e6);
         handler.lockAsB(50e6);
+        handler.upgradeAsset(1);
+        handler.upgradeAsset(2);
         handler.refundLock(1);
         handler.overdrawLockAsA();
         handler.refundLock(2);
         handler.lockAsA(30e6);
         handler.attemptUnderMinimumSettlement(3);
 
-        bytes4[] memory selectors = new bytes4[](10);
+        bytes4[] memory selectors = new bytes4[](11);
         selectors[0] = ConfidentialSwapEscrowInvariantHandler.depositAsA.selector;
         selectors[1] = ConfidentialSwapEscrowInvariantHandler.depositAsB.selector;
         selectors[2] = ConfidentialSwapEscrowInvariantHandler.lockAsA.selector;
@@ -111,6 +134,7 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         selectors[7] = ConfidentialSwapEscrowInvariantHandler.settleLock.selector;
         selectors[8] = ConfidentialSwapEscrowInvariantHandler.refundLock.selector;
         selectors[9] = ConfidentialSwapEscrowInvariantHandler.attemptUnderMinimumSettlement.selector;
+        selectors[10] = handler.upgradeAsset.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
@@ -250,6 +274,7 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
     }
 
     function invariant_meaningfulActionsAreExercised() public view {
+        assertGe(handler.successfulAssetUpgrades(), 4);
         assertGt(handler.successfulDeposits(), 0);
         assertGt(handler.successfulLocks(), 0);
         assertGt(handler.successfulZeroLocks(), 0);

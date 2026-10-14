@@ -125,6 +125,13 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         (,, policyVersion) = executionManager.activePolicies(address(handler));
         executionManager.unpause();
 
+        handler.executeValid(1e6);
+        handler.attemptReplay();
+        handler.attemptSlippage(1e6);
+        handler.attemptInvalidProof(1e6);
+        handler.attemptOverConfiguredCap(1e6);
+        handler.executeExit(1e6);
+
         bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = handler.executeValid.selector;
         selectors[1] = handler.executeExit.selector;
@@ -178,6 +185,9 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
     }
 
     function invariantExpectedFailuresAreAtomicAndReplayNeverSucceeds() public view {
+        assertGt(handler.successfulEntries(), 0);
+        assertGt(handler.successfulExits(), 0);
+        assertGt(handler.expectedFailures(), 0);
         assertFalse(handler.expectedFailureViolation());
         assertFalse(handler.replayViolation());
         assertFalse(handler.successfulExecutionViolation());

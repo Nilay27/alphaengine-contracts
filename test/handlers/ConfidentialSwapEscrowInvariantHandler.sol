@@ -23,6 +23,11 @@ import {
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {MockMintingSwapExecutor} from "test/mocks/MockMintingSwapExecutor.sol";
+import {AssetRegistryV2, AssetGatewayV2, AssetWrapperV2} from "test/mocks/MockAssetUpgrade.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {
+    ITransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
     struct LockSnapshot {
@@ -65,6 +70,8 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
     uint256 public successfulSettlements;
     uint256 public successfulRefunds;
     uint256 public expectedSettlementReverts;
+    uint256 public successfulAssetUpgrades;
+    address[4] private _assetImplementations;
 
     mapping(bytes32 intentId => bool known) public knownLock;
     mapping(bytes32 intentId => LockSnapshot snapshot) private _lockSnapshots;
@@ -89,6 +96,34 @@ contract ConfidentialSwapEscrowInvariantHandler is MockCoFheTest {
         USER_A = userA;
         USER_B = userB;
         EXECUTOR = new MockMintingSwapExecutor();
+        _assetImplementations = [
+            address(new AssetRegistryV2()),
+            address(new AssetGatewayV2()),
+            address(new AssetWrapperV2()),
+            address(new AssetWrapperV2())
+        ];
+    }
+
+    function upgradeAsset(uint8 seed) external {
+        address[4] memory proxies =
+            [GATEWAY.assetRegistry(), address(GATEWAY), INPUT_WRAPPER, OUTPUT_WRAPPER];
+        uint256 i = seed % 4;
+        ProxyAdmin proxyAdmin = ProxyAdmin(
+            address(
+                uint160(
+                    uint256(
+                        vm.load(
+                            proxies[i],
+                            0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103
+                        )
+                    )
+                )
+            )
+        );
+        proxyAdmin.upgradeAndCall(
+            ITransparentUpgradeableProxy(proxies[i]), _assetImplementations[i], ""
+        );
+        successfulAssetUpgrades += 1;
     }
 
     function bindEscrow(AlphaEngineConfidentialSwapEscrow escrow_) external {

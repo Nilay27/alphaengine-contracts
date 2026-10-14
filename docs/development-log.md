@@ -1,5 +1,19 @@
 # Development Log
 
+## 2026-10-15 — Focused test hardening
+
+- Mixed asset upgrades/configuration/admin handovers with ordinary and swap
+  claims; tightened capital error checks and seeded lifecycle assertions.
+- Cross-competition/configuration allowance fuzz: 10,000 cases; seven affected
+  invariant suites: 256 runs × 128 calls, zero handler reverts.
+- Full suite: 329 passed, two opt-in skips; CREATE2: 11 passed, one opt-in skip.
+- Repaired local Echidna with native 2.3.3; shared Foundry asset handlers passed
+  10,020 calls plus 2,009 with bounded time jumps. CoFHE remains mocked.
+- ABI/layout/size/hygiene pass; all 26 global formatting differences predate
+  this change. Evidence: `x-ray/evidence/test-gaps-2026-10-15/` (ignored).
+- Production contracts, deployment scripts/configuration and dependency pins
+  unchanged; no broadcast. Reproduction command is in the testing strategy.
+
 ## 2026-10-14 — Upgradeable asset modules, no broadcast
 
 - Registry, gateway and per-token wrappers now use atomic transparent proxies;

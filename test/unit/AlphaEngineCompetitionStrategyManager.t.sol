@@ -1394,6 +1394,88 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         assertEq(manager.traderNonces(trader), 2);
     }
 
+    function testFuzz_walletAllowanceAcrossCompetitionsAndConfiguration(uint256 seed) public {
+        bytes32[2] memory competitions = [_createCompetition(2), _createCompetition(2)];
+        uint40[35] memory timestamps;
+        uint256 successes;
+        uint256 rejections;
+        // Cancelling/replacing in either competition must not refund the wallet allowance.
+        for (uint256 i; i < 3; ++i) {
+            bytes32 id = _submit(competitions[i % 2], trader, uint128(i), uint128(i));
+            timestamps[successes++] = uint40(vm.getBlockTimestamp());
+            if (i == 0) {
+                vm.prank(trader);
+                manager.cancelCompetitionSubmission(id);
+            }
+        }
+        for (uint256 i; i < 32; ++i) {
+            seed = uint256(keccak256(abi.encode(seed, i)));
+            if (i != 0) {
+                if (seed % 3 == 0) {
+                    vm.prank(pauser);
+                    manager.pause();
+                    vm.startPrank(admin);
+                    manager.updateSubmissionLimits(
+                        uint16(1 + (seed >> 8) % 8), uint32(1 + (seed >> 16) % 600)
+                    );
+                    manager.unpause();
+                    vm.stopPrank();
+                }
+                vm.warp(vm.getBlockTimestamp() + (seed >> 24) % 121);
+            }
+            uint256 limit = manager.submissionLimit();
+            uint256 window = manager.submissionWindowSeconds();
+            uint256 used;
+            for (uint256 j; j < successes; ++j) {
+                if (vm.getBlockTimestamp() < uint256(timestamps[j]) + window) ++used;
+            }
+            bool expectedAllowed = used < limit;
+            uint256 nextAt = expectedAllowed ? 0 : uint256(timestamps[successes - limit]) + window;
+            (bool allowed, uint256 nextAllowedAt) = manager.getSubmissionAllowance(trader);
+            assertEq(allowed, expectedAllowed);
+            assertEq(nextAllowedAt, nextAt);
+            bytes32 competition = competitions[seed % 2];
+            bytes32 previous = manager.activeSubmissionByTrader(competition, trader);
+            if (allowed) {
+                _submit(competition, trader, uint128(seed), uint128(seed >> 128));
+                timestamps[successes++] = uint40(vm.getBlockTimestamp());
+            } else {
+                externalEuint128 market = createExternalEuint128(uint128(seed), trader);
+                externalEuint128[] memory components = _components(trader, 1, 2);
+                bytes memory proof = _strategyProof(address(manager), market, components);
+                uint256 verified = taskManager.batchVerificationCount();
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        AlphaEngineCompetitionStrategyManager.SubmissionAllowanceExceeded.selector,
+                        trader,
+                        nextAt
+                    )
+                );
+                vm.prank(trader);
+                manager.submitCompetitionStrategy(
+                    competition, TIMEFRAME_KEY, market, components, proof
+                );
+                assertEq(taskManager.batchVerificationCount(), verified);
+                assertEq(manager.activeSubmissionByTrader(competition, trader), previous);
+                ++rejections;
+            }
+            assertEq(manager.traderNonces(trader), successes);
+            // A different wallet retains its own allowance.
+            (bool otherAllowed, uint256 otherNextAt) = manager.getSubmissionAllowance(secondTrader);
+            assertTrue(otherAllowed);
+            assertEq(otherNextAt, 0);
+        }
+        assertGt(rejections, 0);
+        vm.warp(uint256(timestamps[successes - 1]) + manager.submissionWindowSeconds());
+        (bool renewed, uint256 retryAt) = manager.getSubmissionAllowance(trader);
+        assertTrue(renewed);
+        assertEq(retryAt, 0);
+        _submit(competitions[0], trader, 1, 1);
+        ++successes;
+        assertEq(manager.traderNonces(trader), successes);
+        assertGt(successes, 3);
+    }
+
     function _deployRegistry() private returns (AlphaEngineTraderQualificationRegistry deployed) {
         AlphaEngineTraderQualificationRegistry registryImplementation =
             new AlphaEngineTraderQualificationRegistry();

@@ -36,6 +36,10 @@ contract AlphaEngineFundVaultExecutionInvariantTest is StdInvariant, Test {
         vault.setEmergencyConfiguration(EMERGENCY_AUTHORITY, address(recoveryVault));
         vault.unpause();
 
+        handler.executeSuccessful(1, 2);
+        handler.executeFailing(1, 2);
+        handler.attemptProtectedAccountingCall(keccak256("protected target"));
+
         bytes4[] memory selectors = new bytes4[](3);
         selectors[0] = handler.executeSuccessful.selector;
         selectors[1] = handler.executeFailing.selector;
@@ -45,14 +49,17 @@ contract AlphaEngineFundVaultExecutionInvariantTest is StdInvariant, Test {
     }
 
     function invariantSuccessfulEffectsExactlyMatchTheIndependentGhostTotal() public view {
+        assertGt(handler.successfulBatches(), 0);
         assertEq(target.total(), handler.ghostSuccessfulTotal());
     }
 
     function invariantFailedBatchesAlwaysRollBackAndReturnTheExpectedTypedFailure() public view {
+        assertGt(handler.failedBatches(), 0);
         assertFalse(handler.rollbackViolation());
     }
 
     function invariantAccountingManagerRemainsOutsideTheExecutionCallGraph() public view {
+        assertGt(handler.protectedCalls(), 0);
         assertFalse(handler.protectedTargetViolation());
     }
 

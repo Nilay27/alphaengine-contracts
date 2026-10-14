@@ -34,6 +34,10 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
     mapping(uint64 nonce => bytes32 intentId) public observedIntentByAuthorizationNonce;
 
     uint64 public successfulApprovals;
+    uint256 public successfulConsumptions;
+    uint256 public verifiedRollbacks;
+    uint256 public rejectedQualificationApprovals;
+    uint256 public rejectedQualificationConsumptions;
     bool public terminalStateChanged;
     bool public duplicateAuthorizationNonce;
     bool public downstreamRollbackViolation;
@@ -158,6 +162,7 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
         AlphaEngineExecutionHashLib.ExecutionCommitmentV1 memory authorization =
             _authorizations[intentId];
         EXECUTION_MANAGER.consumeWithoutVaultAction(authorization);
+        successfulConsumptions += 1;
         _observeTerminal(intentId);
     }
 
@@ -172,7 +177,12 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
 
         try EXECUTION_MANAGER.executeThenRevert(authorization) {
             downstreamRollbackViolation = true;
-        } catch {
+        } catch (bytes memory reason) {
+            assertEq(
+                reason,
+                abi.encodeWithSelector(MockVaultExecutionManager.ForcedDownstreamFailure.selector)
+            );
+            verifiedRollbacks += 1;
             if (
                 MANAGER.getCapitalIntentState(intentId).status != previousStatus
                     || MANAGER.isExecutionConsumed(commitment)
@@ -249,7 +259,17 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
                 _scores(scoreSeed);
             try MANAGER.approveCapitalIntent(intentId, scores, authorization) {
                 invalidQualificationProgressed = true;
-            } catch {}
+            } catch (bytes memory reason) {
+                assertEq(
+                    reason,
+                    abi.encodeWithSelector(
+                        AlphaEngineCapitalStrategyManager.QualificationVersionNotActive.selector,
+                        identity.trader,
+                        beforeState.qualificationVersion
+                    )
+                );
+                rejectedQualificationApprovals += 1;
+            }
         } else if (
             beforeState.status == AlphaEngineCapitalStrategyManager.CapitalIntentStatus.Approved
                 && block.timestamp >= _authorizations[intentId].validAfter
@@ -257,15 +277,31 @@ contract CapitalManagerInvariantHandler is MockCoFheTest {
         ) {
             try EXECUTION_MANAGER.consumeWithoutVaultAction(_authorizations[intentId]) {
                 invalidQualificationProgressed = true;
-            } catch {}
+            } catch (bytes memory reason) {
+                assertEq(
+                    reason,
+                    abi.encodeWithSelector(
+                        AlphaEngineCapitalStrategyManager.QualificationVersionNotActive.selector,
+                        identity.trader,
+                        beforeState.qualificationVersion
+                    )
+                );
+                rejectedQualificationConsumptions += 1;
+            }
+        } else {
+            return;
         }
 
         AlphaEngineCapitalStrategyManager.CapitalIntentState memory afterState =
             MANAGER.getCapitalIntentState(intentId);
+        assertEq(keccak256(abi.encode(afterState)), keccak256(abi.encode(beforeState)));
         if (
             afterState.status != beforeState.status
                 || observedCommitment[intentId] != beforeCommitment
                 || MANAGER.nextAuthorizationNonce() != beforeAuthorizationNonce
+                || MANAGER.isExecutionConsumed(beforeCommitment)
+                || (beforeCommitment != bytes32(0)
+                    && MANAGER.consumedAuthorizationNonces(beforeState.authorizationNonce))
         ) {
             invalidQualificationProgressed = true;
         }

@@ -61,6 +61,14 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         manager.grantRole(manager.SCORE_REVEALER_ROLE(), address(handler));
         vm.stopPrank();
 
+        handler.submit(0, 1, 1);
+        handler.submit(0, 2, 2);
+        handler.submit(0, 3, 3);
+        handler.submit(0, 4, 4);
+        handler.cancel(2);
+        handler.advanceTime(300);
+        handler.submit(0, 1, 1);
+
         bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = handler.submit.selector;
         selectors[1] = handler.cancel.selector;
@@ -163,6 +171,8 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
     }
 
     function invariant_rollingAllowanceMatchesSubmissionHistory() public view {
+        assertGt(handler.successfulReplacements(), 0);
+        assertGt(handler.rejectedSubmissionAttempts(), 0);
         for (uint256 traderIndex; traderIndex < handler.TRADER_COUNT(); ++traderIndex) {
             address trader = handler.traderAt(traderIndex);
             uint256 used;

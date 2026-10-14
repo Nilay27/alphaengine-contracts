@@ -37,6 +37,12 @@ contract AlphaEngineTraderQualificationRegistryInvariantTest is StdInvariant, Te
         registry.unpause();
         vm.stopPrank();
 
+        handler.qualifyOrExtend(0, 1 days);
+        handler.qualifyOrExtend(0, 1 days);
+        handler.revoke(0);
+        handler.qualifyOrExtend(0, 1 days);
+        handler.advanceTime(1);
+
         bytes4[] memory selectors = new bytes4[](3);
         selectors[0] = handler.qualifyOrExtend.selector;
         selectors[1] = handler.revoke.selector;
@@ -46,6 +52,10 @@ contract AlphaEngineTraderQualificationRegistryInvariantTest is StdInvariant, Te
     }
 
     function invariant_versionsNeverDecrease() public view {
+        assertGt(handler.qualifications(), 0);
+        assertGt(handler.extensions(), 0);
+        assertGt(handler.revocations(), 0);
+        assertGt(handler.timeAdvances(), 0);
         assertFalse(handler.versionDecreased());
     }
 

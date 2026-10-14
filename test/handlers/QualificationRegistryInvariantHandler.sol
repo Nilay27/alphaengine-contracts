@@ -15,6 +15,10 @@ contract QualificationRegistryInvariantHandler is Test {
     mapping(address trader => uint64 version) public observedVersion;
     mapping(address trader => uint64 version) public supersededVersion;
     bool public versionDecreased;
+    uint256 public qualifications;
+    uint256 public extensions;
+    uint256 public revocations;
+    uint256 public timeAdvances;
 
     constructor(AlphaEngineTraderQualificationRegistry registry) {
         REGISTRY = registry;
@@ -37,6 +41,7 @@ contract QualificationRegistryInvariantHandler is Test {
                 return;
             }
             validUntil = uint40(extendedExpiry);
+            extensions += 1;
         }
 
         uint64 newVersion = REGISTRY.qualifyTrader(
@@ -46,6 +51,7 @@ contract QualificationRegistryInvariantHandler is Test {
             keccak256(abi.encode("evidence", trader, previousVersion, validUntil))
         );
         _recordVersion(trader, previousVersion, newVersion);
+        qualifications += 1;
     }
 
     function revoke(uint256 traderSeed) external {
@@ -59,6 +65,7 @@ contract QualificationRegistryInvariantHandler is Test {
             trader, keccak256(abi.encode("revocation", trader, previousVersion))
         );
         _recordVersion(trader, previousVersion, newVersion);
+        revocations += 1;
     }
 
     function advanceTime(uint40 delta) external {
@@ -67,6 +74,7 @@ contract QualificationRegistryInvariantHandler is Test {
             return;
         }
         vm.warp(block.timestamp + delta);
+        timeAdvances += 1;
     }
 
     function traderAt(uint256 seed) public pure returns (address) {

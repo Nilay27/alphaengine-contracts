@@ -353,3 +353,22 @@ not threshold-network signature validation. Live CoFHE testing remains a release
 Asset-proxy tests cover locked/replayed initialization, independent upgrade
 authority, future-wrapper configuration, and populated upgrades preserving
 encrypted balances, ACL grants, pending claims and withdrawal completion.
+Stateful asset suites mix compatible upgrades with ordinary/swap claims,
+template changes and admin handovers. Capital handlers require exact expected
+errors; seeded success/failure counters prevent vacuous lifecycle campaigns.
+
+The optional focused Echidna campaign reuses the unshield handlers and oracle
+(Echidna 2.3.3, crytic-compile 0.3.7). Run from the repository root:
+
+```sh
+forge build --offline --force --no-dynamic-test-linking --build-info \
+  --out out/echidna --cache-path cache/echidna \
+  --libraries lib/fhenix-confidential-contracts/contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib:0x00000000000000000000000000000000000000ff \
+  test/invariant/AlphaEngineUnshieldAdmission.invariant.t.sol
+echidna . --contract AlphaEngineUnshieldAdmissionInvariantTest --config test/echidna/asset-upgrades.yaml
+```
+
+The isolated build avoids unsupported dynamic-deployment cheatcodes and stale
+build-info; `0xff` matches Echidna's test-only library deployment address.
+Corpora/coverage are ignored. CoFHE remains mocked; this does not verify live
+coprocessor permissions or mainnet integrations.
