@@ -41,6 +41,11 @@ jobs:
       - name: Run stress fuzz and invariants
         run: forge test --offline
 
+      - name: Run CREATE2 deployment checks
+        env:
+          FOUNDRY_PROFILE: create2
+        run: forge test --offline --match-contract DeployAlphaEngineCreate2Test
+
       - name: Reproduce ABI and storage-layout artifacts
         run: bash script/ci/check-generated-artifacts.sh
 

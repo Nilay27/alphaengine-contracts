@@ -48,8 +48,13 @@ jobs:
       - name: Run release test matrix
         run: forge test --offline
 
+      - name: Run CREATE2 deployment checks
+        env:
+          FOUNDRY_PROFILE: create2
+        run: forge test --offline --match-contract DeployAlphaEngineCreate2Test
+
       - name: Run release coverage
-        run: forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
+        run: forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2 --skip DeployAlphaEngineCreate2
 
       - name: Reproduce ABI and storage-layout artifacts
         run: bash script/ci/check-generated-artifacts.sh

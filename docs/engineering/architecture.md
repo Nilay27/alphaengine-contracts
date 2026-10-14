@@ -32,6 +32,8 @@ manifest changes; no public broadcast accompanies this preparation.
   externally deployed.
 - Stage 9 adds fresh paused deployment, independent ProxyAdmin, v2 manifest,
   delayed-governance action, ABI/topic snapshot, and listener-cutover tooling.
+- `DeployAlphaEngineCreate2` reuses that wiring through a construction hook;
+  the isolated `create2` build pins library linking, factory and component salts.
 - Stage 13 adds the stateless `AlphaEngineManageLeafHashLib` and deterministic
   `GenerateAlphaEngineManageRoot` artifact generator. It defines policy leaves,
   sorted-pair trees, odd-node carry, sorted/deduplicated definitions, and proofs;
@@ -73,8 +75,8 @@ manifest changes; no public broadcast accompanies this preparation.
   in the FundVault for an arbitrary period; and a separately approved later
   transaction may exchange the position token back to USDC. Daily NAV and user
   redemption accounting remain the USDC manager's responsibility.
-- Transparent proxies are canonical for the five stateful first-pass domains;
-  registry, gateway, wrapper, and swap executor remain non-upgradeable.
+- Transparent proxies cover the five lifecycle domains, registry, gateway and
+  per-token wrappers; the swap executor remains non-upgradeable.
 - Competition, capital, and confidential swap use independent lifecycles,
   nonces, roles, operators, events, ABIs, and pause domains.
 - Swap lifecycle is submit -> execute or refund.
@@ -147,7 +149,7 @@ Implemented replacement contracts through Stage 8:
   Capital Manager cannot hold assets or call strategy targets.
 - These are fresh proxy domains. They do not reinterpret or migrate the legacy
   combined controller's storage.
-- `AlphaEngineConfidentialAssetRegistry` is an append-only, non-upgradeable
+- `AlphaEngineConfidentialAssetRegistry` is an append-only, upgradeable
   wrapper/underlying registry. It may create or validate a wrapper, but cannot
   hold user balances or participate in settlement. Its owner binds one trusted
   swap escrow for the wrapper's narrow swap-unshield exception, and cannot

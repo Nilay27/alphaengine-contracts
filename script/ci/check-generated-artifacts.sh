@@ -153,6 +153,21 @@ check_layout \
     storage-layouts/v2/AlphaEngineConfidentialSwapController.json \
     confidential-swap-controller-layout
 
+check_layout \
+    out/AlphaEngineConfidentialAssetRegistry.sol/AlphaEngineConfidentialAssetRegistry.json \
+    storage-layouts/v2/AlphaEngineConfidentialAssetRegistry.json \
+    asset-registry-layout
+
+check_layout \
+    out/AlphaEngineConfidentialAssetGateway.sol/AlphaEngineConfidentialAssetGateway.json \
+    storage-layouts/v2/AlphaEngineConfidentialAssetGateway.json \
+    asset-gateway-layout
+
+check_layout \
+    out/AlphaEngineFHERC20ERC20Wrapper.sol/AlphaEngineFHERC20ERC20Wrapper.json \
+    storage-layouts/v2/AlphaEngineFHERC20ERC20Wrapper.json \
+    asset-wrapper-layout
+
 check_runtime_size \
     out/AlphaEngineTraderQualificationRegistry.sol/AlphaEngineTraderQualificationRegistry.json \
     trader-qualification-registry

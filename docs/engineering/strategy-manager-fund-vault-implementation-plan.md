@@ -155,11 +155,11 @@ The legacy combined proxy and escrow must not be upgraded into any new component
 | `AlphaEngineCapitalStrategyManager` | Fresh transparent proxy | Qualified-trader encrypted intents, independent evaluation, exact approvals, rejection, revocation, expiry, and one-time authorization consumption |
 | `AlphaEngineStrategyHashLib` | Stateless library | Competition/capital identifiers and payload hashing |
 | `AlphaEngineExecutionHashLib` | Stateless library | Ordered calls, risk envelope, and execution-commitment hashing |
-| `AlphaEngineConfidentialAssetRegistry` | Non-upgradeable | Immutable wrapper/underlying registry and wrapper creation |
-| `AlphaEngineConfidentialAssetGateway` | Non-upgradeable/stateless | User deposit/shield and ordinary request/claim convenience surface |
+| `AlphaEngineConfidentialAssetRegistry` | Fresh transparent proxy | Immutable wrapper/underlying registry and wrapper creation |
+| `AlphaEngineConfidentialAssetGateway` | Fresh transparent proxy/stateless | User deposit/shield and ordinary request/claim convenience surface |
 | `AlphaEngineConfidentialSwapController` | Fresh transparent proxy | Bound confidential swap submission, execution, refund, nonce, operator, and pause lifecycle |
 | `AlphaEngineConfidentialSwapEscrow` | Fresh transparent proxy | FHERC20 lock, unshield, settlement, refund, and custody accounting |
-| `AlphaEngineFHERC20ERC20Wrapper` | Existing non-upgradeable pattern | Official shared-handle unshield plus constant-time claim ID lookup |
+| `AlphaEngineFHERC20ERC20Wrapper` | Per-token transparent proxy | Official shared-handle unshield plus constant-time claim ID lookup |
 | `AlphaEngineV4SwapExecutor` | Fresh non-upgradeable deployment | Bounded Uniswap v4 exact-input execution |
 
 ### Second pass
@@ -1064,7 +1064,7 @@ separate risk modules and require their own design and audit.
 
 ### Upgradeable first-pass contracts
 
-Use transparent proxies only. Every implementation must:
+Use transparent proxies only. The five lifecycle implementations must:
 
 - disable initializers in its constructor;
 - use one initializer;
@@ -1076,10 +1076,17 @@ Use transparent proxies only. Every implementation must:
 
 Each proxy receives an independent `ProxyAdmin`. No ProxyAdmin EOA is permitted in production.
 
-### Non-upgradeable components
+Asset registry/gateway and per-token wrappers also use transparent proxies,
+locked implementations, atomic initializers and 50-slot storage reservations.
+Registry ownership and asset admission behavior remain unchanged. A shared
+wrapper implementation seeds independent proxies; deployment configuration
+changes affect future wrappers only. Timelock handover remains a mainnet gate,
+including the future-wrapper ProxyAdmin owner. This is a fresh deployment;
+existing non-proxy assets cannot be upgraded in place.
+Wrapper proxies use CREATE from the deterministic registry; matching addresses
+across chains require the same wrapper creation order, even when tokens differ.
 
-- Asset registry/gateway.
-- FHERC20 wrapper.
+### Non-upgradeable components
 - V4 executor.
 - FundVault.
 - USDC Vault Manager.

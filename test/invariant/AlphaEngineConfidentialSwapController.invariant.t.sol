@@ -51,8 +51,8 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
 
     function setUp() public {
         _installMockTaskManager();
-        registry = new AlphaEngineConfidentialAssetRegistry(admin);
-        gateway = new AlphaEngineConfidentialAssetGateway(registry);
+        registry = _deployAssetRegistry(admin);
+        gateway = _deployAssetGateway(registry);
         inputUnderlying = new MockERC20("Invariant Input", "IIN", 6);
         outputUnderlying = new MockERC20("Invariant Output", "IOUT", 6);
         vm.startPrank(admin);

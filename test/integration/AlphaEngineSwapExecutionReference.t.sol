@@ -386,8 +386,8 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
         fixture.zeroForOne = Currency.unwrap(fixture.intentPool.poolKey.currency0)
             == address(fixture.inputUnderlying);
 
-        fixture.registry = new AlphaEngineConfidentialAssetRegistry(owner);
-        fixture.gateway = new AlphaEngineConfidentialAssetGateway(fixture.registry);
+        fixture.registry = _deployAssetRegistry(owner);
+        fixture.gateway = _deployAssetGateway(fixture.registry);
         vm.startPrank(owner);
         fixture.inputWrapper = fixture.registry
             .createWrapper(address(fixture.inputUnderlying), "Encrypted Input", "eINPUT", "");

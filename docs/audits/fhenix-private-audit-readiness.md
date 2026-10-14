@@ -32,6 +32,7 @@ behavior. The FHE-specific performance scope is narrower:
 - `AlphaEngineCapitalStrategyManager`;
 - `AlphaEngineConfidentialSwapController`;
 - `AlphaEngineConfidentialSwapEscrow`;
+- `AlphaEngineConfidentialAssetGateway`;
 - `AlphaEngineFHERC20ERC20Wrapper`;
 - the pinned `cofhe-contracts` and `fhenix-confidential-contracts`
   implementations reached by those contracts.

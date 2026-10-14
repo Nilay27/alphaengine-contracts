@@ -1,0 +1,95 @@
+{
+  "storage": [
+    {
+      "contract": "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol:AlphaEngineFHERC20ERC20Wrapper",
+      "label": "wrapperRegistry",
+      "offset": 0,
+      "slot": "0",
+      "type": "t_address"
+    },
+    {
+      "contract": "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol:AlphaEngineFHERC20ERC20Wrapper",
+      "label": "unshieldCooldownUntil",
+      "offset": 0,
+      "slot": "1",
+      "type": "t_mapping(t_address,t_uint40)"
+    },
+    {
+      "contract": "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol:AlphaEngineFHERC20ERC20Wrapper",
+      "label": "latestUnshieldClaimId",
+      "offset": 0,
+      "slot": "2",
+      "type": "t_mapping(t_address,t_bytes32)"
+    },
+    {
+      "contract": "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol:AlphaEngineFHERC20ERC20Wrapper",
+      "label": "pendingUnshieldClaimId",
+      "offset": 0,
+      "slot": "3",
+      "type": "t_mapping(t_address,t_bytes32)"
+    },
+    {
+      "contract": "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol:AlphaEngineFHERC20ERC20Wrapper",
+      "label": "_claimSource",
+      "offset": 0,
+      "slot": "4",
+      "type": "t_mapping(t_bytes32,t_address)"
+    },
+    {
+      "contract": "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol:AlphaEngineFHERC20ERC20Wrapper",
+      "label": "__gap",
+      "offset": 0,
+      "slot": "5",
+      "type": "t_array(t_uint256)45_storage"
+    }
+  ],
+  "types": {
+    "t_address": {
+      "encoding": "inplace",
+      "label": "address",
+      "numberOfBytes": "20"
+    },
+    "t_array(t_uint256)45_storage": {
+      "base": "t_uint256",
+      "encoding": "inplace",
+      "label": "uint256[45]",
+      "numberOfBytes": "1440"
+    },
+    "t_bytes32": {
+      "encoding": "inplace",
+      "label": "bytes32",
+      "numberOfBytes": "32"
+    },
+    "t_mapping(t_address,t_bytes32)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => bytes32)",
+      "numberOfBytes": "32",
+      "value": "t_bytes32"
+    },
+    "t_mapping(t_address,t_uint40)": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => uint40)",
+      "numberOfBytes": "32",
+      "value": "t_uint40"
+    },
+    "t_mapping(t_bytes32,t_address)": {
+      "encoding": "mapping",
+      "key": "t_bytes32",
+      "label": "mapping(bytes32 => address)",
+      "numberOfBytes": "32",
+      "value": "t_address"
+    },
+    "t_uint256": {
+      "encoding": "inplace",
+      "label": "uint256",
+      "numberOfBytes": "32"
+    },
+    "t_uint40": {
+      "encoding": "inplace",
+      "label": "uint40",
+      "numberOfBytes": "5"
+    }
+  }
+}

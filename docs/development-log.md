@@ -1,5 +1,36 @@
 # Development Log
 
+## 2026-10-14 — Upgradeable asset modules, no broadcast
+
+- Registry, gateway and per-token wrappers now use atomic transparent proxies;
+  executor/decoders remain fixed. Asset APIs and custody behavior are preserved.
+- Shared wrapper implementation/configuration seeds future independent proxies;
+  existing registered pairs and proxy administrators are not changed by that setter.
+- Fresh deployment only: old non-proxy addresses remain historical. Manifest
+  records new implementations/admins; timelock handover is still pending.
+- 328 regression tests and 12 CREATE2 checks pass, including both pinned forks.
+  23/24 deployment addresses match; only the PoolManager-bound executor differs.
+- Ordered wrapper proxies/admins also match. ABI/layout/hash/size/hygiene checks,
+  93.66% line coverage and full local script rehearsal pass; zero broadcasts.
+
+## 2026-10-14 — CREATE2 preparation, no broadcast
+
+- Added `DeployAlphaEngineCreate2` over the existing wiring, with a pinned
+  factory/namespace, isolated library link and constructor-hash manifest fields.
+- Pinned Sepolia/One forks with different sender addresses matched 18/19
+  deployment addresses; only the PoolManager-bound V4 executor differs.
+- 12 CREATE2 tests (256 sender/nonce fuzz cases) and 321 regression tests pass;
+  two default-suite opt-in/profile checks are skipped. No public deployment.
+- ABI/storage/hash-vector, runtime-size, changed-file formatting and hygiene
+  checks pass. Repo-wide formatting reports drift in unchanged files; preserved.
+- Coverage is 93.64% lines; CI runs CREATE2 separately and excludes both
+  deployment scripts from production coverage, retaining all production sources.
+- Rehearse with `python3 script/rehearse-deployment.py --create2`; it emits a
+  public `deployment.env`. Finalize identical initial governance/operator roles
+  before deployment; current collapsed roles remain test-only. Preserve old data.
+- Pending mainnet: hand over every ProxyAdmin to a Safe-controlled upgrade
+  timelock and verify its delay before unpausing; reminder added to deployment code.
+
 ## 2026-10-10 — Competition proxy upgrade confirmed
 
 - Same proxy, new verified implementation; receipts and matching runtime are

@@ -22,6 +22,18 @@
     "confidentialTokenLibraryCodeHash"
   ],
   "properties": {
+    "assetUpgradeRevision": { "const": "transparent-proxy-v1" },
+    "upgradeTimelockStatus": { "enum": ["handover-pending", "active"] },
+    "assetRegistryImplementation": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "assetRegistryProxyAdmin": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "assetGatewayImplementation": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "assetGatewayProxyAdmin": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "assetWrapperImplementation": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "deploymentMethod": { "enum": ["CREATE", "CREATE2"] },
+    "create2Factory": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "create2FactoryCodeHash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+    "create2Namespace": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+    "create2InitCodeHashes": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" } },
     "schemaVersion": { "const": 2 },
     "chainId": { "type": "integer", "minimum": 1 },
     "deploymentBlock": { "type": "integer", "minimum": 0 },

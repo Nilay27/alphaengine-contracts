@@ -8,10 +8,9 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {
     ERC20ConfidentialLib
 } from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
-import {FHERC20} from "fhenix-confidential-contracts/FHERC20/FHERC20.sol";
 import {
-    FHERC20ERC20Wrapper
-} from "fhenix-confidential-contracts/FHERC20/extensions/FHERC20ERC20Wrapper.sol";
+    FHERC20ERC20WrapperUpgradeable
+} from "fhenix-confidential-contracts/FHERC20/extensions/FHERC20ERC20WrapperUpgradeable.sol";
 import {
     FHERC20InvalidReceiver,
     FHERC20UnauthorizedSpender
@@ -20,7 +19,7 @@ import {
     IAlphaEngineConfidentialAssetRegistry
 } from "../interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
 
-contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
+contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20WrapperUpgradeable {
     using SafeERC20 for IERC20;
 
     error ZeroUnderlying();
@@ -32,7 +31,7 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
     error UnshieldCooldownActive(address account, uint256 nextAvailableAt);
 
     uint256 public constant UNSHIELD_COOLDOWN = 5 minutes;
-    address public immutable wrapperRegistry;
+    address public wrapperRegistry;
     mapping(address account => uint40 availableAt) public unshieldCooldownUntil;
 
     event UnshieldCooldownStarted(address indexed account, uint40 availableAt);
@@ -44,17 +43,19 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
     mapping(address recipient => bytes32 claimId) public latestUnshieldClaimId;
     mapping(address account => bytes32 claimId) public pendingUnshieldClaimId;
     mapping(bytes32 claimId => address account) private _claimSource;
+    uint256[45] private __gap;
 
-    constructor(
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         IERC20 underlying_,
         string memory name_,
         string memory symbol_,
         string memory contractURI_,
         address registry_
-    )
-        FHERC20(name_, symbol_, _cappedDecimals(underlying_), contractURI_)
-        FHERC20ERC20Wrapper(underlying_)
-    {
+    ) external initializer {
         if (address(underlying_) == address(0)) {
             revert ZeroUnderlying();
         }
@@ -64,6 +65,8 @@ contract AlphaEngineFHERC20ERC20Wrapper is FHERC20ERC20Wrapper {
         if (registry_ == address(0) || registry_.code.length == 0) {
             revert InvalidWrapperRegistry(registry_);
         }
+        __FHERC20_init(name_, symbol_, _cappedDecimals(underlying_), contractURI_);
+        __FHERC20ERC20Wrapper_init(underlying_);
         wrapperRegistry = registry_;
     }
 

@@ -41,7 +41,7 @@ contract CoFheV020MigrationTest is MockCoFheTest {
     function setUp() public {
         _installMockTaskManager();
         underlying = new MockERC20("USD Coin", "USDC", 6);
-        registry = new AlphaEngineConfidentialAssetRegistry(address(this));
+        registry = _deployAssetRegistry(address(this));
         wrapper = AlphaEngineFHERC20ERC20Wrapper(
             registry.createWrapper(address(underlying), "Encrypted USD Coin", "eUSDC", "")
         );

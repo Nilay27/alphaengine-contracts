@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {
+    AlphaEngineConfidentialAssetRegistry
+} from "src/fherc20/AlphaEngineConfidentialAssetRegistry.sol";
+import {
+    AlphaEngineConfidentialAssetGateway
+} from "src/fherc20/AlphaEngineConfidentialAssetGateway.sol";
+import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
+import {
+    IAlphaEngineConfidentialAssetRegistry
+} from "src/interfaces/IAlphaEngineConfidentialAssetRegistry.sol";
 import {Test} from "forge-std/Test.sol";
 import {
     COFHE_ADDRESS_BOOK,
@@ -25,6 +39,60 @@ abstract contract MockCoFheTest is Test {
     MockCoFheTaskManager internal taskManager;
     uint256 private _nextCiphertextSalt;
     mapping(bytes32 => address) internal _inputSenders;
+
+    function _deployAssetRegistry(address owner)
+        internal
+        returns (AlphaEngineConfidentialAssetRegistry)
+    {
+        return AlphaEngineConfidentialAssetRegistry(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(new AlphaEngineConfidentialAssetRegistry()),
+                    address(this),
+                    abi.encodeCall(
+                        AlphaEngineConfidentialAssetRegistry.initialize,
+                        (owner, address(new AlphaEngineFHERC20ERC20Wrapper()), address(this))
+                    )
+                )
+            )
+        );
+    }
+
+    function _deployAssetGateway(IAlphaEngineConfidentialAssetRegistry registry)
+        internal
+        returns (AlphaEngineConfidentialAssetGateway)
+    {
+        return AlphaEngineConfidentialAssetGateway(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(new AlphaEngineConfidentialAssetGateway()),
+                    address(this),
+                    abi.encodeCall(AlphaEngineConfidentialAssetGateway.initialize, (registry))
+                )
+            )
+        );
+    }
+
+    function _deployAssetWrapper(
+        IERC20 token,
+        string memory name,
+        string memory symbol,
+        string memory uri,
+        address registry
+    ) internal returns (AlphaEngineFHERC20ERC20Wrapper) {
+        return AlphaEngineFHERC20ERC20Wrapper(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(new AlphaEngineFHERC20ERC20Wrapper()),
+                    address(this),
+                    abi.encodeCall(
+                        AlphaEngineFHERC20ERC20Wrapper.initialize,
+                        (token, name, symbol, uri, registry)
+                    )
+                )
+            )
+        );
+    }
 
     function _installMockTaskManager() internal {
         // Install fixture code without consuming a CREATE nonce, preserving persisted

@@ -56,8 +56,8 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
     function setUp() public {
         _installMockTaskManager();
 
-        registry = new AlphaEngineConfidentialAssetRegistry(admin);
-        gateway = new AlphaEngineConfidentialAssetGateway(registry);
+        registry = _deployAssetRegistry(admin);
+        gateway = _deployAssetGateway(registry);
         inputUnderlying = new MockERC20("USD Coin", "USDC", 6);
         outputUnderlying = new MockERC20("Tether", "USDT", 6);
         vm.startPrank(admin);
@@ -234,9 +234,8 @@ contract AlphaEngineConfidentialSwapControllerTest is MockCoFheTest {
 
     function test_registeredExternalWrapperAllowsConcurrentTraders() public {
         MockERC20 token = new MockERC20("External", "EXT", 6);
-        AlphaEngineFHERC20ERC20Wrapper externalWrapper = new AlphaEngineFHERC20ERC20Wrapper(
-            token, "Encrypted External", "eEXT", "", address(registry)
-        );
+        AlphaEngineFHERC20ERC20Wrapper externalWrapper =
+            _deployAssetWrapper(token, "Encrypted External", "eEXT", "", address(registry));
         vm.startPrank(admin);
         registry.registerWrapper(address(token), address(externalWrapper));
         registry.setWrapperMinimums(address(externalWrapper), 1000, 1000);

@@ -76,7 +76,9 @@ contract DeployAlphaEngineV2Test is Test {
         assertEq(controller.swapEscrow(), address(0));
         assertEq(controller.swapExecutor(), address(0));
 
-        address[5] memory admins = [
+        address[7] memory admins = [
+            deployment.assetRegistryProxyAdmin,
+            deployment.assetGatewayProxyAdmin,
             deployment.qualificationRegistryProxyAdmin,
             deployment.competitionManagerProxyAdmin,
             deployment.capitalManagerProxyAdmin,

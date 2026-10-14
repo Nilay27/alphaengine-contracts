@@ -49,8 +49,8 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
 
     function setUp() public {
         _installMockTaskManager();
-        registry = new AlphaEngineConfidentialAssetRegistry(admin);
-        gateway = new AlphaEngineConfidentialAssetGateway(registry);
+        registry = _deployAssetRegistry(admin);
+        gateway = _deployAssetGateway(registry);
         inputUnderlying = new MockERC20("Invariant USDC", "iUSDC", 6);
         outputUnderlying = new MockERC20("Invariant USDT", "iUSDT", 6);
 

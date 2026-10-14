@@ -1,13 +1,7 @@
 {
   "abi": [
     {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "initialOwner",
-          "type": "address"
-        }
-      ],
+      "inputs": [],
       "stateMutability": "nonpayable",
       "type": "constructor"
     },
@@ -62,6 +56,29 @@
           "type": "address"
         }
       ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "initialOwner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "proxyAdminOwner",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
     },
@@ -214,6 +231,24 @@
       "inputs": [
         {
           "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "proxyAdminOwner",
+          "type": "address"
+        }
+      ],
+      "name": "setWrapperDeploymentConfiguration",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
           "name": "wrapper",
           "type": "address"
         },
@@ -337,6 +372,32 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "wrapperImplementation",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "wrapperProxyAdminOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "anonymous": false,
       "inputs": [
         {
@@ -353,6 +414,19 @@
         }
       ],
       "name": "ConfidentialWrapperRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint64",
+          "name": "version",
+          "type": "uint64"
+        }
+      ],
+      "name": "Initialized",
       "type": "event"
     },
     {
@@ -435,6 +509,25 @@
       "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "proxyAdminOwner",
+          "type": "address"
+        }
+      ],
+      "name": "WrapperDeploymentConfigurationUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
           "indexed": true,
           "internalType": "address",
           "name": "wrapper",
@@ -465,6 +558,11 @@
         }
       ],
       "name": "ActiveSwapLocksPresent",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidInitialization",
       "type": "error"
     },
     {
@@ -519,6 +617,17 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "implementation",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidWrapperImplementation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "uint64",
           "name": "swapMinimum",
           "type": "uint64"
@@ -530,6 +639,11 @@
         }
       ],
       "name": "InvalidWrapperMinimums",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotInitializing",
       "type": "error"
     },
     {
@@ -647,6 +761,11 @@
     {
       "inputs": [],
       "name": "ZeroWrapper",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroWrapperProxyAdminOwner",
       "type": "error"
     }
   ]

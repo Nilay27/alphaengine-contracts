@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {
     IFHERC20ERC20Wrapper
 } from "fhenix-confidential-contracts/interfaces/IFHERC20ERC20Wrapper.sol";
@@ -21,7 +27,10 @@ import {
 /// @notice Append-only registry for canonical underlying/FHERC20 wrapper pairs.
 /// @dev A registered association can never be replaced. The registry neither holds assets nor
 ///      participates in swap execution.
-contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidentialAssetRegistry {
+contract AlphaEngineConfidentialAssetRegistry is
+    OwnableUpgradeable,
+    IAlphaEngineConfidentialAssetRegistry
+{
     error ZeroInitialOwner();
     error ZeroUnderlying();
     error ZeroWrapper();
@@ -38,6 +47,10 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
     error InvalidWrapperMinimums(uint64 swapMinimum, uint64 unshieldMinimum);
     error InvalidUnshieldRateLimits(uint16 perSecond, uint16 burst);
     error UnshieldRateLimitExceeded(uint256 nextAvailableAt);
+    error InvalidWrapperImplementation(address implementation);
+    error ZeroWrapperProxyAdminOwner();
+
+    event WrapperDeploymentConfigurationUpdated(address implementation, address proxyAdminOwner);
 
     event ConfidentialWrapperRegistered(address indexed underlying, address indexed wrapper);
     event TrustedSwapEscrowUpdated(address indexed previousEscrow, address indexed newEscrow);
@@ -55,13 +68,54 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
     mapping(address wrapper => uint64 minimum) public override minimumUnshieldAmount;
 
     // Independent of the swap budget: shared by ordinary exits from all registered wrappers.
-    uint16 public unshieldRequestsPerSecond = 1;
-    uint16 public unshieldBurst = 8;
-    uint16 public availableUnshieldTokens = 8;
+    uint16 public unshieldRequestsPerSecond;
+    uint16 public unshieldBurst;
+    uint16 public availableUnshieldTokens;
     uint40 public unshieldTokensUpdatedAt;
+    address public wrapperImplementation;
+    address public wrapperProxyAdminOwner;
+    uint256[43] private __gap;
 
-    constructor(address initialOwner) Ownable(_validatedOwner(initialOwner)) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address initialOwner, address implementation, address proxyAdminOwner)
+        external
+        initializer
+    {
+        __Ownable_init(_validatedOwner(initialOwner));
+        _setWrapperDeploymentConfiguration(implementation, proxyAdminOwner);
+        unshieldRequestsPerSecond = 1;
+        unshieldBurst = 8;
+        availableUnshieldTokens = 8;
         unshieldTokensUpdatedAt = uint40(block.timestamp);
+    }
+
+    /// @notice Changes only future wrappers; existing proxies keep their implementation/admin.
+    /// @dev Include the future-wrapper admin owner in the later upgrade-timelock handover.
+    function setWrapperDeploymentConfiguration(address implementation, address proxyAdminOwner)
+        external
+        onlyOwner
+    {
+        _setWrapperDeploymentConfiguration(implementation, proxyAdminOwner);
+    }
+
+    function _setWrapperDeploymentConfiguration(address implementation, address proxyAdminOwner)
+        private
+    {
+        if (implementation.code.length == 0) revert InvalidWrapperImplementation(implementation);
+        (bool success, bytes memory result) = implementation.staticcall(
+            abi.encodeCall(IERC165.supportsInterface, (type(IFHERC20ERC20Wrapper).interfaceId))
+        );
+        if (!success || result.length != 32 || abi.decode(result, (bytes32)) != bytes32(uint256(1)))
+        {
+            revert InvalidWrapperImplementation(implementation);
+        }
+        if (proxyAdminOwner == address(0)) revert ZeroWrapperProxyAdminOwner();
+        wrapperImplementation = implementation;
+        wrapperProxyAdminOwner = proxyAdminOwner;
+        emit WrapperDeploymentConfigurationUpdated(implementation, proxyAdminOwner);
     }
 
     /// @notice Amounts use each wrapper's confidential base units, never underlying base units.
@@ -138,14 +192,19 @@ contract AlphaEngineConfidentialAssetRegistry is Ownable, IAlphaEngineConfidenti
         _validateUnregisteredUnderlying(underlying);
 
         wrapper = address(
-            new AlphaEngineFHERC20ERC20Wrapper(
-                IERC20(underlying), name, symbol, contractUri, address(this)
+            new TransparentUpgradeableProxy(
+                wrapperImplementation,
+                wrapperProxyAdminOwner,
+                abi.encodeCall(
+                    AlphaEngineFHERC20ERC20Wrapper.initialize,
+                    (IERC20(underlying), name, symbol, contractUri, address(this))
+                )
             )
         );
-        _registerWrapper(underlying, wrapper);
+        registerWrapper(underlying, wrapper);
     }
 
-    function registerWrapper(address underlying, address wrapper) external onlyOwner {
+    function registerWrapper(address underlying, address wrapper) public onlyOwner {
         _validateUnregisteredUnderlying(underlying);
         if (wrapper == address(0)) {
             revert ZeroWrapper();

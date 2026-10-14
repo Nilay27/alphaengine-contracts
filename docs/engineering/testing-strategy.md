@@ -17,6 +17,12 @@ deferring those broad commands does not reduce focused test depth.
 
 ## Required suites
 
+CREATE2 deployment checks use `FOUNDRY_PROFILE=create2 forge test --match-contract
+DeployAlphaEngineCreate2Test`: sender/nonce fuzzing, atomic wiring, configuration
+and collision failures, and opt-in pinned Arbitrum Sepolia/One fork parity.
+Initial role arguments must match; the PoolManager-bound executor is chain-specific.
+CI runs the separate profile; real-network fork checks remain opt-in.
+
 Deployment-preparation regression checks additionally cover legacy/traversal
 manifest-path rejection, explicit test-only role collapse on Arbitrum Sepolia,
 mainnet rejection of collapsed roles, and candidate/omitted/verification manifest
@@ -270,7 +276,7 @@ track effective swap amounts/cooldowns and score cursor/pacing progress.
 - Checked-in ABIs and upgradeable storage layouts must reproduce byte-for-byte
   after canonical JSON normalization via
   `script/ci/check-generated-artifacts.sh`.
-- Coverage uses `--skip DeployAlphaEngineV2` because the large Foundry script
+- Coverage uses `--skip DeployAlphaEngineV2 --skip DeployAlphaEngineCreate2` because the large Foundry scripts
   and its dedicated deployment test are outside production coverage scope and
   trigger a solc Yul stack-depth defect under `--ir-minimum`. The script remains
   compiled normally and is tested separately; production `src/**` remains fully
@@ -343,3 +349,7 @@ not threshold-network signature validation. Live CoFHE testing remains a release
 - If Uniswap v4 becomes the first concrete execution route, write the PoolManager behavior tests against a dedicated executor/harness, not by embedding PoolManager logic into the intent controller or vault.
 - `@uniswap/v4-periphery` remains excluded unless a specific fixture setup blocker is documented; do not add it speculatively.
 - The pinned `v4-core@v4.0.0` PoolManager implementation uses `pragma solidity 0.8.26`; this repo now pins `solc = 0.8.26` so future PoolManager fixture work must preserve that compiler profile unless explicitly approved and documented.
+
+Asset-proxy tests cover locked/replayed initialization, independent upgrade
+authority, future-wrapper configuration, and populated upgrades preserving
+encrypted balances, ACL grants, pending claims and withdrawal completion.

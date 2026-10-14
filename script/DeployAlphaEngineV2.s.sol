@@ -10,6 +10,7 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {
     ERC20ConfidentialLib
 } from "fhenix-confidential-contracts/ERC20Confidential/ERC20ConfidentialLib.sol";
+import {AlphaEngineFHERC20ERC20Wrapper} from "src/fherc20/AlphaEngineFHERC20ERC20Wrapper.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
 import {
     AlphaEngineConfidentialAssetGateway
@@ -59,6 +60,9 @@ contract DeployAlphaEngineV2 is Script {
 
     struct RoleConfig {
         address defaultAdmin;
+        // TODO(mainnet): transfer every ProxyAdmin to a Safe-controlled upgrade timelock
+        // and verify its delay before unpausing. DEFAULT_ADMIN_DELAY only delays
+        // default-admin transfers, not implementation upgrades.
         address proxyAdminOwner;
         address pauser;
         address qualificationRevoker;
@@ -104,6 +108,11 @@ contract DeployAlphaEngineV2 is Script {
         address capitalManagerImplementation;
         address capitalManagerProxy;
         address capitalManagerProxyAdmin;
+        address assetRegistryImplementation;
+        address assetRegistryProxyAdmin;
+        address assetGatewayImplementation;
+        address assetGatewayProxyAdmin;
+        address assetWrapperImplementation;
         address assetRegistry;
         address assetGateway;
         address swapControllerImplementation;
@@ -116,6 +125,7 @@ contract DeployAlphaEngineV2 is Script {
         address confidentialTokenLibrary;
     }
 
+    error ContractDeploymentFailed(string component);
     error UnexpectedChainId(uint256 expectedChainId, uint256 actualChainId);
     error ZeroConfigurationAddress(bytes32 field);
     error InvalidPoolManager(address poolManager);
@@ -140,14 +150,50 @@ contract DeployAlphaEngineV2 is Script {
         _logDeployment(deployment, manifestPath);
     }
 
-    function deploy(DeploymentConfig memory config) public returns (Deployment memory deployment) {
+    function deploy(DeploymentConfig memory config)
+        public
+        virtual
+        returns (Deployment memory deployment)
+    {
         _validateConfig(config);
 
-        AlphaEngineConfidentialAssetRegistry assetRegistry =
-            new AlphaEngineConfidentialAssetRegistry(config.roles.assetRegistryOwner);
-        AlphaEngineConfidentialAssetGateway assetGateway = new AlphaEngineConfidentialAssetGateway(
-            IAlphaEngineConfidentialAssetRegistry(address(assetRegistry))
+        deployment.assetWrapperImplementation = _deployContract(
+            "assetWrapperImplementation", type(AlphaEngineFHERC20ERC20Wrapper).creationCode
         );
+        deployment.assetRegistryImplementation = _deployContract(
+            "assetRegistryImplementation", type(AlphaEngineConfidentialAssetRegistry).creationCode
+        );
+        deployment.assetRegistry = _deployProxy(
+            "assetRegistry",
+            deployment.assetRegistryImplementation,
+            config.roles.proxyAdminOwner,
+            abi.encodeCall(
+                AlphaEngineConfidentialAssetRegistry.initialize,
+                (
+                    config.roles.assetRegistryOwner,
+                    deployment.assetWrapperImplementation,
+                    config.roles.proxyAdminOwner
+                )
+            )
+        );
+        deployment.assetRegistryProxyAdmin = _proxyAdmin(deployment.assetRegistry);
+        deployment.assetGatewayImplementation = _deployContract(
+            "assetGatewayImplementation", type(AlphaEngineConfidentialAssetGateway).creationCode
+        );
+        deployment.assetGateway = _deployProxy(
+            "assetGateway",
+            deployment.assetGatewayImplementation,
+            config.roles.proxyAdminOwner,
+            abi.encodeCall(
+                AlphaEngineConfidentialAssetGateway.initialize,
+                (IAlphaEngineConfidentialAssetRegistry(deployment.assetRegistry))
+            )
+        );
+        deployment.assetGatewayProxyAdmin = _proxyAdmin(deployment.assetGateway);
+        AlphaEngineConfidentialAssetRegistry assetRegistry =
+            AlphaEngineConfidentialAssetRegistry(deployment.assetRegistry);
+        AlphaEngineConfidentialAssetGateway assetGateway =
+            AlphaEngineConfidentialAssetGateway(deployment.assetGateway);
 
         (
             AlphaEngineTraderQualificationRegistry qualificationRegistryImplementation,
@@ -179,8 +225,16 @@ contract DeployAlphaEngineV2 is Script {
             address swapEscrowProxyAdmin
         ) = _deploySwapEscrow(config, address(swapController), address(assetRegistry));
 
-        AlphaEngineV4SwapExecutor swapExecutor = new AlphaEngineV4SwapExecutor(
-            IPoolManager(config.poolManager), config.roles.swapExecutorOwner, address(swapEscrow)
+        AlphaEngineV4SwapExecutor swapExecutor = AlphaEngineV4SwapExecutor(
+            _deployConstructedContract(
+                "swapExecutor",
+                type(AlphaEngineV4SwapExecutor).creationCode,
+                abi.encode(
+                    IPoolManager(config.poolManager),
+                    config.roles.swapExecutorOwner,
+                    address(swapEscrow)
+                )
+            )
         );
 
         deployment = Deployment({
@@ -193,6 +247,11 @@ contract DeployAlphaEngineV2 is Script {
             capitalManagerImplementation: address(capitalManagerImplementation),
             capitalManagerProxy: address(capitalManager),
             capitalManagerProxyAdmin: capitalManagerProxyAdmin,
+            assetRegistryImplementation: deployment.assetRegistryImplementation,
+            assetRegistryProxyAdmin: deployment.assetRegistryProxyAdmin,
+            assetGatewayImplementation: deployment.assetGatewayImplementation,
+            assetGatewayProxyAdmin: deployment.assetGatewayProxyAdmin,
+            assetWrapperImplementation: deployment.assetWrapperImplementation,
             assetRegistry: address(assetRegistry),
             assetGateway: address(assetGateway),
             swapControllerImplementation: address(swapControllerImplementation),
@@ -282,7 +341,7 @@ contract DeployAlphaEngineV2 is Script {
         string memory manifestPath,
         DeploymentConfig memory config,
         Deployment memory deployment
-    ) public {
+    ) public virtual {
         _validateManifestPath(manifestPath);
         string memory object = "alphaEngineV2";
         vm.serializeUint(object, "schemaVersion", SCHEMA_VERSION);
@@ -318,6 +377,8 @@ contract DeployAlphaEngineV2 is Script {
         vm.serializeString(object, "usdcVaultManagerStatus", "not-deployed-out-of-scope");
         vm.serializeString(object, "vaultExecutionManagerStatus", "not-deployed-out-of-scope");
         vm.serializeString(object, "vaultDecodersStatus", "not-deployed-out-of-scope");
+        vm.serializeString(object, "assetUpgradeRevision", "transparent-proxy-v1");
+        vm.serializeString(object, "upgradeTimelockStatus", "handover-pending");
         vm.serializeString(object, "assetWrappersStatus", "not-deployed-pending-asset-selection");
         vm.serializeString(object, "explorerVerificationStatus", "not-verified");
         vm.serializeAddress(object, "defaultAdmin", config.roles.defaultAdmin);
@@ -353,14 +414,26 @@ contract DeployAlphaEngineV2 is Script {
             address proxyAdmin
         )
     {
-        implementation = new AlphaEngineTraderQualificationRegistry();
-        TransparentUpgradeableProxy proxyContract = new TransparentUpgradeableProxy(
-            address(implementation),
-            config.roles.proxyAdminOwner,
-            abi.encodeCall(
-                AlphaEngineTraderQualificationRegistry.initialize,
-                (config.roles.defaultAdmin, config.roles.pauser, config.roles.qualificationRevoker)
+        implementation = AlphaEngineTraderQualificationRegistry(
+            _deployContract(
+                "qualificationRegistryImplementation",
+                type(AlphaEngineTraderQualificationRegistry).creationCode
             )
+        );
+        TransparentUpgradeableProxy proxyContract = TransparentUpgradeableProxy(
+            payable(_deployProxy(
+                    "qualificationRegistryProxy",
+                    address(implementation),
+                    config.roles.proxyAdminOwner,
+                    abi.encodeCall(
+                        AlphaEngineTraderQualificationRegistry.initialize,
+                        (
+                            config.roles.defaultAdmin,
+                            config.roles.pauser,
+                            config.roles.qualificationRevoker
+                        )
+                    )
+                ))
         );
         proxy = AlphaEngineTraderQualificationRegistry(address(proxyContract));
         proxyAdmin = _proxyAdmin(address(proxy));
@@ -374,19 +447,27 @@ contract DeployAlphaEngineV2 is Script {
             address proxyAdmin
         )
     {
-        implementation = new AlphaEngineCompetitionStrategyManager();
-        TransparentUpgradeableProxy proxyContract = new TransparentUpgradeableProxy(
-            address(implementation),
-            config.roles.proxyAdminOwner,
-            abi.encodeCall(
-                AlphaEngineCompetitionStrategyManager.initialize,
-                (AlphaEngineCompetitionStrategyManager.InitializationParams({
-                        initialDefaultAdmin: config.roles.defaultAdmin,
-                        initialPauser: config.roles.pauser,
-                        initialFheOperator: config.roles.competitionFheOperator,
-                        qualificationRegistry: registry
-                    }))
+        implementation = AlphaEngineCompetitionStrategyManager(
+            _deployContract(
+                "competitionManagerImplementation",
+                type(AlphaEngineCompetitionStrategyManager).creationCode
             )
+        );
+        TransparentUpgradeableProxy proxyContract = TransparentUpgradeableProxy(
+            payable(_deployProxy(
+                    "competitionManagerProxy",
+                    address(implementation),
+                    config.roles.proxyAdminOwner,
+                    abi.encodeCall(
+                        AlphaEngineCompetitionStrategyManager.initialize,
+                        (AlphaEngineCompetitionStrategyManager.InitializationParams({
+                                initialDefaultAdmin: config.roles.defaultAdmin,
+                                initialPauser: config.roles.pauser,
+                                initialFheOperator: config.roles.competitionFheOperator,
+                                qualificationRegistry: registry
+                            }))
+                    )
+                ))
         );
         proxy = AlphaEngineCompetitionStrategyManager(address(proxyContract));
         proxyAdmin = _proxyAdmin(address(proxy));
@@ -400,19 +481,26 @@ contract DeployAlphaEngineV2 is Script {
             address proxyAdmin
         )
     {
-        implementation = new AlphaEngineCapitalStrategyManager();
-        TransparentUpgradeableProxy proxyContract = new TransparentUpgradeableProxy(
-            address(implementation),
-            config.roles.proxyAdminOwner,
-            abi.encodeCall(
-                AlphaEngineCapitalStrategyManager.initialize,
-                (AlphaEngineCapitalStrategyManager.InitializationParams({
-                        initialDefaultAdmin: config.roles.defaultAdmin,
-                        initialPauser: config.roles.pauser,
-                        initialFheOperator: config.roles.capitalFheOperator,
-                        qualificationRegistry: registry
-                    }))
+        implementation = AlphaEngineCapitalStrategyManager(
+            _deployContract(
+                "capitalManagerImplementation", type(AlphaEngineCapitalStrategyManager).creationCode
             )
+        );
+        TransparentUpgradeableProxy proxyContract = TransparentUpgradeableProxy(
+            payable(_deployProxy(
+                    "capitalManagerProxy",
+                    address(implementation),
+                    config.roles.proxyAdminOwner,
+                    abi.encodeCall(
+                        AlphaEngineCapitalStrategyManager.initialize,
+                        (AlphaEngineCapitalStrategyManager.InitializationParams({
+                                initialDefaultAdmin: config.roles.defaultAdmin,
+                                initialPauser: config.roles.pauser,
+                                initialFheOperator: config.roles.capitalFheOperator,
+                                qualificationRegistry: registry
+                            }))
+                    )
+                ))
         );
         proxy = AlphaEngineCapitalStrategyManager(address(proxyContract));
         proxyAdmin = _proxyAdmin(address(proxy));
@@ -426,18 +514,26 @@ contract DeployAlphaEngineV2 is Script {
             address proxyAdmin
         )
     {
-        implementation = new AlphaEngineConfidentialSwapController();
-        TransparentUpgradeableProxy proxyContract = new TransparentUpgradeableProxy(
-            address(implementation),
-            config.roles.proxyAdminOwner,
-            abi.encodeCall(
-                AlphaEngineConfidentialSwapController.initialize,
-                (AlphaEngineConfidentialSwapController.InitializationParams({
-                        initialDefaultAdmin: config.roles.defaultAdmin,
-                        initialPauser: config.roles.pauser,
-                        initialSwapOperator: config.roles.swapOperator
-                    }))
+        implementation = AlphaEngineConfidentialSwapController(
+            _deployContract(
+                "swapControllerImplementation",
+                type(AlphaEngineConfidentialSwapController).creationCode
             )
+        );
+        TransparentUpgradeableProxy proxyContract = TransparentUpgradeableProxy(
+            payable(_deployProxy(
+                    "swapControllerProxy",
+                    address(implementation),
+                    config.roles.proxyAdminOwner,
+                    abi.encodeCall(
+                        AlphaEngineConfidentialSwapController.initialize,
+                        (AlphaEngineConfidentialSwapController.InitializationParams({
+                                initialDefaultAdmin: config.roles.defaultAdmin,
+                                initialPauser: config.roles.pauser,
+                                initialSwapOperator: config.roles.swapOperator
+                            }))
+                    )
+                ))
         );
         proxy = AlphaEngineConfidentialSwapController(address(proxyContract));
         proxyAdmin = _proxyAdmin(address(proxy));
@@ -451,17 +547,58 @@ contract DeployAlphaEngineV2 is Script {
             address proxyAdmin
         )
     {
-        implementation = new AlphaEngineConfidentialSwapEscrow();
-        TransparentUpgradeableProxy proxyContract = new TransparentUpgradeableProxy(
-            address(implementation),
-            config.roles.proxyAdminOwner,
-            abi.encodeCall(
-                AlphaEngineConfidentialSwapEscrow.initialize,
-                (config.roles.defaultAdmin, config.roles.pauser, controller, registry)
+        implementation = AlphaEngineConfidentialSwapEscrow(
+            _deployContract(
+                "swapEscrowImplementation", type(AlphaEngineConfidentialSwapEscrow).creationCode
             )
+        );
+        TransparentUpgradeableProxy proxyContract = TransparentUpgradeableProxy(
+            payable(_deployProxy(
+                    "swapEscrowProxy",
+                    address(implementation),
+                    config.roles.proxyAdminOwner,
+                    abi.encodeCall(
+                        AlphaEngineConfidentialSwapEscrow.initialize,
+                        (config.roles.defaultAdmin, config.roles.pauser, controller, registry)
+                    )
+                ))
         );
         proxy = AlphaEngineConfidentialSwapEscrow(address(proxyContract));
         proxyAdmin = _proxyAdmin(address(proxy));
+    }
+
+    function _deployProxy(
+        string memory component,
+        address implementation,
+        address owner,
+        bytes memory initialization
+    ) private returns (address) {
+        return _deployConstructedContract(
+            component,
+            type(TransparentUpgradeableProxy).creationCode,
+            abi.encode(implementation, owner, initialization)
+        );
+    }
+
+    function _deployConstructedContract(
+        string memory component,
+        bytes memory creationCode,
+        bytes memory arguments
+    ) private returns (address) {
+        return _deployContract(component, abi.encodePacked(creationCode, arguments));
+    }
+
+    /// @dev One construction hook lets CREATE2 reuse the existing wiring and validation.
+    function _deployContract(string memory component, bytes memory creationCode)
+        internal
+        virtual
+        returns (address deployed)
+    {
+        // CREATE accepts dynamic init code; Solidity has no typed-new equivalent here.
+        assembly ("memory-safe") {
+            deployed := create(0, add(creationCode, 0x20), mload(creationCode))
+        }
+        if (deployed == address(0)) revert ContractDeploymentFailed(component);
     }
 
     function _serializeDeploymentAddresses(string memory object, Deployment memory deployment)
@@ -490,6 +627,17 @@ contract DeployAlphaEngineV2 is Script {
         );
         vm.serializeAddress(object, "capitalManagerProxy", deployment.capitalManagerProxy);
         vm.serializeAddress(object, "capitalManagerProxyAdmin", deployment.capitalManagerProxyAdmin);
+        vm.serializeAddress(
+            object, "assetRegistryImplementation", deployment.assetRegistryImplementation
+        );
+        vm.serializeAddress(object, "assetRegistryProxyAdmin", deployment.assetRegistryProxyAdmin);
+        vm.serializeAddress(
+            object, "assetGatewayImplementation", deployment.assetGatewayImplementation
+        );
+        vm.serializeAddress(object, "assetGatewayProxyAdmin", deployment.assetGatewayProxyAdmin);
+        vm.serializeAddress(
+            object, "assetWrapperImplementation", deployment.assetWrapperImplementation
+        );
         vm.serializeAddress(object, "assetRegistry", deployment.assetRegistry);
         vm.serializeAddress(object, "assetGateway", deployment.assetGateway);
         vm.serializeAddress(
@@ -523,6 +671,21 @@ contract DeployAlphaEngineV2 is Script {
             "capitalManagerImplementationCodeHash",
             deployment.capitalManagerImplementation.codehash
         );
+        vm.serializeBytes32(
+            object,
+            "assetRegistryImplementationCodeHash",
+            deployment.assetRegistryImplementation.codehash
+        );
+        vm.serializeBytes32(
+            object,
+            "assetGatewayImplementationCodeHash",
+            deployment.assetGatewayImplementation.codehash
+        );
+        vm.serializeBytes32(
+            object,
+            "assetWrapperImplementationCodeHash",
+            deployment.assetWrapperImplementation.codehash
+        );
         vm.serializeBytes32(object, "assetRegistryCodeHash", deployment.assetRegistry.codehash);
         vm.serializeBytes32(object, "assetGatewayCodeHash", deployment.assetGateway.codehash);
         vm.serializeBytes32(
@@ -539,16 +702,14 @@ contract DeployAlphaEngineV2 is Script {
         );
     }
 
-    function _validateConfig(DeploymentConfig memory config) private view {
+    function _validateConfig(DeploymentConfig memory config) internal view {
         if (config.expectedChainId != block.chainid) {
             revert UnexpectedChainId(config.expectedChainId, block.chainid);
         }
         if (config.poolManager == address(0) || config.poolManager.code.length == 0) {
             revert InvalidPoolManager(config.poolManager);
         }
-        if (address(ERC20ConfidentialLib).code.length == 0) {
-            revert MissingConfidentialTokenLibrary(address(ERC20ConfidentialLib));
-        }
+        _validateConfidentialTokenLibrary();
         _requireNonzeroRoles(config.roles);
         if (
             config.metadata.testOnlyRoleCollapse && block.chainid != 421_614
@@ -572,6 +733,12 @@ contract DeployAlphaEngineV2 is Script {
         }
         if (config.metadata.storageLayoutBundleHash == bytes32(0)) {
             revert MissingArtifactMetadata("LAYOUT_BUNDLE_HASH");
+        }
+    }
+
+    function _validateConfidentialTokenLibrary() internal view virtual {
+        if (address(ERC20ConfidentialLib).code.length == 0) {
+            revert MissingConfidentialTokenLibrary(address(ERC20ConfidentialLib));
         }
     }
 

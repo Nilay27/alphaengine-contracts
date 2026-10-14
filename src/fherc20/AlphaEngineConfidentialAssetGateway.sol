@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FHE, euint64} from "@fhenixprotocol/cofhe-contracts/FHE.sol";
@@ -20,7 +22,7 @@ import {
 /// @notice Non-custodial convenience surface for shielding and ordinary unshield claims.
 /// @dev The gateway has no configurable business state and must retain no underlying token after
 ///      a successful operation. Registry administration and swap locks live elsewhere.
-contract AlphaEngineConfidentialAssetGateway is ReentrancyGuard {
+contract AlphaEngineConfidentialAssetGateway is ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
     error InvalidAssetRegistry(address registry);
@@ -55,10 +57,16 @@ contract AlphaEngineConfidentialAssetGateway is ReentrancyGuard {
         address indexed wrapper, bytes32 indexed unshieldRequestId, uint64 decryptedAmount
     );
 
-    IAlphaEngineConfidentialAssetRegistry private immutable ASSET_REGISTRY;
+    IAlphaEngineConfidentialAssetRegistry private ASSET_REGISTRY;
+    uint256[49] private __gap;
 
-    constructor(IAlphaEngineConfidentialAssetRegistry assetRegistry_) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(IAlphaEngineConfidentialAssetRegistry assetRegistry_) external initializer {
         _validateAssetRegistry(address(assetRegistry_));
+        __ReentrancyGuard_init();
         ASSET_REGISTRY = assetRegistry_;
     }
 

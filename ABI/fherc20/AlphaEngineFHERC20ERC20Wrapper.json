@@ -2,33 +2,7 @@
   "abi": [
     {
       "type": "constructor",
-      "inputs": [
-        {
-          "name": "underlying_",
-          "type": "address",
-          "internalType": "contract IERC20"
-        },
-        {
-          "name": "name_",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "symbol_",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "contractURI_",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "registry_",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
+      "inputs": [],
       "stateMutability": "nonpayable"
     },
     {
@@ -623,6 +597,39 @@
     },
     {
       "type": "function",
+      "name": "initialize",
+      "inputs": [
+        {
+          "name": "underlying_",
+          "type": "address",
+          "internalType": "contract IERC20"
+        },
+        {
+          "name": "name_",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "symbol_",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "contractURI_",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "registry_",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "isOperator",
       "inputs": [
         {
@@ -1197,6 +1204,19 @@
     },
     {
       "type": "event",
+      "name": "Initialized",
+      "inputs": [
+        {
+          "name": "version",
+          "type": "uint64",
+          "indexed": false,
+          "internalType": "uint64"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "OperatorSet",
       "inputs": [
         {
@@ -1386,6 +1406,11 @@
     },
     {
       "type": "error",
+      "name": "InvalidInitialization",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "InvalidUnderlying",
       "inputs": [
         {
@@ -1405,6 +1430,11 @@
           "internalType": "address"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "NotInitializing",
+      "inputs": []
     },
     {
       "type": "error",

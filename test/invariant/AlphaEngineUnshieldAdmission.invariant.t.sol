@@ -171,7 +171,7 @@ contract AlphaEngineUnshieldAdmissionInvariantTest is StdInvariant, MockCoFheTes
 
     function setUp() public {
         _installMockTaskManager();
-        registry = new AlphaEngineConfidentialAssetRegistry(address(this));
+        registry = _deployAssetRegistry(address(this));
         for (uint256 w; w < 2; ++w) {
             assets[w] = new MockERC20("Underlying", "TOK", w == 0 ? 6 : 18);
             wrappers[w] = AlphaEngineFHERC20ERC20Wrapper(

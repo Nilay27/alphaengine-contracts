@@ -1071,8 +1071,16 @@
           "signature": "InvalidAssetRegistry(address)"
         },
         {
+          "selector": "0xf92ee8a9",
+          "signature": "InvalidInitialization()"
+        },
+        {
           "selector": "0x0fff6820",
           "signature": "InvalidWrapper(address)"
+        },
+        {
+          "selector": "0xd7e6bcf8",
+          "signature": "NotInitializing()"
         },
         {
           "selector": "0x3ee5aeb5",
@@ -1109,6 +1117,10 @@
           "topic0": "0x94cc24ce126b9524b52b4c19f65d0f2e8bdd6d419c459f35832cc757d8daa241"
         },
         {
+          "signature": "Initialized(uint64)",
+          "topic0": "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2"
+        },
+        {
           "signature": "UnshieldClaimed(address,bytes32,uint64)",
           "topic0": "0xe7ce5f41e2512fdfc65a7b65aa6af118069439ef545835cdcd87bc832478eab1"
         },
@@ -1131,6 +1143,10 @@
           "signature": "depositAndShield(address,uint256,address)"
         },
         {
+          "selector": "0xc4d66de8",
+          "signature": "initialize(address)"
+        },
+        {
           "selector": "0x364e51ac",
           "signature": "requestUnshield(address,address,uint64)"
         }
@@ -1141,6 +1157,10 @@
         {
           "selector": "0x49d40030",
           "signature": "ActiveSwapLocksPresent(uint256)"
+        },
+        {
+          "selector": "0xf92ee8a9",
+          "signature": "InvalidInitialization()"
         },
         {
           "selector": "0xd1c4e2dd",
@@ -1159,8 +1179,16 @@
           "signature": "InvalidWrapper(address)"
         },
         {
+          "selector": "0x599ddf23",
+          "signature": "InvalidWrapperImplementation(address)"
+        },
+        {
           "selector": "0xb89bd1b8",
           "signature": "InvalidWrapperMinimums(uint64,uint64)"
+        },
+        {
+          "selector": "0xd7e6bcf8",
+          "signature": "NotInitializing()"
         },
         {
           "selector": "0x1e4fbdf7",
@@ -1201,12 +1229,20 @@
         {
           "selector": "0x86f3d322",
           "signature": "ZeroWrapper()"
+        },
+        {
+          "selector": "0x3cdce4c8",
+          "signature": "ZeroWrapperProxyAdminOwner()"
         }
       ],
       "events": [
         {
           "signature": "ConfidentialWrapperRegistered(address,address)",
           "topic0": "0x4952163b3fd510b420fc43ce78f5e9b35524290a214ac2932e18e6ea915deab0"
+        },
+        {
+          "signature": "Initialized(uint64)",
+          "topic0": "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2"
         },
         {
           "signature": "OwnershipTransferred(address,address)",
@@ -1225,6 +1261,10 @@
           "topic0": "0xee0ca0483299b0c352ebfa949f03387566462818a945f81632c52b01bbd570e2"
         },
         {
+          "signature": "WrapperDeploymentConfigurationUpdated(address,address)",
+          "topic0": "0xa675dfe2e962747e09afbd8dc16acf34df3ece28adf7bb47fa08718540367f8c"
+        },
+        {
           "signature": "WrapperMinimumsUpdated(address,uint64,uint64)",
           "topic0": "0x3057c911822dd0a2dc72f91e9931caf71c6bdca58826231a659f2fb8bff9a395"
         }
@@ -1241,6 +1281,10 @@
         {
           "selector": "0x715f9a71",
           "signature": "createWrapper(address,string,string,string)"
+        },
+        {
+          "selector": "0xc0c53b8b",
+          "signature": "initialize(address,address,address)"
         },
         {
           "selector": "0x1060e1bd",
@@ -1279,6 +1323,10 @@
           "signature": "setUnshieldRateLimits(uint16,uint16)"
         },
         {
+          "selector": "0x100255c1",
+          "signature": "setWrapperDeploymentConfiguration(address,address)"
+        },
+        {
           "selector": "0x48b5bb30",
           "signature": "setWrapperMinimums(address,uint64,uint64)"
         },
@@ -1309,6 +1357,14 @@
         {
           "selector": "0x4f311bd9",
           "signature": "wrapperForUnderlying(address)"
+        },
+        {
+          "selector": "0xbd8238b6",
+          "signature": "wrapperImplementation()"
+        },
+        {
+          "selector": "0xa2c966b0",
+          "signature": "wrapperProxyAdminOwner()"
         }
       ]
     },
@@ -2175,12 +2231,20 @@
           "signature": "FHERC20ZeroBalance(address)"
         },
         {
+          "selector": "0xf92ee8a9",
+          "signature": "InvalidInitialization()"
+        },
+        {
           "selector": "0x1dfa3154",
           "signature": "InvalidUnderlying(address)"
         },
         {
           "selector": "0xe2820b49",
           "signature": "InvalidWrapperRegistry(address)"
+        },
+        {
+          "selector": "0xd7e6bcf8",
+          "signature": "NotInitializing()"
         },
         {
           "selector": "0xc4a88268",
@@ -2243,6 +2307,10 @@
         {
           "signature": "FullBalanceUnshieldRequested(address,address,bytes32)",
           "topic0": "0x41e2840547593f01effbd0c4b689c68b94197fe3e17dfb990245fbb56af827c8"
+        },
+        {
+          "signature": "Initialized(uint64)",
+          "topic0": "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2"
         },
         {
           "signature": "OperatorSet(address,address,uint48)",
@@ -2357,6 +2425,10 @@
         {
           "selector": "0xf89d30b1",
           "signature": "inferredTotalSupply()"
+        },
+        {
+          "selector": "0x08277dda",
+          "signature": "initialize(address,string,string,string,address)"
         },
         {
           "selector": "0xb6363cf2",

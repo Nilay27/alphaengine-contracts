@@ -63,8 +63,13 @@ jobs:
       - name: Run unit, fuzz, invariant, and integration tests
         run: forge test --offline
 
+      - name: Run CREATE2 deployment checks
+        env:
+          FOUNDRY_PROFILE: create2
+        run: forge test --offline --match-contract DeployAlphaEngineCreate2Test
+
       - name: Run coverage
-        run: forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2
+        run: forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2 --skip DeployAlphaEngineCreate2
 
       - name: Check ABI and storage-layout snapshots
         shell: bash

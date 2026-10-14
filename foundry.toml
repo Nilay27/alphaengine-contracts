@@ -38,3 +38,11 @@ fail_on_revert = true
 
 [rpc_endpoints]
 arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
+
+# Deterministic deployment artifacts are isolated from the existing ABI/layout build.
+[profile.create2]
+out = "out/create2"
+cache_path = "cache/create2"
+bytecode_hash = "none"
+libraries = ["lib/fhenix-confidential-contracts/contracts/ERC20Confidential/ERC20ConfidentialLib.sol:ERC20ConfidentialLib:0x89C0FEdfEC30a097BE2b7Fb782Be9610686309f1"]

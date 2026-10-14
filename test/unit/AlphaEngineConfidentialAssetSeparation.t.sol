@@ -42,14 +42,14 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
 
     function setUp() public {
         _installMockTaskManager();
-        registry = new AlphaEngineConfidentialAssetRegistry(owner);
+        registry = _deployAssetRegistry(owner);
         underlying = new MockERC20("USD Coin", "USDC", 6);
     }
 
     function test_registrationRejectsWrongRegistryBinding() public {
-        AlphaEngineConfidentialAssetRegistry other = new AlphaEngineConfidentialAssetRegistry(owner);
+        AlphaEngineConfidentialAssetRegistry other = _deployAssetRegistry(owner);
         AlphaEngineFHERC20ERC20Wrapper wrapper =
-            new AlphaEngineFHERC20ERC20Wrapper(underlying, "Encrypted", "ENC", "", address(other));
+            _deployAssetWrapper(underlying, "Encrypted", "ENC", "", address(other));
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -126,11 +126,18 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
         assertEq(registry.availableUnshieldTokens(), 8);
     }
 
-    function test_constructorSetsOwnerAndRejectsZeroOwner() public {
+    function test_initializerSetsOwnerAndRejectsZeroOwner() public {
         assertEq(registry.owner(), owner);
-
+        AlphaEngineConfidentialAssetRegistry fresh = AlphaEngineConfidentialAssetRegistry(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(new AlphaEngineConfidentialAssetRegistry()), address(this), ""
+                )
+            )
+        );
+        address wrapperImplementation = registry.wrapperImplementation();
         vm.expectRevert(AlphaEngineConfidentialAssetRegistry.ZeroInitialOwner.selector);
-        new AlphaEngineConfidentialAssetRegistry(address(0));
+        fresh.initialize(address(0), wrapperImplementation, address(this));
     }
 
     function test_trustedSwapEscrowRejectsMissingOrInvalidSurface() public {
@@ -152,7 +159,8 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
     }
 
     function test_createWrapperStoresImmutableBijectionAndMetadata() public {
-        address expectedWrapper = vm.computeCreateAddress(address(registry), 1);
+        address expectedWrapper =
+            vm.computeCreateAddress(address(registry), vm.getNonce(address(registry)));
         vm.expectEmit(true, true, true, true, address(registry));
         emit AlphaEngineConfidentialAssetRegistry.ConfidentialWrapperRegistered(
             address(underlying), expectedWrapper
@@ -212,9 +220,8 @@ contract AlphaEngineConfidentialAssetRegistryTest is MockCoFheTest {
     }
 
     function test_registerExistingWrapperValidatesBijectionSurfaceAndRate() public {
-        AlphaEngineFHERC20ERC20Wrapper wrapper = new AlphaEngineFHERC20ERC20Wrapper(
-            underlying, "Encrypted USDC", "eUSDC", "", address(registry)
-        );
+        AlphaEngineFHERC20ERC20Wrapper wrapper =
+            _deployAssetWrapper(underlying, "Encrypted USDC", "eUSDC", "", address(registry));
 
         vm.prank(owner);
         registry.registerWrapper(address(underlying), address(wrapper));
@@ -293,24 +300,30 @@ contract AlphaEngineConfidentialAssetGatewayTest is MockCoFheTest {
 
     function setUp() public {
         _installMockTaskManager();
-        registry = new AlphaEngineConfidentialAssetRegistry(owner);
+        registry = _deployAssetRegistry(owner);
         underlying = new MockERC20("USD Coin", "USDC", 6);
         vm.prank(owner);
         wrapper = registry.createWrapper(address(underlying), "Encrypted USDC", "eUSDC", "");
         vm.prank(owner);
         registry.setWrapperMinimums(wrapper, 1, 1000);
-        gateway = new AlphaEngineConfidentialAssetGateway(registry);
+        gateway = _deployAssetGateway(registry);
     }
 
-    function test_constructorPinsRegistryAndRejectsInvalidRegistry() public {
+    function test_initializerPinsRegistryAndRejectsInvalidRegistry() public {
         assertEq(gateway.assetRegistry(), address(registry));
-
+        AlphaEngineConfidentialAssetGateway fresh = AlphaEngineConfidentialAssetGateway(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(new AlphaEngineConfidentialAssetGateway()), address(this), ""
+                )
+            )
+        );
         vm.expectRevert(
             abi.encodeWithSelector(
                 AlphaEngineConfidentialAssetGateway.InvalidAssetRegistry.selector, address(0)
             )
         );
-        new AlphaEngineConfidentialAssetGateway(IAlphaEngineConfidentialAssetRegistry(address(0)));
+        fresh.initialize(IAlphaEngineConfidentialAssetRegistry(address(0)));
 
         Stage7NoRegistrySurface invalidRegistry = new Stage7NoRegistrySurface();
         vm.expectRevert(
@@ -319,9 +332,7 @@ contract AlphaEngineConfidentialAssetGatewayTest is MockCoFheTest {
                 address(invalidRegistry)
             )
         );
-        new AlphaEngineConfidentialAssetGateway(
-            IAlphaEngineConfidentialAssetRegistry(address(invalidRegistry))
-        );
+        fresh.initialize(IAlphaEngineConfidentialAssetRegistry(address(invalidRegistry)));
     }
 
     function test_depositAndShieldUsesRegistryAndRetainsNoUnderlying() public {
@@ -494,8 +505,8 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
 
     function setUp() public {
         _installMockTaskManager();
-        registry = new AlphaEngineConfidentialAssetRegistry(admin);
-        gateway = new AlphaEngineConfidentialAssetGateway(registry);
+        registry = _deployAssetRegistry(admin);
+        gateway = _deployAssetGateway(registry);
         inputUnderlying = new MockERC20("USD Coin", "USDC", 6);
         outputUnderlying = new MockERC20("Tether", "USDT", 6);
 
@@ -577,8 +588,7 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         escrow.setSwapController(address(replacement));
         assertEq(escrow.swapController(), address(replacement));
 
-        AlphaEngineConfidentialAssetRegistry replacementRegistry =
-            new AlphaEngineConfidentialAssetRegistry(admin);
+        AlphaEngineConfidentialAssetRegistry replacementRegistry = _deployAssetRegistry(admin);
         vm.prank(admin);
         escrow.setAssetRegistry(address(replacementRegistry));
         assertEq(escrow.assetRegistry(), address(replacementRegistry));

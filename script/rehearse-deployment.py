@@ -43,6 +43,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--forge", default="forge")
     parser.add_argument("--cast", default="cast")
+    parser.add_argument("--create2", action="store_true", help="Use the isolated CREATE2 build and deployment script")
     parser.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d-%H%M%S"))
     args = parser.parse_args()
     if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}", args.run_id):
@@ -61,6 +62,8 @@ def main():
             raise ValueError("Duplicate dotenv variable: " + name)
         seen.add(name)
         env[name] = value
+    if args.create2:
+        env["FOUNDRY_PROFILE"] = "create2"
     for name in ROLES + ["OWNER", "LISTENER_OPERATOR", "BROADCASTER", "POOL_MANAGER"]:
         value = env.get(name, "")
         if not re.fullmatch(r"0x[0-9a-fA-F]{40}", value) or int(value, 16) == 0:
@@ -111,8 +114,10 @@ def main():
                   legacyManifestSha256=legacy_hash, simulationPassed=False,
                   verificationCredentialPresent=bool(env.get("ETHERSCAN_API_KEY")),
                   verificationCredentialValidity="not-checked")
+    report["buildProfile"] = "create2" if args.create2 else "default"
     (output / "preflight.json").write_text(json.dumps(report, indent=2) + "\n")
-    argv = [args.forge, "script", "script/DeployAlphaEngineV2.s.sol:DeployAlphaEngineV2",
+    entrypoint = "script/DeployAlphaEngineCreate2.s.sol:DeployAlphaEngineCreate2" if args.create2 else "script/DeployAlphaEngineV2.s.sol:DeployAlphaEngineV2"
+    argv = [args.forge, "script", entrypoint,
             "--rpc-url", RPC, "--fork-block-number", str(fork_block),
             "--sender", env["BROADCASTER"], "--non-interactive"]
     # This helper deliberately has no broadcast/account/private-key/verification option.
@@ -136,6 +141,14 @@ def main():
     candidate.write_text(json.dumps(manifest, indent=2) + "\n")
     report["simulationPassed"] = True
     (output / "preflight.json").write_text(json.dumps(report, indent=2) + "\n")
+    if args.create2:
+        # Public values only: reuse the exact rehearsed inputs without exporting secrets.
+        names = ROLES + ["EXPECTED_CHAIN_ID", "TEST_ONLY_ROLE_COLLAPSE", "POOL_MANAGER", "DEPLOYMENT_GIT_SHA", "FOUNDRY_VERSION", "FHENIX_PACKAGE_REVISION", "DEPENDENCY_LOCK_HASH", "ABI_BUNDLE_HASH", "STORAGE_LAYOUT_BUNDLE_HASH"]
+        lines = ["# Public rehearsal inputs. Finalize shared initial roles before mainnet-compatible deployment.", "export FOUNDRY_PROFILE=create2"]
+        lines.extend("export " + name + "=" + shlex.quote(env[name]) for name in names)
+        lines.append("export DEPLOYMENT_MANIFEST=" + shlex.quote((output / "broadcast-candidate.json").relative_to(ROOT).as_posix()))
+        (output / "deployment.env").write_text("\n".join(lines) + "\n")
+        print("Public deployment environment: " + str(output / "deployment.env"))
     print("Configuration/preflight and full script simulation passed; zero transactions broadcast.")
     print("Candidate manifest: " + str(candidate))
 
