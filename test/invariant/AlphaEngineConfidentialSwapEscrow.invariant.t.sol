@@ -27,7 +27,11 @@ import {
     ConfidentialSwapEscrowInvariantHandler
 } from "test/handlers/ConfidentialSwapEscrowInvariantHandler.sol";
 import {MockCoFheTest} from "test/mocks/MockCoFheTest.sol";
-import {MockERC20} from "test/mocks/MockERC20.sol";
+import {
+    MockERC20,
+    MockSelectiveFeeERC20,
+    MockZeroTransferRevertingERC20
+} from "test/mocks/MockERC20.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
@@ -52,8 +56,8 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         _installMockTaskManager();
         registry = _deployAssetRegistry(admin);
         gateway = _deployAssetGateway(registry);
-        inputUnderlying = new MockERC20("Invariant USDC", "iUSDC", 6);
-        outputUnderlying = new MockERC20("Invariant USDT", "iUSDT", 6);
+        inputUnderlying = new MockZeroTransferRevertingERC20("Invariant USDC", "iUSDC", 6);
+        outputUnderlying = new MockSelectiveFeeERC20("Invariant USDT", "iUSDT", 6);
 
         vm.startPrank(admin);
         inputWrapper =
@@ -79,6 +83,9 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         );
         escrow = AlphaEngineConfidentialSwapEscrow(address(proxy));
         handler.bindEscrow(escrow);
+        bytes32 pauseRole = escrow.PAUSER_ROLE();
+        vm.prank(admin);
+        escrow.grantRole(pauseRole, address(handler));
 
         vm.prank(admin);
         registry.setTrustedSwapEscrow(address(escrow));
@@ -107,6 +114,8 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
                 .transferOwnership(address(handler));
         }
 
+        handler.rotateAfterDrainOrReject(0);
+        handler.rejectUninitializedLock(0);
         handler.depositAsA(200e6);
         handler.lockAsA(40e6);
         handler.preclaimLock(0);
@@ -122,8 +131,21 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         handler.refundLock(2);
         handler.lockAsA(30e6);
         handler.attemptUnderMinimumSettlement(3);
+        handler.rotateAfterDrainOrReject(1);
+        handler.failExecutorThenRetry(3);
+        handler.failOutputShieldThenRetry(3);
+        handler.preclaimLock(3);
+        handler.pauseAndRefund(3);
+        handler.rejectTerminalOperations(0);
+        handler.lockAsA(30e6);
+        handler.ordinaryRequest(0, 1000);
+        handler.configureOrdinaryAndSwapMinimum(1500);
+        handler.ordinaryRequest(0, 1000);
+        handler.rotateAfterDrainOrReject(0);
+        handler.drainAndRotate(0);
+        handler.ordinaryClaim(0);
 
-        bytes4[] memory selectors = new bytes4[](11);
+        bytes4[] memory selectors = new bytes4[](22);
         selectors[0] = ConfidentialSwapEscrowInvariantHandler.depositAsA.selector;
         selectors[1] = ConfidentialSwapEscrowInvariantHandler.depositAsB.selector;
         selectors[2] = ConfidentialSwapEscrowInvariantHandler.lockAsA.selector;
@@ -135,9 +157,36 @@ contract AlphaEngineConfidentialSwapEscrowInvariantTest is MockCoFheTest {
         selectors[8] = ConfidentialSwapEscrowInvariantHandler.refundLock.selector;
         selectors[9] = ConfidentialSwapEscrowInvariantHandler.attemptUnderMinimumSettlement.selector;
         selectors[10] = handler.upgradeAsset.selector;
+        selectors[11] = handler.rotateAfterDrainOrReject.selector;
+        selectors[12] = handler.rejectUninitializedLock.selector;
+        selectors[13] = handler.failExecutorThenRetry.selector;
+        selectors[14] = handler.failOutputShieldThenRetry.selector;
+        selectors[15] = handler.pauseAndRefund.selector;
+        selectors[16] = handler.rejectTerminalOperations.selector;
+        selectors[17] = handler.ordinaryRequest.selector;
+        selectors[18] = handler.ordinaryClaim.selector;
+        selectors[19] = handler.configureOrdinaryAndSwapMinimum.selector;
+        selectors[20] = handler.advanceTime.selector;
+        selectors[21] = handler.drainAndRotate.selector;
 
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
+    }
+
+    function invariant_governanceFailuresUpgradesAndCleanupHaveWitnesses() public view {
+        assertGt(handler.governanceAttempts(), 1);
+        assertGt(handler.governanceProgress(), 0);
+        assertGt(handler.drainedLiveLocks(), 0);
+        assertGt(handler.pausedRefunds(), 0);
+        assertGt(handler.injectedExecutorFailures(), 0);
+        assertGt(handler.injectedShieldFailures(), 0);
+        assertGt(handler.terminalReplays(), 0);
+        assertGt(handler.rejectedUninitialized(), 0);
+        handler.assertAssetPermissions();
+        assertGt(handler.ordinaryRequests(), 0);
+        assertGt(handler.ordinaryClaims(), 0);
+        assertGt(handler.ordinaryRejected(), 0);
+        assertGt(handler.ordinaryPolicyUpdates(), 0);
     }
 
     function invariant_registryAndEscrowConfigurationRemainStable() public view {

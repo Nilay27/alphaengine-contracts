@@ -5,14 +5,16 @@ import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-import {AlphaEngineERC20DecoderAndSanitizer} from
-    "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
+import {
+    AlphaEngineERC20DecoderAndSanitizer
+} from "src/decoders/AlphaEngineERC20DecoderAndSanitizer.sol";
 import {IAlphaEngineFundVault} from "src/interfaces/IAlphaEngineFundVault.sol";
 import {AlphaEngineManageLeafHashLib} from "src/libraries/AlphaEngineManageLeafHashLib.sol";
 import {AlphaEngineFundVault} from "src/vault/AlphaEngineFundVault.sol";
 import {AlphaEngineVaultExecutionManager} from "src/vault/AlphaEngineVaultExecutionManager.sol";
-import {VaultExecutionManagerInvariantHandler} from
-    "test/handlers/VaultExecutionManagerInvariantHandler.sol";
+import {
+    VaultExecutionManagerInvariantHandler
+} from "test/handlers/VaultExecutionManagerInvariantHandler.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 import {MockFundVaultCallTarget, MockRecoveryVault} from "test/mocks/MockFundVaultExecution.sol";
 import {
@@ -95,17 +97,17 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[] memory inputs =
             new AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput[](2);
         AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput memory inputRisk =
-        AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetIn),
-            maxSpendPerExecution: handler.MAX_PER_EXECUTION(),
-            maxSpendPer24Hours: handler.MAX_PER_24_HOURS()
-        });
+            AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
+                asset: address(assetIn),
+                maxSpendPerExecution: handler.MAX_PER_EXECUTION(),
+                maxSpendPer24Hours: handler.MAX_PER_24_HOURS()
+            });
         AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput memory positionRisk =
-        AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
-            asset: address(assetOut),
-            maxSpendPerExecution: handler.MAX_POSITION_PER_EXECUTION(),
-            maxSpendPer24Hours: handler.MAX_POSITION_PER_24_HOURS()
-        });
+            AlphaEngineVaultExecutionManager.TraderAssetRiskLimitInput({
+                asset: address(assetOut),
+                maxSpendPerExecution: handler.MAX_POSITION_PER_EXECUTION(),
+                maxSpendPer24Hours: handler.MAX_POSITION_PER_24_HOURS()
+            });
         if (address(assetIn) < address(assetOut)) {
             inputs[0] = inputRisk;
             inputs[1] = positionRisk;
@@ -114,14 +116,22 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
             inputs[1] = inputRisk;
         }
         executionManager.setTraderAssetRiskLimits(TRADER, inputs);
+        executionManager.setTraderAssetRiskLimits(handler.SECOND_TRADER(), inputs);
+        executionManager.grantRole(executionManager.ROOT_PROPOSER_ROLE(), address(handler));
+        executionManager.grantRole(executionManager.ROOT_GUARDIAN_ROLE(), address(handler));
+        executionManager.grantRole(executionManager.PAUSER_ROLE(), address(handler));
 
         uint40 activateAfter = uint40(block.timestamp + 48 hours);
         vm.prank(ROOT_PROPOSER);
         executionManager.proposePolicyRoot(
             address(handler), policyRoot, ARTIFACT_HASH, activateAfter
         );
+        address secondExecutor = address(handler.SECOND_EXECUTOR());
+        vm.prank(ROOT_PROPOSER);
+        executionManager.proposePolicyRoot(secondExecutor, policyRoot, ARTIFACT_HASH, activateAfter);
         vm.warp(activateAfter);
         executionManager.activatePolicyRoot(address(handler));
+        executionManager.activatePolicyRoot(address(handler.SECOND_EXECUTOR()));
         (,, policyVersion) = executionManager.activePolicies(address(handler));
         executionManager.unpause();
 
@@ -132,7 +142,27 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         handler.attemptOverConfiguredCap(1e6);
         handler.executeExit(1e6);
 
-        bytes4[] memory selectors = new bytes4[](7);
+        // Each seed is a real multi-step witness; randomized selections subsequently interleave them.
+        handler.executeSecondTrader(2e6);
+        handler.exerciseRollingBoundary(3e6);
+        handler.exerciseSpendCapacity(4);
+        handler.exerciseRootGovernance(5e6);
+        handler.exerciseRiskGovernance(6e6);
+        handler.exerciseCodeIdentity(7e6, false);
+        handler.exerciseCodeIdentity(7e6, true);
+        handler.exerciseApprovalOrdering(8e6, 0);
+        handler.exerciseApprovalOrdering(8e6, 1);
+        handler.exerciseApprovalOrdering(8e6, 2);
+        handler.exerciseAggregateApprovals(8e6, false);
+        handler.exerciseAggregateApprovals(8e6, true);
+        handler.exerciseFacetIdentity(8e6, false);
+        handler.exerciseFacetIdentity(8e6, true);
+        handler.exerciseMaximumPreflight(8e6, false);
+        handler.exerciseMaximumPreflight(8e6, true);
+        handler.exerciseReentrantTarget(9e6);
+        handler.exerciseDirectShareBurn(10e6, false);
+
+        bytes4[] memory selectors = new bytes4[](19);
         selectors[0] = handler.executeValid.selector;
         selectors[1] = handler.executeExit.selector;
         selectors[2] = handler.advanceHoldingTime.selector;
@@ -140,8 +170,31 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         selectors[4] = handler.attemptSlippage.selector;
         selectors[5] = handler.attemptInvalidProof.selector;
         selectors[6] = handler.attemptOverConfiguredCap.selector;
+        selectors[7] = handler.executeSecondTrader.selector;
+        selectors[8] = handler.exerciseRollingBoundary.selector;
+        selectors[9] = handler.exerciseSpendCapacity.selector;
+        selectors[10] = handler.exerciseRootGovernance.selector;
+        selectors[11] = handler.exerciseRiskGovernance.selector;
+        selectors[12] = handler.exerciseCodeIdentity.selector;
+        selectors[13] = handler.exerciseApprovalOrdering.selector;
+        selectors[14] = handler.exerciseReentrantTarget.selector;
+        selectors[15] = handler.exerciseDirectShareBurn.selector;
+        selectors[16] = handler.exerciseAggregateApprovals.selector;
+        selectors[17] = handler.exerciseFacetIdentity.selector;
+        selectors[18] = handler.exerciseMaximumPreflight.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
+    }
+
+    function test_EX_rollingBoundaryAndCapacityUseCurrentClock() public {
+        uint256 started = vm.getBlockTimestamp();
+        handler.exerciseRollingBoundary(3e6);
+        assertEq(vm.getBlockTimestamp(), started + 48 hours + 1);
+        handler.exerciseSpendCapacity(4);
+        assertEq(vm.getBlockTimestamp(), started + 120 hours + 1);
+        invariantSuccessfulBalancesMatchIndependentGhostLedger();
+        invariantSpendWindowAndAllowanceRemainBounded();
+        invariantExpectedFailuresAreAtomicAndReplayNeverSucceeds();
     }
 
     function invariantSuccessfulBalancesMatchIndependentGhostLedger() public view {
@@ -151,7 +204,8 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         );
         assertEq(
             assetOut.balanceOf(address(fundVault)),
-            handler.ghostReceived() - handler.ghostExitPositionSpent()
+            handler.ghostReceived() + handler.ghostCallbackReceipts()
+                - handler.ghostExitPositionSpent()
         );
         assertEq(
             assetIn.balanceOf(address(strategyTarget)),
@@ -198,11 +252,44 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
             executionManager.activePolicies(address(handler));
         assertEq(root, policyRoot);
         assertEq(artifactHash, ARTIFACT_HASH);
-        assertEq(version, policyVersion);
+        assertGe(version, policyVersion);
         assertEq(fundVault.executionManager(), address(executionManager));
         assertEq(fundVault.totalSupply(), 0);
         assertEq(assetIn.balanceOf(address(executionManager)), 0);
         assertEq(assetOut.balanceOf(address(executionManager)), 0);
+    }
+
+    /// @notice EX-03/EX-04/EX-05/EX-06/EX-07/EX-08/EX-09/EX-13: governance and boundary witnesses stay reachable.
+    function invariantLifecycleScenariosKeepDomainsAndCustodyIsolated() public view {
+        uint256[9] memory ids = [uint256(3), 4, 5, 6, 7, 8, 9, 13, 18];
+        for (uint256 i; i < ids.length; ++i) {
+            assertGt(handler.scenarioRuns(ids[i]), 0);
+        }
+        assertEq(
+            executionManager.currentWindowSpend(handler.SECOND_TRADER(), address(assetIn)),
+            handler.ghostSecondInputWindowSpend()
+        );
+        assertEq(executionManager.currentWindowSpend(handler.SECOND_TRADER(), address(assetOut)), 0);
+        (bytes32 secondRoot, bytes32 secondArtifact, uint64 secondVersion) =
+            executionManager.activePolicies(address(handler.SECOND_EXECUTOR()));
+        assertEq(secondRoot, policyRoot);
+        assertEq(secondArtifact, ARTIFACT_HASH);
+        assertEq(secondVersion, 1);
+        assertEq(assetIn.balanceOf(address(handler.SECOND_EXECUTOR())), 0);
+        assertEq(assetOut.balanceOf(address(handler.SECOND_EXECUTOR())), 0);
+    }
+
+    /// @notice EX-15: explicit direct-burn risk accounting is exercised; omission is reported separately.
+    function invariantDirectShareBurnRequiresAnExplicitlyCompleteEconomicEnvelope_Exploratory()
+        public
+        view
+    {
+        assertGt(handler.scenarioRuns(15), 0);
+        // EXPLORATORY: enabling ERC4626 policies without share limits is an owner decision.
+        assertFalse(
+            handler.exploratoryUntrackedShareBurn(),
+            "EX-15: enabled direct burn bypassed omitted share risk"
+        );
     }
 
     function _leaves()

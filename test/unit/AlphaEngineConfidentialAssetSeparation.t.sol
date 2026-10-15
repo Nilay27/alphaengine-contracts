@@ -423,6 +423,46 @@ contract AlphaEngineConfidentialAssetGatewayTest is MockCoFheTest {
         assertEq(feeToken.allowance(address(gateway), feeWrapper), 0);
     }
 
+    // AS-15 conditional protective property: non-exact-transfer assets are
+    // deliberately unsupported by release policy. The inherited direct path is
+    // nevertheless public; this red probe establishes why allowlisting matters.
+    function testFuzz_AS15_ConditionalDirectShieldNeverMintsUnbackedClaims(uint64 rawAmount)
+        public
+    {
+        uint256 amount = bound(rawAmount, 2, 100e6);
+        MockSelectiveFeeERC20 feeToken = new MockSelectiveFeeERC20("Conditional Fee", "CFEE", 6);
+        vm.prank(owner);
+        address feeWrapper =
+            registry.createWrapper(address(feeToken), "Conditional encrypted", "eCFEE", "");
+        feeToken.mint(user, amount * 2);
+        feeToken.setFeeRoute(user, address(gateway));
+        vm.startPrank(user);
+        feeToken.approve(address(gateway), amount);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineConfidentialAssetGateway.UnexpectedUnderlyingBalance.selector,
+                address(gateway),
+                address(feeToken),
+                amount,
+                amount - 1
+            )
+        );
+        gateway.depositAndShield(address(feeToken), amount, user);
+        vm.stopPrank();
+        assertEq(feeToken.balanceOf(address(gateway)), 0);
+        feeToken.setFeeRoute(user, feeWrapper);
+        vm.startPrank(user);
+        feeToken.approve(feeWrapper, amount);
+        IFHERC20ERC20Wrapper(feeWrapper).shield(user, amount);
+        vm.stopPrank();
+        uint256 supply = _evalue(IERC7984(feeWrapper).confidentialTotalSupply());
+        assertGe(
+            feeToken.balanceOf(feeWrapper),
+            supply,
+            "AS-15 unsupported non-exact direct shield created unbacked confidential claims"
+        );
+    }
+
     function test_requestAndClaimUnshieldUsesRegisteredWrapper() public {
         uint256 depositAmount = 100e6;
         uint64 unshieldAmount = 40e6;
@@ -1004,6 +1044,44 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
         assertEq(inputUnderlying.balanceOf(address(escrow)), 0);
         assertEq(highPrecisionOutput.balanceOf(address(escrow)), 0);
         assertEq(highPrecisionOutput.balanceOf(address(executor)), 0);
+    }
+
+    // SW-17 conditional protective regression: exact-transfer underlying can be
+    // donated above the wrapper's inferred-supply ceiling without minting shares.
+    // A supported admitted lock must retain its terminal refund route.
+    function testFuzz_SW17_ConditionalDonatedReserveHeadroomCannotStrandRefund(uint16 extra)
+        public
+    {
+        bytes32 id = keccak256("conditional-reserve-headroom");
+        _lock(id, 40e6);
+        IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory locked =
+            escrow.getSwapIntentLock(id);
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(locked.unshieldRequestHandle)), 40e6, ""
+        );
+        uint256 targetReserve = uint256(type(uint64).max) + 1 + extra;
+        inputUnderlying.mint(inputWrapper, targetReserve - inputUnderlying.balanceOf(inputWrapper));
+        // Intentionally do not expect the current overflow: the desired liveness
+        // property should stay red until remediation or explicit domain policy.
+        controller.refund(id, 40e6, "");
+        assertEq(escrow.liveSwapLockCount(), 0);
+        assertEq(_confidentialBalance(inputWrapper, user), 100e6);
+    }
+
+    function test_SW17_ExactReserveCeilingRefundStillCompletes() public {
+        bytes32 id = keccak256("exact-reserve-headroom");
+        _lock(id, 40e6);
+        IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory locked =
+            escrow.getSwapIntentLock(id);
+        taskManager.publishDecryptResult(
+            uint256(euint64.unwrap(locked.unshieldRequestHandle)), 40e6, ""
+        );
+        inputUnderlying.mint(
+            inputWrapper, uint256(type(uint64).max) - inputUnderlying.balanceOf(inputWrapper)
+        );
+        controller.refund(id, 40e6, "");
+        assertEq(escrow.liveSwapLockCount(), 0);
+        assertEq(_confidentialBalance(inputWrapper, user), 100e6);
     }
 
     function testFuzz_lockRefundRoundTripPreservesAmount(uint64 rawAmount) public {

@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-10-15 — Lifecycle invariants and harness repairs
+
+- Extended the existing critical-contract handlers with lifecycle scenarios,
+  independent ledgers and economic assertions that reproduce the reviewed findings.
+- Fixed escrow revert-expectation ordering and duplicate refund-test funding.
+- Fresh cheatcode clock reads repair execution setup and shared-vault drain;
+  indexed admission timestamps and fresh per-cycle memory retain the 259-entry
+  wrap and 2/10/100-cycle economic checks.
+- Vault ownership uses an incremental pending-share model, checked against the
+  full request archive after every fuzzed action; changed requests are checked
+  immediately. Five vault checks pass, including large-cohort and archive-mutation probes.
+- Fresh vault campaign: 64 × 32 calls, zero handler reverts or memory errors,
+  12/17 properties hold; five existing economic assertions remain red (8.1s,
+  shrink limit 32). Prior six repair/replay checks and escrow smoke pass.
+- Owner rerun: 355 passed, nine failed, two fork skips in 44.36s; no observed
+  harness resource/setup/drain failures. Remaining failures reproduce economic
+  defects and conditional/policy findings; USDC reused cached counterexamples.
+  Production source, deployment scripts and Foundry configuration unchanged.
+
 ## 2026-10-15 — Focused test hardening
 
 - Mixed asset upgrades/configuration/admin handovers with ordinary and swap

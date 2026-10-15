@@ -82,10 +82,18 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         _shield(traderB, 2000e6);
 
         handler = new ConfidentialSwapControllerInvariantHandler(
-            controller, escrow, inputWrapper, outputWrapper, operator, traderA, traderB
+            controller,
+            escrow,
+            inputWrapper,
+            outputWrapper,
+            operator,
+            traderA,
+            traderB,
+            admin,
+            pauser
         );
 
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](14);
         selectors[0] = handler.submitAsA.selector;
         selectors[1] = handler.submitAsB.selector;
         selectors[2] = handler.executeActive.selector;
@@ -93,6 +101,13 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         selectors[4] = handler.rejectExecutionDataMutation.selector;
         selectors[5] = handler.rejectMinimumOutputMutation.selector;
         selectors[6] = handler.rejectTerminalReplay.selector;
+        selectors[7] = handler.rotateFutureExecutor.selector;
+        selectors[8] = handler.pausedPreclaimRefund.selector;
+        selectors[9] = handler.configureLimits.selector;
+        selectors[10] = handler.advanceTime.selector;
+        selectors[11] = handler.rejectSaltMutation.selector;
+        selectors[12] = handler.rejectTerminalRefundReplay.selector;
+        selectors[13] = handler.rejectIncorrectRefundResult.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
 
@@ -107,6 +122,16 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         handler.submitAsA(999, 1, bytes32(uint256(3)));
         handler.refundExpiredActive(0);
         handler.submitAsA(1000, 1, bytes32(uint256(4)));
+        handler.advanceTime(300);
+        handler.submitAsA(1000, 1, bytes32(uint256(5)));
+        handler.rotateFutureExecutor(0);
+        handler.rejectSaltMutation(0);
+        handler.rejectIncorrectRefundResult(0);
+        handler.pausedPreclaimRefund(0);
+        handler.rejectTerminalRefundReplay(0);
+        handler.configureLimits(120, 1, 1);
+        handler.submitAsA(1000, 1, bytes32(uint256(6)));
+        handler.submitAsB(1000, 1, bytes32(uint256(7)));
     }
 
     function invariant_nonceEqualsSuccessfulSubmissionsPerTrader() public view {
@@ -126,7 +151,7 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
                 controller.getSwapIntent(snapshot.intentId);
             assertEq(record.trader, snapshot.trader);
             assertEq(record.escrow, address(escrow));
-            assertEq(record.executor, address(executor));
+            assertEq(record.executor, snapshot.executor);
             assertEq(record.inputWrapper, inputWrapper);
             assertEq(record.outputWrapper, outputWrapper);
             assertEq(record.traderNonce, snapshot.traderNonce);
@@ -143,7 +168,7 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
                         trader: snapshot.trader,
                         traderNonce: snapshot.traderNonce,
                         escrow: address(escrow),
-                        executor: address(executor),
+                        executor: snapshot.executor,
                         inputWrapper: inputWrapper,
                         outputWrapper: outputWrapper,
                         routeKey: record.routeKey,
@@ -216,6 +241,14 @@ contract AlphaEngineConfidentialSwapControllerInvariantTest is StdInvariant, Moc
         assertGt(handler.rejectedExecutionDataMutations(), 0);
         assertGt(handler.rejectedMinimumOutputMutations(), 0);
         assertGt(handler.rejectedReplays(), 0);
+        assertGt(handler.configurationRotations(), 0);
+        assertGt(handler.pauseRefunds(), 0);
+        assertGt(handler.rateChanges(), 0);
+        assertGt(handler.rejectedAdmissions(), 0);
+        assertGt(handler.rejectedRefundReplays(), 0);
+        assertGt(handler.rejectedRefundProofs(), 0);
+        assertEq(controller.availableSwapTokens(), handler.modelTokens());
+        assertEq(controller.swapTokensUpdatedAt(), handler.modelTokensAt());
     }
 
     function _shield(address account, uint256 amount) private {

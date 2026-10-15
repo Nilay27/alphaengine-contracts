@@ -88,6 +88,53 @@ contract DeployAlphaEngineCreate2Test is Test {
         assertEq(abi.encode(first), abi.encode(second));
     }
 
+    /// @notice ST-02: salt, linked library and constructor bytes all bind the prediction.
+    function testFuzz_ST02_creationInputsBindEveryPredictedAddress(
+        bytes32 componentSeed,
+        bytes32 constructorValue,
+        address libraryAddress
+    ) public view {
+        string memory component = string(abi.encodePacked("component-", componentSeed));
+        bytes32 salt = keccak256(abi.encode(keccak256("alphaengine-v2-create2-v1"), component));
+        assertEq(script.componentSalt(component), salt);
+        bytes memory creationCode =
+            abi.encodePacked(hex"60006000", libraryAddress, constructorValue);
+        address expected = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(0xff), script.FACTORY(), salt, keccak256(creationCode)
+                        )
+                    )
+                )
+            )
+        );
+        address predicted = script.predict(component, creationCode);
+        assertEq(predicted, expected);
+        assertNotEq(
+            predicted, script.predict(string(abi.encodePacked(component, "-other")), creationCode)
+        );
+        assertNotEq(
+            predicted,
+            script.predict(
+                component,
+                abi.encodePacked(
+                    hex"60006000", address(uint160(libraryAddress) ^ 1), constructorValue
+                )
+            )
+        );
+        assertNotEq(
+            predicted,
+            script.predict(
+                component,
+                abi.encodePacked(
+                    hex"60006000", libraryAddress, bytes32(uint256(constructorValue) ^ 1)
+                )
+            )
+        );
+    }
+
     function test_rejectsWrongChainBeforeLibraryDeployment() public {
         config.expectedChainId++;
         vm.expectRevert(

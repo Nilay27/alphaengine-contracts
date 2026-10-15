@@ -11,7 +11,8 @@ import {AlphaEngineFundVault} from "src/vault/AlphaEngineFundVault.sol";
 import {AlphaEngineUSDCVaultManager} from "src/vault/AlphaEngineUSDCVaultManager.sol";
 import {MockERC20, MockSelectiveFeeERC20} from "test/mocks/MockERC20.sol";
 import {
-    MockFundVaultExecutionManager, MockRecoveryVault
+    MockFundVaultExecutionManager,
+    MockRecoveryVault
 } from "test/mocks/MockFundVaultExecution.sol";
 
 contract AlphaEngineUSDCVaultManagerTest is Test {
@@ -1039,6 +1040,62 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
             );
         assertEq(treasuryShares, expectedShares);
         assertLe(manager.previewRedeem(treasuryShares), feeAssets);
+    }
+
+    /// @notice FV-01/FV-02: a funded, fee-free round trip may lose at most two USDC base units.
+    function testRegression_FV01_roundingMustNotTransferDepositorPrincipal() public {
+        manager.setPerformanceFeeBps(0);
+        _deposit(USER, 100e6);
+        usdc.mint(address(fundVault), 100e6);
+        _reportProfit(100e6);
+        manager.completeRedeem(_requestRedeem(USER, fundVault.balanceOf(USER) - 1, 0));
+        assertEq(fundVault.totalSupply(), 1, "witness: one atomic share survives");
+        vm.warp(manager.profitUnlockTimestamp());
+        manager.settleFinishedProfit();
+
+        uint256 shares = _deposit(USER_TWO, 199e6);
+        uint256 received = manager.completeRedeem(_requestRedeem(USER_TWO, shares, 0));
+        assertGe(received + 2, 199e6, "FV-01: incoming holder loses principal to rounding");
+    }
+
+    /// @notice FV-10: in a profit-only fixture an early exit cannot charge another LP's principal.
+    function testRegression_FV10_earlyExitMustNotShiftFeesToRemainingPrincipal() public {
+        manager.setPerformanceFeeBps(2000);
+        manager.setVestingPeriod(100);
+        _deposit(USER, 980e6);
+        _deposit(USER_TWO, 20e6);
+        usdc.mint(address(fundVault), 100e6);
+        _reportProfit(100e6);
+        vm.warp(manager.profitLockTimestamp() + 99);
+        assertEq(manager.remainingLockedProfit(), 1e6);
+        manager.completeRedeem(_requestRedeem(USER, 980e18, 0));
+        vm.warp(manager.profitUnlockTimestamp());
+        manager.settleFinishedProfit();
+        uint256 remainingClaim = manager.previewRedeem(fundVault.balanceOf(USER_TWO));
+        // This does not prescribe a new during-vesting pricing formula or fee equalization.
+        assertGe(remainingClaim + 1, 20e6, "FV-10: profit-only fees consumed remaining principal");
+    }
+
+    /// @notice FV-11: earned fees cannot disappear solely because another holder exits.
+    function testRegression_FV11_earnedFeeMustNotBeSilentlyCleared() public {
+        manager.setPerformanceFeeBps(2000);
+        manager.setVestingPeriod(100);
+        _deposit(USER, 100e6);
+        usdc.mint(address(fundVault), 100e6);
+        _reportProfit(100e6);
+        vm.warp(manager.profitLockTimestamp() + 99);
+        // Independent entitlement: 99 USDC vested profit * 20%, before any withdrawal.
+        uint256 earnedBeforeExit = 19_800_000;
+        manager.completeRedeem(_requestRedeem(USER, 99e18, 0));
+        assertEq(manager.managedAssets(), 2_990_000, "witness: NAV is below accrued fee");
+        vm.warp(manager.profitUnlockTimestamp());
+        manager.settleFinishedProfit();
+        uint256 settledValue = manager.previewRedeem(fundVault.balanceOf(FEE_RECIPIENT));
+        assertGe(
+            settledValue + manager.pendingFeeAssets() + 1,
+            earnedBeforeExit,
+            "FV-11: earned entitlement erased by supply/NAV reduction"
+        );
     }
 
     function _deposit(address user, uint256 assets) private returns (uint256 shares) {

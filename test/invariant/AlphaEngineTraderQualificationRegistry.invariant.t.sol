@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {Test} from "forge-std/Test.sol";
-import {IAlphaEngineTraderQualificationRegistry} from
-    "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
-import {AlphaEngineTraderQualificationRegistry} from
-    "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
-import {QualificationRegistryInvariantHandler} from
-    "test/handlers/QualificationRegistryInvariantHandler.sol";
+import {
+    IAlphaEngineTraderQualificationRegistry
+} from "src/interfaces/IAlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    QualificationRegistryInvariantHandler
+} from "test/handlers/QualificationRegistryInvariantHandler.sol";
 
 contract AlphaEngineTraderQualificationRegistryInvariantTest is StdInvariant, Test {
     AlphaEngineTraderQualificationRegistry private registry;
@@ -29,7 +33,7 @@ contract AlphaEngineTraderQualificationRegistryInvariantTest is StdInvariant, Te
         TransparentUpgradeableProxy proxy =
             new TransparentUpgradeableProxy(address(implementation), admin, initData);
         registry = AlphaEngineTraderQualificationRegistry(address(proxy));
-        handler = new QualificationRegistryInvariantHandler(registry);
+        handler = new QualificationRegistryInvariantHandler(registry, admin, pauser);
 
         vm.startPrank(admin);
         registry.grantRole(registry.QUALIFICATION_ISSUER_ROLE(), address(handler));
@@ -42,13 +46,30 @@ contract AlphaEngineTraderQualificationRegistryInvariantTest is StdInvariant, Te
         handler.revoke(0);
         handler.qualifyOrExtend(0, 1 days);
         handler.advanceTime(1);
+        handler.attemptShorterExtension(0, true);
+        handler.expiryCycle(0);
+        handler.governanceCycle(0);
+        handler.upgradeCycle();
 
-        bytes4[] memory selectors = new bytes4[](3);
+        bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = handler.qualifyOrExtend.selector;
         selectors[1] = handler.revoke.selector;
         selectors[2] = handler.advanceTime.selector;
+        selectors[3] = handler.attemptShorterExtension.selector;
+        selectors[4] = handler.expiryCycle.selector;
+        selectors[5] = handler.governanceCycle.selector;
+        selectors[6] = handler.upgradeCycle.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
+    }
+
+    /// @dev QC-01/QC-03/QC-11/QC-14: independently predicted evidence, versions and expiry.
+    function invariant_exactQualificationLedgerAndBoundaryWitnesses() public view {
+        handler.property_exactQualificationLedger();
+        assertGt(handler.rejectedExtensions(), 0);
+        assertGt(handler.exactExpiryCycles(), 0);
+        assertGt(handler.governanceCycles(), 0);
+        assertGt(handler.upgradeCycles(), 0);
     }
 
     function invariant_versionsNeverDecrease() public view {

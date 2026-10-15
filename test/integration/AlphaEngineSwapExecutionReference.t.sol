@@ -12,6 +12,7 @@ import {PoolModifyLiquidityTest} from "@uniswap/v4-core/src/test/PoolModifyLiqui
 import {PoolSwapTest} from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {toBalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
 import {
@@ -192,10 +193,220 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
         assertEq(fixture.outputUnderlying.balanceOf(address(fixture.executor)), 0);
     }
 
+    // SW-14: randomized sequences, not independent fresh-pool examples. Both real
+    // PoolManagers receive identical liquidity changes and alternating directions.
+    function testFuzz_SW14_RepeatedBidirectionalPoolLifecycle(uint256 seed, uint8 rawSteps) public {
+        TwinPoolFixture memory fixture =
+            _deployTwinPoolFixture(true, 2_000_000_000e6, 2_000_000_000e6);
+        uint256 steps = bound(rawSteps, 2, 8);
+        for (uint256 i; i < steps; ++i) {
+            seed = uint256(keccak256(abi.encode(seed, i)));
+            if (i != 0) {
+                (fixture.inputUnderlying, fixture.outputUnderlying) =
+                (fixture.outputUnderlying, fixture.inputUnderlying);
+                (fixture.inputWrapper, fixture.outputWrapper) =
+                (fixture.outputWrapper, fixture.inputWrapper);
+                fixture.zeroForOne = !fixture.zeroForOne;
+            }
+            if (seed % 2 == 0) {
+                int256 delta = int256(1e10 + seed % 1e10);
+                fixture.referencePool.liquidityRouter
+                    .modifyLiquidity(
+                        fixture.referencePool.poolKey,
+                        IPoolManager.ModifyLiquidityParams(-120, 120, delta, bytes32(0)),
+                        ""
+                    );
+                fixture.intentPool.liquidityRouter
+                    .modifyLiquidity(
+                        fixture.intentPool.poolKey,
+                        IPoolManager.ModifyLiquidityParams(-120, 120, delta, bytes32(0)),
+                        ""
+                    );
+            }
+            _assertTwinPoolParity(fixture, uint64(1e6 + seed % 40e6));
+            assertEq(fixture.escrow.liveSwapLockCount(), 0);
+            assertEq(controller.activeSwapIntentOf(trader), bytes32(0));
+            vm.warp(block.timestamp + 1);
+        }
+        assertEq(controller.traderNonces(trader), steps);
+    }
+
+    // SW-13/14: repeated real high-decimal outputs use measured deltas and dust,
+    // including a subsequent reverse swap of already-held confidential outputs.
+    function testFuzz_SW13_HighDecimalRepeatedLifecycle(uint256 seed) public {
+        TwinPoolFixture memory fixture = _deployVolatileTwinPoolFixture(true);
+        for (uint256 i; i < 4; ++i) {
+            uint64 amount = uint64(1000e6 + uint256(keccak256(abi.encode(seed, i))) % 4000e6);
+            _assertTwinPoolParity(fixture, amount);
+            vm.warp(block.timestamp + 1);
+        }
+    }
+
+    // SW-15: forged and replayed callbacks cannot spend outside PoolManager's
+    // unlock lifecycle. An explicit malformed-delta injection covers fail-closed
+    // executor validation, then a genuine real-pool swap still succeeds.
+    function testFuzz_SW15_CallbackOrderingCannotSpendOutsideSwap(uint256 seed) public {
+        TwinPoolFixture memory fixture =
+            _deployTwinPoolFixture(true, 2_000_000_000e6, 2_000_000_000e6);
+        bytes memory callback = abi.encode(
+            AlphaEngineV4SwapExecutor.CallbackData({
+                key: fixture.intentPool.poolKey,
+                zeroForOne: fixture.zeroForOne,
+                sqrtPriceLimitX96: _defaultPriceLimit(fixture.zeroForOne),
+                inputToken: address(fixture.inputUnderlying),
+                outputToken: address(fixture.outputUnderlying),
+                amountIn: 10e6,
+                minAmountOut: 1,
+                recipient: address(fixture.escrow),
+                hookData: ""
+            })
+        );
+        for (uint256 i; i < 2; ++i) {
+            address attacker = address(uint160(0xA000 + seed % 1000 + i));
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineV4SwapExecutor.InvalidPoolManagerCaller.selector, attacker
+                )
+            );
+            vm.prank(attacker);
+            fixture.executor.unlockCallback(callback);
+            vm.expectRevert(IPoolManager.ManagerLocked.selector);
+            vm.prank(address(fixture.intentPool.poolManager));
+            fixture.executor.unlockCallback(callback);
+            vm.mockCall(
+                address(fixture.intentPool.poolManager),
+                abi.encodeWithSelector(IPoolManager.swap.selector),
+                abi.encode(toBalanceDelta(int128(1), int128(1)))
+            );
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineV4SwapExecutor.InvalidSwapDirection.selector,
+                    fixture.zeroForOne,
+                    address(fixture.inputUnderlying),
+                    address(fixture.outputUnderlying),
+                    Currency.unwrap(fixture.intentPool.poolKey.currency0),
+                    Currency.unwrap(fixture.intentPool.poolKey.currency1)
+                )
+            );
+            vm.prank(address(fixture.intentPool.poolManager));
+            fixture.executor.unlockCallback(callback);
+            vm.clearMockedCalls();
+            _assertTwinPoolParity(fixture, uint64(1e6 + seed % 10e6));
+            vm.warp(block.timestamp + 1);
+        }
+    }
+
+    // SW-19: withdrawing executor authority must be atomic; a real admitted lock
+    // remains refundable, and restoring authority permits a fresh genuine swap.
+    function testFuzz_SW19_CallerRotationPreservesRefundLifecycle(uint64 rawAmount) public {
+        TwinPoolFixture memory fixture =
+            _deployTwinPoolFixture(true, 2_000_000_000e6, 2_000_000_000e6);
+        uint64 amount = uint64(bound(rawAmount, 1e6, 50e6));
+        bytes memory executionData =
+            _defaultExecutionData(fixture.intentPool.poolKey, fixture.zeroForOne);
+        (bytes32 id, bytes32 handle) =
+            _prepareIntentSwapExecution(fixture, amount, 1, executionData);
+        bytes32 claimId = fixture.escrow.getSwapIntentLock(id).unshieldClaimId;
+        taskManager.publishDecryptResult(uint256(handle), amount, "");
+        vm.prank(owner);
+        fixture.executor.setAuthorizedCaller(address(0xDEAD));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineV4SwapExecutor.UnauthorizedCaller.selector, address(fixture.escrow)
+            )
+        );
+        vm.prank(operator);
+        controller.executeSwapIntent(id, amount, 1, MINIMUM_OUTPUT_SALT, "", executionData);
+        assertEq(
+            uint8(controller.getSwapIntent(id).status),
+            uint8(IAlphaEngineConfidentialSwapController.SwapIntentStatus.Active)
+        );
+        assertFalse(AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).getClaim(claimId).claimed);
+        assertEq(fixture.inputUnderlying.balanceOf(address(fixture.executor)), 0);
+        vm.prank(pauser);
+        controller.pause();
+        controller.refundSwapIntent(id, amount, "");
+        assertEq(fixture.escrow.liveSwapLockCount(), 0);
+        vm.prank(owner);
+        fixture.executor.setAuthorizedCaller(address(fixture.escrow));
+        vm.prank(owner);
+        controller.unpause();
+        _assertTwinPoolParity(fixture, amount);
+    }
+
+    // SW-16 conditional protective regression: the registry currently admits
+    // arbitrary decimals. This fails until supported-domain admission is enforced
+    // or the release policy explicitly excludes this high-decimal asset class.
+    function testFuzz_SW16_ConditionalUnsupportedSignedDomainMustNotBeAdmitted(
+        uint8 rawDecimals,
+        uint64 rawAmount
+    ) public {
+        uint8 decimals = uint8(bound(rawDecimals, 44, 46));
+        uint64 amount = uint64(bound(rawAmount, 2, 128));
+        TwinPoolFixture memory fixture = _deployTwinPoolFixtureFromTokens(
+            new MockERC20("High decimal input", "HIGH", decimals),
+            new MockERC20("Output", "OUT", 6),
+            true,
+            1e45,
+            1e45,
+            SQRT_PRICE_1_1,
+            1e12,
+            -120,
+            120
+        );
+        bytes memory data = _defaultExecutionData(fixture.intentPool.poolKey, fixture.zeroForOne);
+        uint256 underlyingAmount =
+            uint256(amount) * AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).rate();
+        uint256 signedMaximum = uint256(uint128(type(int128).max));
+        assertGt(underlyingAmount, signedMaximum, "SW-16 fixture must exceed signed domain");
+        (bytes32 id,) = _prepareIntentSwapExecution(fixture, amount, 1, data);
+        assertLe(
+            underlyingAmount, signedMaximum, "SW-16 unsupported signed-domain lock was admitted"
+        );
+        assertEq(controller.activeSwapIntentOf(trader), id);
+    }
+
+    function test_SW16_HighDecimalExecutionFailureStillRefunds() public {
+        TwinPoolFixture memory fixture = _deployTwinPoolFixtureFromTokens(
+            new MockERC20("High decimal input", "HIGH", 44),
+            new MockERC20("Output", "OUT", 6),
+            true,
+            1e45,
+            1e45,
+            SQRT_PRICE_1_1,
+            1e12,
+            -120,
+            120
+        );
+        uint256 underlyingAmount = 2 * AlphaEngineFHERC20ERC20Wrapper(fixture.inputWrapper).rate();
+        uint256 referenceBefore = fixture.inputUnderlying.balanceOf(REFERENCE_TRADER);
+        _directReferenceSwap(fixture, 2);
+        uint256 spent = referenceBefore + underlyingAmount
+            - fixture.inputUnderlying.balanceOf(REFERENCE_TRADER);
+        bytes memory data = _defaultExecutionData(fixture.intentPool.poolKey, fixture.zeroForOne);
+        (bytes32 id, bytes32 handle) = _prepareIntentSwapExecution(fixture, 2, 1, data);
+        taskManager.publishDecryptResult(uint256(handle), 2, "");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineV4SwapExecutor.UnexpectedInputAmount.selector, underlyingAmount, spent
+            )
+        );
+        vm.prank(operator);
+        controller.executeSwapIntent(id, 2, 1, MINIMUM_OUTPUT_SALT, "", data);
+        assertEq(fixture.escrow.liveSwapLockCount(), 1);
+        vm.prank(pauser);
+        controller.pause();
+        controller.refundSwapIntent(id, 2, "");
+        assertEq(fixture.escrow.liveSwapLockCount(), 0);
+    }
+
     function _assertTwinPoolParity(TwinPoolFixture memory fixture, uint64 inputAmount)
         private
         returns (uint256 expectedOutputAmount)
     {
+        uint256 balanceBefore = _confidentialValue(fixture.outputWrapper, trader);
+        uint256 reserveBefore = fixture.outputUnderlying.balanceOf(fixture.outputWrapper);
+        uint256 dustBefore = fixture.outputUnderlying.balanceOf(trader);
         expectedOutputAmount = _directReferenceSwap(fixture, inputAmount);
         bytes memory executionData =
             _defaultExecutionData(fixture.intentPool.poolKey, fixture.zeroForOne);
@@ -217,15 +428,25 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
 
         assertEq(actualOutputAmount, expectedOutputAmount);
         assertEq(mockStorage(uint256(shieldedOutputHandle)), expectedShieldedUnits);
-        assertEq(mockStorage(uint256(euint64.unwrap(outputBalance))), expectedShieldedUnits);
         assertEq(
-            fixture.outputUnderlying.balanceOf(fixture.outputWrapper), expectedShieldedUnderlying
+            mockStorage(uint256(euint64.unwrap(outputBalance))),
+            balanceBefore + expectedShieldedUnits
         );
-        assertEq(fixture.outputUnderlying.balanceOf(trader), expectedDust);
+        assertEq(
+            fixture.outputUnderlying.balanceOf(fixture.outputWrapper),
+            reserveBefore + expectedShieldedUnderlying
+        );
+        assertEq(fixture.outputUnderlying.balanceOf(trader), dustBefore + expectedDust);
         assertEq(fixture.inputUnderlying.balanceOf(address(fixture.escrow)), 0);
         assertEq(fixture.outputUnderlying.balanceOf(address(fixture.escrow)), 0);
         assertEq(fixture.inputUnderlying.balanceOf(address(fixture.executor)), 0);
         assertEq(fixture.outputUnderlying.balanceOf(address(fixture.executor)), 0);
+    }
+
+    function _confidentialValue(address wrapper, address account) private view returns (uint256) {
+        bytes32 handle =
+            euint64.unwrap(AlphaEngineFHERC20ERC20Wrapper(wrapper).confidentialBalanceOf(account));
+        return handle == bytes32(0) ? 0 : mockStorage(uint256(handle));
     }
 
     function _directReferenceSwap(TwinPoolFixture memory fixture, uint64 inputAmount)
