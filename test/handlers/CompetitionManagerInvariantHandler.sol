@@ -621,13 +621,6 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
                 && competition.status
                     != AlphaEngineCompetitionStrategyManager.CompetitionStatus.Evaluating
         ) return;
-        // Completed evaluations use the separate policy-conditional red CM-11 regression.
-        if (
-            !emergency
-                && competition.status
-                    == AlphaEngineCompetitionStrategyManager.CompetitionStatus.Evaluating
-                && competition.evaluatedCount == competition.activeSubmissionCount
-        ) return;
         if (paused) {
             vm.prank(PAUSER);
             MANAGER.pause();
@@ -648,7 +641,17 @@ contract CompetitionManagerInvariantHandler is MockCoFheTest {
             if (block.timestamp <= competition.evaluationDeadline) {
                 vm.warp(uint256(competition.evaluationDeadline) + 1);
             }
+            bytes32 beforeExpiry = _snapshot(id);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    IAccessControl.AccessControlUnauthorizedAccount.selector,
+                    stranger,
+                    MANAGER.COMPETITION_CANCELLER_ROLE()
+                )
+            );
             vm.prank(stranger);
+            MANAGER.cancelExpiredCompetition(id);
+            assertEq(_snapshot(id), beforeExpiry);
             MANAGER.cancelExpiredCompetition(id);
         }
         assertEq(

@@ -1333,9 +1333,102 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         manager.beginEvaluation(competitionId);
 
         vm.warp(competition.evaluationDeadline + 1);
+        _assertUnprivilegedExpiryRejected(competitionId);
         vm.expectEmit(true, true, false, true);
-        emit CompetitionCancelled(competitionId, stranger);
-        vm.prank(stranger);
+        emit CompetitionCancelled(competitionId, canceller);
+        vm.prank(canceller);
+        manager.cancelExpiredCompetition(competitionId);
+        assertEq(
+            uint8(manager.getCompetition(competitionId).status),
+            uint8(AlphaEngineCompetitionStrategyManager.CompetitionStatus.Cancelled)
+        );
+    }
+
+    function test_completedEvaluationSurvivesExpiryAndCanFinalizeQualifyAndReveal() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 submissionId = _submit(competitionId, trader, 1, 10);
+        _beginEvaluation(competitionId);
+        _evaluate(submissionId, 1, 100);
+        uint256 afterDeadline =
+            uint256(manager.getCompetition(competitionId).evaluationDeadline) + 1;
+        vm.warp(afterDeadline);
+        _assertUnprivilegedExpiryRejected(competitionId);
+        assertEq(manager.getCompetition(competitionId).evaluatedCount, 1);
+        assertEq(
+            uint8(manager.getCompetition(competitionId).status),
+            uint8(AlphaEngineCompetitionStrategyManager.CompetitionStatus.Evaluating)
+        );
+        vm.expectEmit(true, false, false, true);
+        emit CompetitionFinalized(competitionId, 1, 1);
+        vm.prank(finalizer);
+        manager.finalizeCompetition(competitionId);
+        vm.prank(qualifier);
+        assertEq(manager.publishTraderQualification(submissionId), 1);
+        assertTrue(registry.isQualifiedAtVersion(trader, 1));
+        vm.prank(scoreRevealer);
+        (uint16 next, uint16 revealed) = manager.requestCompetitionScoreReveal(competitionId, 1, 1);
+        assertEq(next, 2);
+        assertEq(revealed, 1);
+    }
+
+    function test_incompleteEvaluationCanStillExpire() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 first = _submit(competitionId, trader, 1, 10);
+        _submit(competitionId, secondTrader, 2, 20);
+        _beginEvaluation(competitionId);
+        _evaluate(first, 1, 100);
+        vm.warp(uint256(manager.getCompetition(competitionId).evaluationDeadline) + 1);
+        _assertUnprivilegedExpiryRejected(competitionId);
+        vm.expectEmit(true, true, false, true);
+        emit CompetitionCancelled(competitionId, canceller);
+        vm.prank(canceller);
+        manager.cancelExpiredCompetition(competitionId);
+        assertEq(
+            uint8(manager.getCompetition(competitionId).status),
+            uint8(AlphaEngineCompetitionStrategyManager.CompetitionStatus.Cancelled)
+        );
+    }
+
+    function test_emptyCompetitionCanStillExpire() public {
+        bytes32 competitionId = _createCompetition(1);
+        vm.warp(uint256(manager.getCompetition(competitionId).evaluationDeadline) + 1);
+        _assertUnprivilegedExpiryRejected(competitionId);
+        vm.expectEmit(true, true, false, true);
+        emit CompetitionCancelled(competitionId, canceller);
+        vm.prank(canceller);
+        manager.cancelExpiredCompetition(competitionId);
+        assertEq(
+            uint8(manager.getCompetition(competitionId).status),
+            uint8(AlphaEngineCompetitionStrategyManager.CompetitionStatus.Cancelled)
+        );
+    }
+
+    function test_emergencyCancellationOfCompletedEvaluationRemainsAvailable() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 submissionId = _submit(competitionId, trader, 1, 10);
+        _beginEvaluation(competitionId);
+        _evaluate(submissionId, 1, 100);
+        vm.prank(pauser);
+        manager.pause();
+        vm.expectEmit(true, true, false, true);
+        emit CompetitionCancelled(competitionId, canceller);
+        vm.prank(canceller);
+        manager.cancelCompetition(competitionId);
+        assertEq(
+            uint8(manager.getCompetition(competitionId).status),
+            uint8(AlphaEngineCompetitionStrategyManager.CompetitionStatus.Cancelled)
+        );
+    }
+
+    function test_authorizedCallerCanCancelCompletedExpiredCompetition() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 submissionId = _submit(competitionId, trader, 1, 10);
+        _beginEvaluation(competitionId);
+        _evaluate(submissionId, 1, 100);
+        vm.warp(uint256(manager.getCompetition(competitionId).evaluationDeadline) + 1);
+        vm.expectEmit(true, true, false, true);
+        emit CompetitionCancelled(competitionId, canceller);
+        vm.prank(canceller);
         manager.cancelExpiredCompetition(competitionId);
         assertEq(
             uint8(manager.getCompetition(competitionId).status),
@@ -1474,6 +1567,18 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         ++successes;
         assertEq(manager.traderNonces(trader), successes);
         assertGt(successes, 3);
+    }
+
+    function _assertUnprivilegedExpiryRejected(bytes32 competitionId) private {
+        bytes32 beforeState = keccak256(abi.encode(manager.getCompetition(competitionId)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, CANCELLER_ROLE
+            )
+        );
+        vm.prank(stranger);
+        manager.cancelExpiredCompetition(competitionId);
+        assertEq(keccak256(abi.encode(manager.getCompetition(competitionId))), beforeState);
     }
 
     function _deployRegistry() private returns (AlphaEngineTraderQualificationRegistry deployed) {

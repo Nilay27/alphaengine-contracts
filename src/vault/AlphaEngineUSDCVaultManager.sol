@@ -13,6 +13,7 @@ import {IAlphaEngineFundVault} from "../interfaces/IAlphaEngineFundVault.sol";
 /// @notice Immediate USDC deposits, asynchronous redemptions, and daily P&L accounting.
 contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard {
     uint256 public constant SHARE_SCALE = 1e12;
+    uint256 public constant MIN_SHARE_SUPPLY = 1e18;
     uint16 public constant MAX_PERFORMANCE_FEE_BPS = 2000;
     uint16 public constant BPS = 10_000;
 
@@ -40,7 +41,6 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
     uint256 public managedAssets;
     uint256 public lockedProfit;
     uint256 public lockedRecoveryProfit;
-    uint256 public pendingFeeAssets;
     uint256 public lossToRecover;
 
     uint64 public profitLockTimestamp;
@@ -50,7 +50,6 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
     uint64 public lastReferenceBlock;
     uint64 public nextRedemptionId;
     uint16 public performanceFeeBps;
-    uint16 public pendingFeeBps;
 
     mapping(uint64 requestId => RedemptionRequest request) private _redemptions;
 
@@ -67,7 +66,6 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
     error InsufficientAssets(uint256 assets, uint256 minimum);
     error InsolventVault();
     error ProfitStillVesting(uint256 remainingProfit);
-    error ActiveFeePending(uint256 feeAssets);
     error InvalidReportEpoch(uint64 expected, uint64 actual);
     error InvalidReferenceBlock(uint64 previousBlock, uint64 suppliedBlock);
     error FutureReferenceBlock(uint64 suppliedBlock, uint256 currentBlock);
@@ -77,6 +75,7 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
     error UnauthorizedRedemptionOwner(address caller, address owner);
     error InsufficientVaultLiquidity(uint256 available, uint256 required);
     error FinalRedemptionWhileProfitLocked(uint256 remainingProfit);
+    error InsufficientShareSupply(uint256 remainingSupply, uint256 minimum);
 
     event NAVReporterUpdated(address indexed oldReporter, address indexed newReporter);
     event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
@@ -99,7 +98,7 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         uint64 indexed referenceBlock,
         uint256 profit,
         uint256 recoveryProfit,
-        uint256 pendingFeeAssets,
+        uint256 feeAssets,
         bytes32 reportHash
     );
     event LossReported(
@@ -173,7 +172,6 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
 
     function setFeeRecipient(address newRecipient) external onlyOwner {
         if (newRecipient == address(0)) revert ZeroAddress();
-        if (pendingFeeAssets != 0) revert ActiveFeePending(pendingFeeAssets);
         address oldRecipient = feeRecipient;
         feeRecipient = newRecipient;
         emit FeeRecipientUpdated(oldRecipient, newRecipient);
@@ -212,6 +210,10 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         shares = previewDeposit(assets);
         if (shares == 0) revert ZeroShares();
         if (shares < minShares) revert InsufficientShares(shares, minShares);
+        uint256 supplyAfter = FUND_VAULT.totalSupply() + shares;
+        if (supplyAfter < MIN_SHARE_SUPPLY) {
+            revert InsufficientShareSupply(supplyAfter, MIN_SHARE_SUPPLY);
+        }
 
         managedAssets += assets;
         FUND_VAULT.settleDeposit(msg.sender, receiver, assets, shares);
@@ -262,8 +264,13 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         }
 
         _settleFinishedProfit();
+        uint256 supplyBefore = FUND_VAULT.totalSupply();
+        uint256 remainingSupply = supplyBefore - request.shares;
+        if (remainingSupply != 0 && remainingSupply < MIN_SHARE_SUPPLY) {
+            revert InsufficientShareSupply(remainingSupply, MIN_SHARE_SUPPLY);
+        }
         uint256 remainingProfit = remainingLockedProfit();
-        if (request.shares == FUND_VAULT.totalSupply() && remainingProfit != 0) {
+        if (remainingSupply == 0 && remainingProfit != 0) {
             revert FinalRedemptionWhileProfitLocked(remainingProfit);
         }
         assets = previewRedeem(request.shares);
@@ -271,19 +278,20 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
             revert InsufficientAssets(assets, request.minAssets);
         }
 
+        uint256 residual = remainingSupply == 0 ? managedAssets - assets : 0;
+        uint256 required = assets + residual;
         uint256 available = USDC.balanceOf(address(FUND_VAULT));
-        if (available < assets) revert InsufficientVaultLiquidity(available, assets);
+        if (available < required) revert InsufficientVaultLiquidity(available, required);
 
-        uint256 supplyBefore = FUND_VAULT.totalSupply();
         request.status = RedemptionStatus.Completed;
-        managedAssets -= assets;
+        managedAssets -= required;
         if (lossToRecover != 0) {
-            uint256 remainingSupply = supplyBefore - request.shares;
             lossToRecover = remainingSupply == 0
                 ? 0
                 : Math.mulDiv(lossToRecover, remainingSupply, supplyBefore, Math.Rounding.Ceil);
         }
         FUND_VAULT.settleRedemption(request.receiver, request.shares, assets);
+        if (residual != 0) FUND_VAULT.settleProtocolResidual(feeRecipient, residual);
         emit RedemptionCompleted(requestId, request.receiver, request.shares, assets);
     }
 
@@ -304,19 +312,20 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         uint256 recoveryProfit = Math.min(profit, lossToRecover);
         lossToRecover -= recoveryProfit;
         uint256 feeableProfit = profit - recoveryProfit;
+        uint256 feeAssets = Math.mulDiv(feeableProfit, performanceFeeBps, BPS);
+        uint256 feePricingAssets = availableAssets();
 
         managedAssets += profit;
-        lockedProfit = profit;
+        lockedProfit = profit - feeAssets;
         lockedRecoveryProfit = recoveryProfit;
-        pendingFeeAssets = Math.mulDiv(feeableProfit, performanceFeeBps, BPS);
-        pendingFeeBps = performanceFeeBps;
         profitLockTimestamp = uint64(block.timestamp);
         profitUnlockTimestamp = uint64(block.timestamp) + vestingPeriod;
 
         _recordReport(expectedEpoch, referenceBlock);
         emit ProfitReported(
-            expectedEpoch, referenceBlock, profit, recoveryProfit, pendingFeeAssets, reportHash
+            expectedEpoch, referenceBlock, profit, recoveryProfit, feeAssets, reportHash
         );
+        _mintPerformanceFee(feeAssets, feePricingAssets);
     }
 
     function reportLoss(
@@ -337,9 +346,6 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         uint256 cancelledFeeable = Math.min(cancelledProfit, remainingFeeable);
         uint256 cancelledRecovery = cancelledProfit - cancelledFeeable;
 
-        uint256 feeReduction = Math.mulDiv(cancelledFeeable, pendingFeeBps, BPS, Math.Rounding.Ceil);
-        pendingFeeAssets -= Math.min(pendingFeeAssets, feeReduction);
-
         uint256 newRecovery = remainingRecovery - cancelledRecovery;
         uint256 newLockedProfit = remainingProfit - cancelledProfit;
         lockedProfit = newLockedProfit;
@@ -347,21 +353,16 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         lossToRecover += cancelledRecovery + (loss - cancelledProfit);
         managedAssets -= loss;
 
-        uint256 feeAssetsToSettle;
         if (newLockedProfit == 0) {
-            feeAssetsToSettle = pendingFeeAssets;
             lockedRecoveryProfit = 0;
             profitLockTimestamp = 0;
             profitUnlockTimestamp = 0;
-            pendingFeeAssets = 0;
-            pendingFeeBps = 0;
         } else {
             profitLockTimestamp = uint64(block.timestamp);
         }
 
         _recordReport(expectedEpoch, referenceBlock);
         emit LossReported(expectedEpoch, referenceBlock, loss, cancelledProfit, reportHash);
-        _mintPerformanceFee(feeAssetsToSettle);
     }
 
     function settleFinishedProfit() external nonReentrant returns (uint256 feeShares) {
@@ -369,18 +370,16 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
     }
 
     function previewDeposit(uint256 assets) public view returns (uint256 shares) {
-        uint256 supply = _supplyAfterFinishedFee();
-        if (supply == 0) return assets * SHARE_SCALE;
-
+        uint256 supply = FUND_VAULT.totalSupply();
         uint256 assetsForShares = availableAssets();
-        if (assetsForShares == 0) revert InsolventVault();
-        shares = Math.mulDiv(assets, supply, assetsForShares);
+        if (supply != 0 && assetsForShares == 0) revert InsolventVault();
+        shares = Math.mulDiv(assets, supply + SHARE_SCALE, assetsForShares + 1);
     }
 
     function previewRedeem(uint256 shares) public view returns (uint256 assets) {
-        uint256 supply = _supplyAfterFinishedFee();
+        uint256 supply = FUND_VAULT.totalSupply();
         if (supply == 0) return 0;
-        assets = Math.mulDiv(shares, availableAssets(), supply);
+        assets = Math.mulDiv(shares, availableAssets() + 1, supply + SHARE_SCALE);
     }
 
     function availableAssets() public view returns (uint256) {
@@ -417,41 +416,27 @@ contract AlphaEngineUSDCVaultManager is Ownable2Step, Pausable, ReentrancyGuard 
         return Math.mulDiv(amount, remainingTime, lockDuration, Math.Rounding.Ceil);
     }
 
-    function _settleFinishedProfit() private returns (uint256 feeShares) {
+    function _settleFinishedProfit() private returns (uint256) {
         if (lockedProfit == 0 || remainingLockedProfit() != 0) return 0;
 
-        uint256 feeAssets = pendingFeeAssets;
         lockedProfit = 0;
         lockedRecoveryProfit = 0;
-        pendingFeeAssets = 0;
-        pendingFeeBps = 0;
         profitLockTimestamp = 0;
         profitUnlockTimestamp = 0;
-
-        feeShares = _mintPerformanceFee(feeAssets);
+        return 0;
     }
 
-    function _mintPerformanceFee(uint256 feeAssets) private returns (uint256 feeShares) {
+    function _mintPerformanceFee(uint256 feeAssets, uint256 feePricingAssets)
+        private
+        returns (uint256 feeShares)
+    {
         if (feeAssets == 0) return 0;
-        feeShares = _feeShares(feeAssets, FUND_VAULT.totalSupply());
-        if (feeShares == 0) return 0;
+        feeShares =
+            Math.mulDiv(feeAssets, FUND_VAULT.totalSupply() + SHARE_SCALE, feePricingAssets + 1);
+        if (feeShares == 0) revert ZeroShares();
 
         FUND_VAULT.mintFeeShares(feeRecipient, feeShares);
         emit PerformanceFeeMinted(feeRecipient, feeAssets, feeShares);
-    }
-
-    function _supplyAfterFinishedFee() private view returns (uint256 supply) {
-        supply = FUND_VAULT.totalSupply();
-        if (lockedProfit == 0 || remainingLockedProfit() != 0 || pendingFeeAssets == 0) {
-            return supply;
-        }
-        return supply + _feeShares(pendingFeeAssets, supply);
-    }
-
-    function _feeShares(uint256 feeAssets, uint256 supply) private view returns (uint256) {
-        if (feeAssets == 0 || supply == 0) return 0;
-        if (managedAssets <= feeAssets) return 0;
-        return Math.mulDiv(feeAssets, supply, managedAssets - feeAssets);
     }
 
     function _validateReport(uint64 expectedEpoch, uint64 referenceBlock, bytes32 reportHash)

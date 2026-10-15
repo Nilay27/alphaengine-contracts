@@ -117,6 +117,17 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
         targetContract(address(handler));
     }
 
+    function test_FV_replaysFeeLossRoundingBoundaries() public {
+        // 100 units gross - 20 fee = 80 net; the final 1% is 0.8 units,
+        // so one unit remains locked. Exercise loss below/at/above that unit.
+        uint256 before = handler.scenarioRuns(13);
+        for (uint8 edge = 6; edge <= 8; ++edge) {
+            handler.exerciseFeeLossBoundaries(1000e6, 0, edge);
+            invariant_independentAccountingModelMatchesEveryReachableState();
+        }
+        assertEq(handler.scenarioRuns(13), before + 3);
+    }
+
     function test_FV_replaysLongRoundTripCounterexample() public {
         handler.exerciseExitEntryAndRelativeLoss(type(uint96).max, 1, 8);
         uint256 before = handler.roundTrips();
@@ -204,7 +215,8 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
     function invariant_managedAssetsMatchEveryAccountingDelta() public view {
         assertEq(manager.managedAssets(), handler.ghostManagedAssets());
         uint256 additions = handler.ghostDepositedUsdc() + handler.ghostReportedProfit();
-        uint256 deductions = handler.ghostRedeemedUsdc() + handler.ghostReportedLoss();
+        uint256 deductions = handler.ghostRedeemedUsdc() + handler.ghostProtocolResidual()
+            + handler.ghostReportedLoss();
         assertGe(additions, deductions);
         assertEq(manager.managedAssets(), additions - deductions);
     }
@@ -217,7 +229,8 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
     function invariant_actualUSDCIsConservedAcrossVaultAndStrategy() public view {
         uint256 inflows =
             handler.ghostDepositedUsdc() + handler.ghostDonations() + handler.ghostFundedProfit();
-        uint256 outflows = handler.ghostRedeemedUsdc() + handler.ghostFundedLoss();
+        uint256 outflows = handler.ghostRedeemedUsdc() + handler.ghostProtocolResidual()
+            + handler.ghostFundedLoss();
         assertGe(inflows, outflows);
         assertEq(usdc.balanceOf(address(fundVault)) + usdc.balanceOf(STRATEGY), inflows - outflows);
         assertEq(usdc.balanceOf(STRATEGY), handler.ghostDeployedUsdc());
@@ -229,7 +242,6 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
         assertLe(manager.remainingLockedProfit(), manager.managedAssets());
         assertLe(manager.remainingLockedRecoveryProfit(), manager.remainingLockedProfit());
         assertLe(manager.availableAssets(), manager.managedAssets());
-        assertLe(manager.pendingFeeBps(), manager.MAX_PERFORMANCE_FEE_BPS());
     }
 
     function invariant_depositsAndRedemptionsNeverDiluteSharePrice() public view {
@@ -250,11 +262,9 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
         assertEq(manager.managedAssets(), handler.ghostManagedAssets());
         assertEq(manager.lockedProfit(), handler.ghostLockedProfit());
         assertEq(manager.lockedRecoveryProfit(), handler.ghostLockedRecoveryProfit());
-        assertEq(manager.pendingFeeAssets(), handler.ghostPendingFeeAssets());
         assertEq(manager.lossToRecover(), handler.ghostLossToRecover());
         assertEq(manager.profitLockTimestamp(), handler.ghostProfitLockTimestamp());
         assertEq(manager.profitUnlockTimestamp(), handler.ghostProfitUnlockTimestamp());
-        assertEq(manager.pendingFeeBps(), handler.ghostPendingFeeBps());
         assertEq(fundVault.totalSupply(), handler.ghostShareSupply());
         assertEq(manager.remainingLockedProfit(), handler.modelRemainingLockedProfit());
         assertEq(
@@ -306,7 +316,7 @@ contract AlphaEngineUSDCVaultManagerInvariantTest is StdInvariant, Test {
         assertEq(
             externallyFunded + handler.ghostFundedProfit() + handler.ghostDonations(),
             recipientsReceived + usdc.balanceOf(address(fundVault)) + usdc.balanceOf(STRATEGY)
-                + handler.ghostFundedLoss()
+                + handler.ghostFundedLoss() + handler.ghostProtocolResidual()
         );
     }
 

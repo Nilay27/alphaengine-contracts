@@ -765,7 +765,10 @@ contract AlphaEngineCompetitionStrategyManager is
         _cancelCompetition(competitionId, competition);
     }
 
-    function cancelExpiredCompetition(bytes32 competitionId) external {
+    function cancelExpiredCompetition(bytes32 competitionId)
+        external
+        onlyRole(COMPETITION_CANCELLER_ROLE)
+    {
         CompetitionRecord storage competition = _getCompetition(competitionId);
         if (
             (competition.status != CompetitionStatus.Active

@@ -291,6 +291,11 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         bytes32 profitHash = keccak256("event-profit");
         vm.expectEmit(true, true, false, true, address(manager));
         emit AlphaEngineUSDCVaultManager.ProfitReported(1, 99, 100e6, 0, 10e6, profitHash);
+        uint256 feeShares = Math.mulDiv(10e6, 900e18 + 1e12, 900e6 + 1);
+        vm.expectEmit(true, false, false, true, address(fundVault));
+        emit AlphaEngineFundVault.FeeSharesMinted(FEE_RECIPIENT, feeShares);
+        vm.expectEmit(true, false, false, true, address(manager));
+        emit AlphaEngineUSDCVaultManager.PerformanceFeeMinted(FEE_RECIPIENT, 10e6, feeShares);
         vm.prank(NAV_REPORTER);
         manager.reportProfit(1, 99, 100e6, profitHash);
 
@@ -302,13 +307,7 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         manager.reportLoss(2, 100, 20e6, lossHash);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
-        uint256 feeAssets = 8e6;
-        uint256 feeShares = Math.mulDiv(feeAssets, fundVault.totalSupply(), 980e6 - feeAssets);
-        vm.expectEmit(true, false, false, true, address(fundVault));
-        emit AlphaEngineFundVault.FeeSharesMinted(FEE_RECIPIENT, feeShares);
-        vm.expectEmit(true, false, false, true, address(manager));
-        emit AlphaEngineUSDCVaultManager.PerformanceFeeMinted(FEE_RECIPIENT, feeAssets, feeShares);
-        assertEq(manager.settleFinishedProfit(), feeShares);
+        assertEq(manager.settleFinishedProfit(), 0);
 
         assertEq(manager.managedAssets(), 980e6);
         assertEq(fundVault.balanceOf(FEE_RECIPIENT), feeShares);
@@ -522,21 +521,21 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
     }
 
     function testFinalRedemptionWaitsForLockedProfit() public {
+        manager.setPerformanceFeeBps(0);
         _deposit(USER, 1000e6);
         uint64 requestId = _requestRedeem(USER, 1000e18, 0);
         _reportProfit(100e6);
-
         vm.expectRevert(
             abi.encodeWithSelector(
                 AlphaEngineUSDCVaultManager.FinalRedemptionWhileProfitLocked.selector, 100e6
             )
         );
         manager.completeRedeem(requestId);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        vm.warp(manager.profitUnlockTimestamp());
         usdc.mint(address(fundVault), 100e6);
         manager.completeRedeem(requestId);
-        assertGt(fundVault.totalSupply(), 0, "fee recipient remains a shareholder");
+        assertEq(fundVault.totalSupply(), 0);
+        assertEq(manager.managedAssets(), 0);
         assertEq(fundVault.balanceOf(USER), 0);
     }
 
@@ -574,54 +573,42 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         assertEq(fundVault.balanceOf(address(fundVault)), 1000e18);
     }
 
-    function testProfitVestsLinearlyAndFeeMintsAfterVesting() public {
+    function testProfitFeeMintsImmediatelyAndOnlyNetProfitVests() public {
         _deposit(USER, 1000e6);
+        uint256 expectedFeeShares = Math.mulDiv(10e6, 1000e18 + 1e12, 1000e6 + 1);
         _reportProfit(100e6);
-
         assertEq(manager.managedAssets(), 1100e6);
-        assertEq(manager.lockedProfit(), 100e6);
-        assertEq(manager.pendingFeeAssets(), 10e6);
-        assertEq(manager.availableAssets(), 1000e6);
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), 0);
-
-        uint256 vestingStart = block.timestamp;
-        vm.warp(vestingStart + 12 hours);
-        assertApproxEqAbs(manager.remainingLockedProfit(), 50e6, 1);
-        assertApproxEqAbs(manager.availableAssets(), 1050e6, 1);
-
-        vm.warp(vestingStart + VESTING_PERIOD);
-        uint256 expectedFeeShares = Math.mulDiv(10e6, 1000e18, 1100e6 - 10e6);
-        uint256 minted = manager.settleFinishedProfit();
-
-        assertEq(minted, expectedFeeShares);
+        assertEq(manager.lockedProfit(), 90e6);
+        assertEq(manager.availableAssets(), 1010e6);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
+        assertApproxEqAbs(manager.previewRedeem(expectedFeeShares), 10e6, 1);
+        uint256 start = block.timestamp;
+        vm.warp(start + 12 hours);
+        assertEq(manager.remainingLockedProfit(), 45e6);
+        assertEq(manager.availableAssets(), 1055e6);
+        vm.warp(start + VESTING_PERIOD);
+        assertEq(manager.settleFinishedProfit(), 0);
         assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
         assertEq(manager.lockedProfit(), 0);
-        assertEq(manager.pendingFeeAssets(), 0);
         assertEq(manager.availableAssets(), 1100e6);
-        assertLe(
-            manager.previewRedeem(expectedFeeShares),
-            10e6,
-            "treasury share value must not exceed the fee"
-        );
+        assertGe(manager.previewRedeem(expectedFeeShares) + 1, 10e6);
     }
 
-    function testProfitAndFeeCannotFinishBeforeExactUnlockTimestamp() public {
+    function testProfitCleanupRequiresExactUnlockAndCannotMintAnotherFee() public {
         _deposit(USER, 100e6);
         _reportProfit(10);
-        uint256 vestingStart = block.timestamp;
-
-        vm.warp(vestingStart + VESTING_PERIOD - 1);
+        uint256 start = block.timestamp;
+        uint256 issued = fundVault.balanceOf(FEE_RECIPIENT);
+        assertGt(issued, 0);
+        vm.warp(start + VESTING_PERIOD - 1);
         assertEq(manager.remainingLockedProfit(), 1);
         assertEq(manager.settleFinishedProfit(), 0);
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), 0);
-
-        vm.warp(vestingStart + VESTING_PERIOD);
-        uint256 expectedFeeShares = Math.mulDiv(1, 100e18, 100e6 + 10 - 1);
-        assertEq(manager.settleFinishedProfit(), expectedFeeShares);
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), issued);
+        vm.warp(start + VESTING_PERIOD);
+        assertEq(manager.settleFinishedProfit(), 0);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), issued);
         assertEq(manager.remainingLockedProfit(), 0);
-
-        vm.warp(vestingStart + VESTING_PERIOD + 1);
+        vm.warp(start + VESTING_PERIOD + 1);
         assertEq(manager.settleFinishedProfit(), 0);
     }
 
@@ -634,126 +621,103 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         uint256 redeemPreviewBefore = manager.previewRedeem(100e18);
         uint256 minted = manager.settleFinishedProfit();
 
-        assertGt(minted, 0);
+        assertEq(minted, 0);
         assertEq(manager.previewDeposit(100e6), depositPreviewBefore);
         assertEq(manager.previewRedeem(100e18), redeemPreviewBefore);
     }
 
-    function testNewProfitAutomaticallyCrystallizesPreviousVestedFee() public {
+    function testNewProfitMintsOnlyItsOwnFeeAfterPreviousVesting() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        uint256 firstFeeShares = Math.mulDiv(10e6, 1000e18, 1100e6 - 10e6);
+        uint256 firstFeeShares = fundVault.balanceOf(FEE_RECIPIENT);
+        vm.warp(manager.profitUnlockTimestamp());
+        uint256 secondFeeShares = Math.mulDiv(5e6, fundVault.totalSupply() + 1e12, 1100e6 + 1);
         _reportProfit(50e6);
-
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), firstFeeShares);
-        assertEq(manager.lockedProfit(), 50e6);
-        assertEq(manager.pendingFeeAssets(), 5e6);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), firstFeeShares + secondFeeShares);
+        assertEq(manager.lockedProfit(), 45e6);
     }
 
     function testPerformanceFeeUpdateIsProspective() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
-        assertEq(manager.pendingFeeAssets(), 10e6);
-
+        uint256 firstFeeShares = fundVault.balanceOf(FEE_RECIPIENT);
         manager.setPerformanceFeeBps(2000);
-        assertEq(manager.pendingFeeAssets(), 10e6);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-        manager.settleFinishedProfit();
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), firstFeeShares);
+        assertEq(manager.lockedProfit(), 90e6);
+        vm.warp(manager.profitUnlockTimestamp());
+        uint256 expected =
+            Math.mulDiv(20e6, fundVault.totalSupply() + 1e12, manager.availableAssets() + 1);
         _reportProfit(100e6);
-        assertEq(manager.pendingFeeAssets(), 20e6);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), firstFeeShares + expected);
+        assertEq(manager.lockedProfit(), 80e6);
     }
 
     function testLossImmediatelyCancelsLockedProfitThenShareValue() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
+        uint256 feeShares = fundVault.balanceOf(FEE_RECIPIENT);
         vm.warp(block.timestamp + 12 hours);
-
         uint256 availableBefore = manager.availableAssets();
         _reportLoss(60e6);
-
         assertEq(manager.managedAssets(), 1040e6);
         assertEq(manager.lockedProfit(), 0);
         assertEq(manager.availableAssets(), 1040e6);
-        assertApproxEqAbs(availableBefore - manager.availableAssets(), 10e6, 1);
-        assertEq(manager.pendingFeeAssets(), 0);
-        assertApproxEqAbs(manager.lossToRecover(), 10e6, 1);
-
-        uint256 survivingFeeAssets = 5e6;
-        uint256 expectedFeeShares =
-            Math.mulDiv(survivingFeeAssets, 1000e18, 1040e6 - survivingFeeAssets);
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
-        assertEq(manager.previewRedeem(expectedFeeShares), survivingFeeAssets - 1);
+        assertEq(availableBefore - manager.availableAssets(), 15e6);
+        assertEq(manager.lossToRecover(), 15e6);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), feeShares);
+        assertLt(manager.previewRedeem(feeShares), 10e6 + 1e6);
     }
 
-    function testLossEndingVestCrystallizesFeeOnlyOnSurvivingVestedProfit() public {
+    function testLossEndingVestDoesNotClawBackIssuedFeeShares() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
+        uint256 issued = fundVault.balanceOf(FEE_RECIPIENT);
         vm.warp(block.timestamp + 12 hours);
-
-        uint256 survivingFeeAssets = 5e6;
-        uint256 expectedFeeShares =
-            Math.mulDiv(survivingFeeAssets, 1000e18, 1050e6 - survivingFeeAssets);
+        uint256 beforeValue = manager.previewRedeem(issued);
         vm.roll(block.number + 1);
         uint64 epoch = manager.reportEpoch() + 1;
         uint64 referenceBlock = uint64(block.number - 1);
         bytes32 reportHash = keccak256("loss-ending-vest");
         vm.expectEmit(true, true, false, true, address(manager));
-        emit AlphaEngineUSDCVaultManager.LossReported(epoch, referenceBlock, 50e6, 50e6, reportHash);
-        vm.expectEmit(true, false, false, true, address(fundVault));
-        emit AlphaEngineFundVault.FeeSharesMinted(FEE_RECIPIENT, expectedFeeShares);
-        vm.expectEmit(true, false, false, true, address(manager));
-        emit AlphaEngineUSDCVaultManager.PerformanceFeeMinted(
-            FEE_RECIPIENT, survivingFeeAssets, expectedFeeShares
-        );
+        emit AlphaEngineUSDCVaultManager.LossReported(epoch, referenceBlock, 45e6, 45e6, reportHash);
         vm.prank(NAV_REPORTER);
-        manager.reportLoss(epoch, referenceBlock, 50e6, reportHash);
-
-        assertEq(manager.managedAssets(), 1050e6);
+        manager.reportLoss(epoch, referenceBlock, 45e6, reportHash);
+        assertEq(manager.managedAssets(), 1055e6);
         assertEq(manager.lockedProfit(), 0);
-        assertEq(manager.pendingFeeAssets(), 0);
         assertEq(manager.lossToRecover(), 0);
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
-        assertLe(manager.previewRedeem(expectedFeeShares), survivingFeeAssets);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), issued);
+        assertEq(manager.previewRedeem(issued), beforeValue);
+        _reportLoss(10e6);
+        assertLt(manager.previewRedeem(issued), beforeValue);
     }
 
     function testLossOneUnitBelowRemainingProfitKeepsFinalUnitLocked() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
-        uint256 vestingStart = block.timestamp;
-        vm.warp(vestingStart + 12 hours);
-
-        _reportLoss(50e6 - 1);
-
+        uint256 issued = fundVault.balanceOf(FEE_RECIPIENT);
+        vm.warp(block.timestamp + 12 hours);
+        _reportLoss(45e6 - 1);
         assertEq(manager.lockedProfit(), 1);
         assertEq(manager.remainingLockedProfit(), 1);
-        assertEq(manager.pendingFeeAssets(), 5e6);
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), 0);
-
-        uint256 unlockTimestamp = manager.profitUnlockTimestamp();
-        vm.warp(unlockTimestamp - 1);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), issued);
+        uint256 unlock = manager.profitUnlockTimestamp();
+        vm.warp(unlock - 1);
         assertEq(manager.remainingLockedProfit(), 1);
         assertEq(manager.settleFinishedProfit(), 0);
-
-        vm.warp(unlockTimestamp);
-        uint256 expectedFeeShares = Math.mulDiv(5e6, 1000e18, 1_050_000_001 - 5e6);
-        assertEq(manager.settleFinishedProfit(), expectedFeeShares);
+        vm.warp(unlock);
+        assertEq(manager.settleFinishedProfit(), 0);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), issued);
     }
 
-    function testLossAfterUnlockAutomaticallyCrystallizesFeeBeforeApplyingLoss() public {
+    function testLossAfterUnlockKeepsUpfrontFeeSharesAndClearsVesting() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        uint256 expectedFeeShares = Math.mulDiv(10e6, 1000e18, 1100e6 - 10e6);
+        uint256 issued = fundVault.balanceOf(FEE_RECIPIENT);
+        vm.warp(manager.profitUnlockTimestamp());
         _reportLoss(50e6);
-
-        assertEq(fundVault.balanceOf(FEE_RECIPIENT), expectedFeeShares);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), issued);
         assertEq(manager.managedAssets(), 1050e6);
         assertEq(manager.lockedProfit(), 0);
-        assertEq(manager.pendingFeeAssets(), 0);
         assertEq(manager.lossToRecover(), 50e6);
     }
 
@@ -764,7 +728,6 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
 
         _reportProfit(60e6);
         assertEq(manager.lockedRecoveryProfit(), 60e6);
-        assertEq(manager.pendingFeeAssets(), 0);
         assertEq(manager.lossToRecover(), 40e6);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
@@ -773,7 +736,7 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
 
         assertEq(manager.lockedRecoveryProfit(), 40e6);
         assertEq(manager.lossToRecover(), 0);
-        assertEq(manager.pendingFeeAssets(), 1e6);
+        assertGt(fundVault.balanceOf(FEE_RECIPIENT), 0);
     }
 
     function testRedemptionRemovesProportionalUnrecoveredLoss() public {
@@ -791,7 +754,7 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         _reportProfit(60e6);
         assertEq(manager.lossToRecover(), 0);
         assertEq(manager.lockedRecoveryProfit(), 50e6);
-        assertEq(manager.pendingFeeAssets(), 1e6);
+        assertGt(fundVault.balanceOf(FEE_RECIPIENT), 0);
     }
 
     function testLossDuringRecoveryRestoresLossToRecover() public {
@@ -878,7 +841,7 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
 
         vm.roll(block.number + 2);
         vm.expectRevert(
-            abi.encodeWithSelector(AlphaEngineUSDCVaultManager.ProfitStillVesting.selector, 100e6)
+            abi.encodeWithSelector(AlphaEngineUSDCVaultManager.ProfitStillVesting.selector, 90e6)
         );
         vm.prank(NAV_REPORTER);
         manager.reportProfit(2, uint64(block.number - 1), 10e6, keccak256("overlapping-profit"));
@@ -915,21 +878,18 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         manager.setPerformanceFeeBps(2001);
     }
 
-    function testActiveProfitProtectsFeeRecipientAndVestingTerms() public {
+    function testActiveProfitKeepsIssuedFeeOwnershipAndVestingTerms() public {
         _deposit(USER, 1000e6);
         _reportProfit(100e6);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(AlphaEngineUSDCVaultManager.ActiveFeePending.selector, 10e6)
-        );
+        uint256 issued = fundVault.balanceOf(FEE_RECIPIENT);
         manager.setFeeRecipient(USER_TWO);
-
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), issued);
+        assertEq(fundVault.balanceOf(USER_TWO), 0);
         vm.expectRevert(
-            abi.encodeWithSelector(AlphaEngineUSDCVaultManager.ProfitStillVesting.selector, 100e6)
+            abi.encodeWithSelector(AlphaEngineUSDCVaultManager.ProfitStillVesting.selector, 90e6)
         );
         manager.setVestingPeriod(2 days);
-
-        assertEq(manager.feeRecipient(), FEE_RECIPIENT);
+        assertEq(manager.feeRecipient(), USER_TWO);
         assertEq(manager.vestingPeriod(), VESTING_PERIOD);
     }
 
@@ -946,7 +906,6 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         assertEq(fundVault.totalSupply(), supplyBefore);
         assertEq(fundVault.balanceOf(FEE_RECIPIENT), 0);
         assertEq(manager.lockedProfit(), 0);
-        assertEq(manager.pendingFeeAssets(), 0);
     }
 
     function testPauseBlocksNewRiskButAllowsRedemptionCancellationAndCompletion() public {
@@ -988,15 +947,31 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         uint256 assetsBefore = manager.availableAssets();
         uint256 supplyBefore = fundVault.totalSupply();
 
+        uint256 remainingSupply = supplyBefore - shares;
+        if (remainingSupply != 0 && remainingSupply < 1e18) {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector,
+                    remainingSupply,
+                    1e18
+                )
+            );
+            manager.completeRedeem(requestId);
+            assertEq(manager.availableAssets(), assetsBefore);
+            assertEq(fundVault.totalSupply(), supplyBefore);
+            return;
+        }
         manager.completeRedeem(requestId);
 
         uint256 assetsAfter = manager.availableAssets();
         uint256 supplyAfter = fundVault.totalSupply();
         if (supplyAfter != 0) {
-            uint256 left = assetsAfter * supplyBefore;
-            uint256 right = assetsBefore * supplyAfter;
+            uint256 left = (assetsAfter + 1) * (supplyBefore + 1e12);
+            uint256 right = (assetsBefore + 1) * (supplyAfter + 1e12);
             assertGe(left, right, "redemption must not dilute remaining shares");
-            assertLt(left - right, supplyBefore, "rounding residue must be below one USDC unit");
+            assertLt(
+                left - right, supplyBefore + 1e12, "rounding residue must be below one USDC unit"
+            );
         }
     }
 
@@ -1009,9 +984,10 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
 
         vm.warp(start + elapsed);
 
+        uint256 netProfit = profit - profit / 10;
         uint256 expectedRemaining = elapsed == VESTING_PERIOD
             ? 0
-            : Math.mulDiv(profit, VESTING_PERIOD - elapsed, VESTING_PERIOD, Math.Rounding.Ceil);
+            : Math.mulDiv(netProfit, VESTING_PERIOD - elapsed, VESTING_PERIOD, Math.Rounding.Ceil);
         assertEq(manager.remainingLockedProfit(), expectedRemaining);
         assertEq(manager.availableAssets(), 1_000_000e6 + profit - expectedRemaining);
     }
@@ -1029,17 +1005,14 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         _reportProfit(profit);
         uint256 feeAssets = Math.mulDiv(profit, feeBps, 10_000);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
-        manager.settleFinishedProfit();
-
         uint256 treasuryShares = fundVault.balanceOf(FEE_RECIPIENT);
-        uint256 expectedShares = feeAssets == 0
-            ? 0
-            : Math.mulDiv(
-                feeAssets, fundVault.totalSupply() - treasuryShares, assets + profit - feeAssets
-            );
+        uint256 expectedShares = Math.mulDiv(feeAssets, assets * 1e12 + 1e12, assets + 1);
         assertEq(treasuryShares, expectedShares);
         assertLe(manager.previewRedeem(treasuryShares), feeAssets);
+        assertGe(manager.previewRedeem(treasuryShares) + 1, feeAssets);
+        vm.warp(manager.profitUnlockTimestamp());
+        assertEq(manager.settleFinishedProfit(), 0);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), treasuryShares);
     }
 
     /// @notice FV-01/FV-02: a funded, fee-free round trip may lose at most two USDC base units.
@@ -1048,8 +1021,17 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         _deposit(USER, 100e6);
         usdc.mint(address(fundVault), 100e6);
         _reportProfit(100e6);
-        manager.completeRedeem(_requestRedeem(USER, fundVault.balanceOf(USER) - 1, 0));
-        assertEq(fundVault.totalSupply(), 1, "witness: one atomic share survives");
+        uint64 dustRequest = _requestRedeem(USER, fundVault.balanceOf(USER) - 1, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector, 1, 1e18
+            )
+        );
+        manager.completeRedeem(dustRequest);
+        vm.prank(USER);
+        manager.cancelRedeem(dustRequest);
+        manager.completeRedeem(_requestRedeem(USER, fundVault.balanceOf(USER) - 1e18, 0));
+        assertEq(fundVault.totalSupply(), 1e18);
         vm.warp(manager.profitUnlockTimestamp());
         manager.settleFinishedProfit();
 
@@ -1067,7 +1049,7 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         usdc.mint(address(fundVault), 100e6);
         _reportProfit(100e6);
         vm.warp(manager.profitLockTimestamp() + 99);
-        assertEq(manager.remainingLockedProfit(), 1e6);
+        assertEq(manager.remainingLockedProfit(), 800_000);
         manager.completeRedeem(_requestRedeem(USER, 980e18, 0));
         vm.warp(manager.profitUnlockTimestamp());
         manager.settleFinishedProfit();
@@ -1084,18 +1066,143 @@ contract AlphaEngineUSDCVaultManagerTest is Test {
         usdc.mint(address(fundVault), 100e6);
         _reportProfit(100e6);
         vm.warp(manager.profitLockTimestamp() + 99);
-        // Independent entitlement: 99 USDC vested profit * 20%, before any withdrawal.
+        // Retain the original independent 19.8-USDC fee-erasure regression floor.
         uint256 earnedBeforeExit = 19_800_000;
         manager.completeRedeem(_requestRedeem(USER, 99e18, 0));
-        assertEq(manager.managedAssets(), 2_990_000, "witness: NAV is below accrued fee");
+        assertGt(fundVault.balanceOf(FEE_RECIPIENT), 0, "fee entitlement is already owned");
         vm.warp(manager.profitUnlockTimestamp());
         manager.settleFinishedProfit();
         uint256 settledValue = manager.previewRedeem(fundVault.balanceOf(FEE_RECIPIENT));
         assertGe(
-            settledValue + manager.pendingFeeAssets() + 1,
+            settledValue + 1,
             earnedBeforeExit,
             "FV-11: earned entitlement erased by supply/NAV reduction"
         );
+    }
+
+    function testMinimumSupplyAppliesBeforeDuringAndAfterVesting() public {
+        manager.setPerformanceFeeBps(0);
+        _deposit(USER, 100e6);
+        for (uint256 phase; phase < 3; ++phase) {
+            if (phase == 1) _reportProfit(1e6);
+            if (phase == 2) vm.warp(manager.profitUnlockTimestamp());
+            uint64 id = _requestRedeem(USER, 99e18 + 1, 0);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector, 1e18 - 1, 1e18
+                )
+            );
+            manager.completeRedeem(id);
+            assertEq(fundVault.totalSupply(), 100e18);
+            assertEq(
+                uint8(manager.getRedemption(id).status),
+                uint8(AlphaEngineUSDCVaultManager.RedemptionStatus.Pending)
+            );
+            vm.prank(USER);
+            manager.cancelRedeem(id);
+        }
+        manager.completeRedeem(_requestRedeem(USER, 99e18, 0));
+        assertEq(fundVault.totalSupply(), 1e18);
+    }
+
+    function testBootstrapMinimumDoesNotRejectSmallDepositsIntoFundedVault() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector, 1e18 - 1e12, 1e18
+            )
+        );
+        vm.prank(USER);
+        manager.deposit(1e6 - 1, USER, 0);
+        _deposit(USER, 1e6);
+        assertEq(_deposit(USER_TWO, 1), 1e12);
+        assertEq(fundVault.totalSupply(), 1e18 + 1e12);
+    }
+
+    function testFinalResidualPaysProtocolAndAllowsCleanReentry() public {
+        manager.setPerformanceFeeBps(0);
+        _deposit(USER, 100e6);
+        usdc.mint(address(fundVault), 100e6);
+        _reportProfit(100e6);
+        manager.completeRedeem(_requestRedeem(USER, 99e18, 0));
+        vm.warp(manager.profitUnlockTimestamp());
+        uint256 quote = manager.previewRedeem(1e18);
+        uint256 residual = manager.managedAssets() - quote;
+        uint64 id = _requestRedeem(USER, 1e18, 0);
+        vm.prank(address(fundVault));
+        usdc.transfer(USER, 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineUSDCVaultManager.InsufficientVaultLiquidity.selector,
+                manager.managedAssets() - 1,
+                manager.managedAssets()
+            )
+        );
+        manager.completeRedeem(id);
+        usdc.mint(address(fundVault), 1);
+        vm.expectEmit(true, false, false, true, address(fundVault));
+        emit AlphaEngineFundVault.ProtocolResidualSettled(FEE_RECIPIENT, residual);
+        assertEq(manager.completeRedeem(id), quote);
+        assertEq(usdc.balanceOf(FEE_RECIPIENT), residual);
+        assertEq(manager.managedAssets(), 0);
+        assertEq(fundVault.totalSupply(), 0);
+        assertEq(usdc.balanceOf(address(fundVault)), 0);
+        assertEq(_deposit(USER_TWO, 1e6), 1e18);
+    }
+
+    function testResidualPayoutIsManagerOnlyAndRequiresEmptySupply() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(AlphaEngineFundVault.UnauthorizedUSDCManager.selector, USER)
+        );
+        vm.prank(USER);
+        fundVault.settleProtocolResidual(USER, 1);
+        _deposit(USER, 1e6);
+        vm.expectRevert(
+            abi.encodeWithSelector(AlphaEngineFundVault.OutstandingShares.selector, 1e18)
+        );
+        vm.prank(address(manager));
+        fundVault.settleProtocolResidual(FEE_RECIPIENT, 1);
+        vm.expectRevert(AlphaEngineFundVault.ZeroAddress.selector);
+        vm.prank(address(manager));
+        fundVault.settleProtocolResidual(address(0), 1);
+        vm.expectRevert(AlphaEngineFundVault.ZeroAssets.selector);
+        vm.prank(address(manager));
+        fundVault.settleProtocolResidual(FEE_RECIPIENT, 0);
+    }
+
+    function testUnrepresentablePositiveFeeRevertsWithoutErasingEntitlement() public {
+        manager.setPerformanceFeeBps(0);
+        _deposit(USER, 1e6);
+        _reportProfit(1e40);
+        vm.warp(manager.profitUnlockTimestamp());
+        manager.settleFinishedProfit();
+        manager.setPerformanceFeeBps(2000);
+        vm.roll(block.number + 1);
+        uint256 beforeNav = manager.managedAssets();
+        uint64 beforeEpoch = manager.reportEpoch();
+        vm.expectRevert(AlphaEngineUSDCVaultManager.ZeroShares.selector);
+        vm.prank(NAV_REPORTER);
+        manager.reportProfit(
+            beforeEpoch + 1, uint64(block.number - 1), 5, keccak256("unrepresentable fee")
+        );
+        assertEq(manager.managedAssets(), beforeNav);
+        assertEq(manager.reportEpoch(), beforeEpoch);
+        assertEq(fundVault.balanceOf(FEE_RECIPIENT), 0);
+    }
+
+    function testRecoveryIsNotFeeableAndFeeSharesUseTheCurrentPrice() public {
+        manager.setPerformanceFeeBps(2000);
+        _deposit(USER, 100_000e6);
+        _reportLoss(10_000e6);
+        uint256 beforeSupply = fundVault.totalSupply();
+        _reportProfit(10_100e6); // 10,000 recovery + 100 new profit; fee = 20.
+        uint256 issued = fundVault.balanceOf(FEE_RECIPIENT);
+        assertEq(issued, Math.mulDiv(20e6, beforeSupply + 1e12, 90_000e6 + 1));
+        assertApproxEqAbs(manager.previewRedeem(issued), 20e6, 1);
+        assertEq(manager.lockedRecoveryProfit(), 10_000e6);
+        assertEq(manager.lockedProfit(), 10_080e6);
+        vm.warp(manager.profitUnlockTimestamp());
+        // Issued fee shares participate in subsequent vesting like all other shares.
+        assertApproxEqAbs(manager.previewRedeem(issued), 22_239_502, 1);
     }
 
     function _deposit(address user, uint256 assets) private returns (uint256 shares) {

@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {AccessControlDefaultAdminRules} from
     "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -140,6 +141,7 @@ contract AlphaEngineVaultExecutionManager is
     error MinimumAssetReceiptNotMet(address asset, uint256 received, uint256 minimum);
     error SpendWindowLimitExceeded(address trader, address asset, uint256 spent, uint256 maximum);
     error ApprovalAssetNotRiskBound(uint256 callIndex, address asset);
+    error ExitShareAssetNotRiskBound(uint256 callIndex, address asset);
     error ApprovalAmountExceedsRiskLimit(
         uint256 callIndex, address asset, uint256 amount, uint256 maximum
     );
@@ -498,10 +500,17 @@ contract AlphaEngineVaultExecutionManager is
                 revert InvalidManageProof(i, leaf, policyRoot);
             }
 
+            if (selector == IERC4626.redeem.selector || selector == IERC4626.withdraw.selector) {
+                uint256 riskIndex = _riskLimitIndex(call_.target, limits, i, selector);
+                if (limits[riskIndex].maxSpend == 0) {
+                    revert ExitShareAssetNotRiskBound(i, call_.target);
+                }
+            }
+
             if (selector == IERC20.approve.selector) {
                 (address spender, uint256 amount) =
                     abi.decode(call_.targetData[4:], (address, uint256));
-                uint256 riskIndex = _riskLimitIndex(call_.target, limits, i);
+                uint256 riskIndex = _riskLimitIndex(call_.target, limits, i, selector);
                 uint256 maximum = limits[riskIndex].maxSpend;
                 if (amount > maximum) {
                     revert ApprovalAmountExceedsRiskLimit(i, call_.target, amount, maximum);
@@ -650,12 +659,16 @@ contract AlphaEngineVaultExecutionManager is
     function _riskLimitIndex(
         address asset,
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1[] calldata limits,
-        uint256 callIndex
+        uint256 callIndex,
+        bytes4 selector
     ) private pure returns (uint256) {
         for (uint256 i; i < limits.length; ++i) {
             if (limits[i].asset == asset) return i;
         }
-        revert ApprovalAssetNotRiskBound(callIndex, asset);
+        if (selector == IERC20.approve.selector) {
+            revert ApprovalAssetNotRiskBound(callIndex, asset);
+        }
+        revert ExitShareAssetNotRiskBound(callIndex, asset);
     }
 
     function _enforceZeroAllowances(ApprovalPair[] memory approvals, uint256 approvalCount)

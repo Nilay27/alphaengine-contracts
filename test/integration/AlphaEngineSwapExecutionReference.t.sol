@@ -334,13 +334,12 @@ contract AlphaEngineSwapExecutionReferenceTest is MockCoFheTest {
         _assertTwinPoolParity(fixture, amount);
     }
 
-    // SW-16 conditional protective regression: the registry currently admits
-    // arbitrary decimals. This fails until supported-domain admission is enforced
-    // or the release policy explicitly excludes this high-decimal asset class.
+    // SW-16: opt-in protective probe for high-decimal assets excluded by release policy.
     function testFuzz_SW16_ConditionalUnsupportedSignedDomainMustNotBeAdmitted(
         uint8 rawDecimals,
         uint64 rawAmount
     ) public {
+        vm.skip(!vm.envOr("RUN_ACCEPTED_ASSET_LIMIT_PROBES", false));
         uint8 decimals = uint8(bound(rawDecimals, 44, 46));
         uint64 amount = uint64(bound(rawAmount, 2, 128));
         TwinPoolFixture memory fixture = _deployTwinPoolFixtureFromTokens(

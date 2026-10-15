@@ -70,6 +70,9 @@ manifest changes; no public broadcast accompanies this preparation.
   bundle before execution; repeated approve/use sequences cannot collectively
   exceed the committed spend limit. This uses temporary memory rather than new
   accounting storage.
+- ERC4626 `redeem`/`withdraw` require their target share token in the committed
+  risk envelope with nonzero spend coverage before any vault call. Actual
+  share burns use the existing balance-delta and rolling-cap enforcement.
 - Fund deployment and realization remain separate lifecycles. One approved
   transaction may exchange USDC for a position token; the position may remain
   in the FundVault for an arbitrary period; and a separately approved later
@@ -256,9 +259,9 @@ Locked target boundaries:
 - `AlphaEngineUSDCVaultManager` owns immediate USDC-only public deposits,
   floating-price asynchronous redemptions, daily P&L/share-price accounting,
   configurable positive-yield vesting, immediate loss recognition/recovery,
-  and a bounded prospective performance fee; nonzero profit remains locked
-  until the exact unlock timestamp, and a loss that ends a vest crystallizes
-  only the fee entitlement already earned by vested feeable profit
+  virtual-offset conversion, a one-whole-share global supply floor, and
+  upfront fee shares with net-profit vesting. Only the final exit waits for
+  full vesting; its virtual residual goes to the fee recipient and NAV resets
 - `AlphaEngineVaultExecutionManager` owns Merkle roots, exact execution
   authorization, risk caps, replay protection, and protocol-call orchestration.
   Its executor is an operational keeper that relays a pre-approved bundle, not

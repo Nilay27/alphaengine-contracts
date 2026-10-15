@@ -429,6 +429,7 @@ contract AlphaEngineConfidentialAssetGatewayTest is MockCoFheTest {
     function testFuzz_AS15_ConditionalDirectShieldNeverMintsUnbackedClaims(uint64 rawAmount)
         public
     {
+        vm.skip(!vm.envOr("RUN_ACCEPTED_ASSET_LIMIT_PROBES", false));
         uint256 amount = bound(rawAmount, 2, 100e6);
         MockSelectiveFeeERC20 feeToken = new MockSelectiveFeeERC20("Conditional Fee", "CFEE", 6);
         vm.prank(owner);
@@ -1052,6 +1053,7 @@ contract AlphaEngineConfidentialSwapEscrowTest is MockCoFheTest {
     function testFuzz_SW17_ConditionalDonatedReserveHeadroomCannotStrandRefund(uint16 extra)
         public
     {
+        vm.skip(!vm.envOr("RUN_ACCEPTED_ASSET_LIMIT_PROBES", false));
         bytes32 id = keccak256("conditional-reserve-headroom");
         _lock(id, 40e6);
         IAlphaEngineConfidentialSwapEscrow.SwapIntentLock memory locked =

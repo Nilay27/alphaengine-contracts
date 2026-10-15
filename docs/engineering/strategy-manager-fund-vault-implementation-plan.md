@@ -508,6 +508,7 @@ periodPnL =
   - previousNetNav
   - depositsSincePreviousReport
   + completedRedemptionsSincePreviousReport
+  + protocolResidualPayoutsSincePreviousReport
 ```
 
 `netLiquidationValueUSDC` means the amount reasonably recoverable in USDC at
@@ -520,6 +521,8 @@ negative `periodPnL`; it does not recalculate position values.
 
 Accounting rules:
 
+The agreed remediation scope is [four audit fixes](approved-audit-fixes.md).
+
 - The NAV calculator runs off-chain from public on-chain state. The on-chain
   NAV reporter submits only the aggregate result and reproducibility metadata;
   it cannot move funds or approve calls.
@@ -529,33 +532,30 @@ Accounting rules:
   and the aggregate result.
 - `referenceBlock` must be finalized and strictly newer than the prior report.
   The report hash commits the off-chain reproducibility artifact and methodology.
-- Shares use 18 decimals while USDC uses 6. The first deposit mints
-  `assets * 1e12` shares. There are no virtual assets, queued checkpoints, or
-  hidden accounting balances.
-- Define `remainingLockedProfit` as the linearly unvested part of the current
-  positive tranche and `availableAssets = managedAssets - remainingLockedProfit`.
-  Round the remaining amount up so a nonzero tranche cannot become fully
-  redeemable or fee-settle before the exact unlock timestamp.
-- For nonzero supply, deposits mint
-  `floor(assets * totalSupply / availableAssets)`. Deposits round down and must
-  not reduce the pre-deposit recognized share price; their cross-product
-  rounding residue is strictly less than one USDC base unit of value.
-- Redemptions complete for
-  `floor(shares * availableAssets / effectiveSupply)`, where `effectiveSupply`
-  includes any fee shares that a fully vested but not yet settled tranche would
-  mint. Redemptions round down and must not reduce the value of remaining shares.
+- Shares use 18 decimals while USDC uses 6. Conversion uses one virtual USDC
+  base unit and `1e12` virtual share units: deposits mint
+  `floor(assets * (totalSupply + 1e12) / (availableAssets + 1))`; redemptions pay
+  `floor(shares * (availableAssets + 1) / (totalSupply + 1e12))`.
+- `availableAssets = managedAssets - remainingLockedProfit`. The remaining
+  linear vest rounds up until its exact unlock timestamp. Quote rounding must
+  preserve the effective price `(availableAssets + 1) / (totalSupply + 1e12)`.
+- Deposits must establish at least `1e18` real share units. Every completion
+  must leave either zero supply or at least `1e18`, regardless of vesting.
+  Only a full-supply exit waits for vesting; ordinary eligible exits continue.
+  Full closure requires all managed NAV in idle USDC, pays the final virtual
+  residual to the fee recipient, and resets NAV/loss recovery for clean re-entry.
+  Donations remain outside that residual. Fragmented owners may need to
+  consolidate shares before a terminal exit.
 - Direct USDC donations do not alter `managedAssets`, mint shares, or change the
   conversion rate. They remain observable physical liquidity until explicitly
   reconciled by a separately authorized operation.
-- Positive `periodPnL` enters one configurable linear vest, initially 24 hours.
-  It increases managed NAV immediately but becomes redeemable only as it vests.
+- Positive `periodPnL` increases managed NAV immediately. Profit minus the
+  upfront fee enters one configurable linear vest, initially 24 hours.
 - Negative `periodPnL` reduces unvested positive P&L first and then recognized
   NAV immediately. A loss can never be deferred behind the vesting schedule.
-- Performance-fee entitlement vests with the feeable profit. A loss reduces the
-  fee associated with cancelled unvested feeable profit using conservative
-  upward rounding, but does not claw back entitlement on profit already vested.
-  If the loss consumes the final locked unit, any surviving vested fee is
-  crystallized in that same transaction rather than silently waived.
+- Performance fees mint immediately on reporting net-new profit; only profit
+  minus fee assets vests. Later loss reduces share value without clawing back
+  issued fee shares. There is no fee mint at vesting cleanup.
 - Losses that reduce previously recognized NAV increase `lossToRecover`.
   Subsequent profit first restores that amount and is not feeable.
 - A completed redemption scales `lossToRecover` by the remaining share-supply
@@ -565,12 +565,16 @@ Accounting rules:
 - For the remaining net-new profit, snapshot the current fee rate and compute
   `feeAssets = floor(feeableProfit * performanceFeeBps / 10_000)`. The fee is
   capped at 20% and governance updates are prospective.
-- After the tranche fully vests, compute
-  `feeShares = floor(feeAssets * totalSupply / (managedAssets - feeAssets))`.
-  Mint those shares to the configured fee recipient. Their redemption value
-  must never exceed `feeAssets`; rounding benefits existing shareholders.
-  Preview pricing includes the virtual matured fee before minting, so fee
-  crystallization itself cannot change deposit or redemption pricing.
+- At report time mint
+  `floor(feeAssets * (totalSupply + 1e12) / (availableAssets + 1))`
+  shares at the pre-report recognized price. Recovery is excluded from the
+  fee amount; issued shares participate in subsequent vesting and losses.
+  A positive fee that cannot mint a share reverts.
+- Fresh deployment removes obsolete pending-fee getters and `ActiveFeePending`;
+  `settleFinishedProfit()` clears expired tranche state and returns zero.
+  Existing event names/topics/types stay unchanged; `ProfitReported.feeAssets`
+  reports the upfront fee. This cleanup does not migrate existing deployments.
+  New deployment consumers must account for `ProtocolResidualSettled` outflows.
 - PT redemption is a change in asset composition. Only the difference between
   redemption proceeds and the position's previously reported net value is new
   P&L. Redeployment fees and slippage appear in the next post-transaction NAV.
@@ -581,7 +585,7 @@ Accounting rules:
 - There is no deposit, redemption, or AUM fee in the initial release.
 
 The on-chain manager stores only the compact state required to enforce these
-equations: managed assets, one locked-profit tranche and its recovery/fee split,
+equations: managed assets, one net locked-profit tranche and its recovery split,
 unrecovered loss, report ordering, fee configuration, vesting timestamps, and
 redemption records. External-flow counters belong in the reproducibility
 artifact; deposits and completed redemptions already emit exact on-chain deltas.
@@ -1030,6 +1034,8 @@ Allowed:
 - ERC4626 `deposit`, `mint`, `withdraw`, and `redeem` against an individually
   reviewed target/code hash, with the FundVault as receiver and owner. The
   reusable decoder is included now, but no ERC4626 target is enabled by default.
+  `withdraw`/`redeem` require the target shares in the committed risk envelope
+  with nonzero spend coverage, enforced before any FundVault call (EX-15).
 - Exact-token-for-PT execution.
 - PT receipt to the FundVault.
 - PT redemption/unwind back to FundVault-held USDC.
@@ -1298,6 +1304,10 @@ them:
    the PoolManager `int128` delta domain. Add an explicit supported-decimal or
    amount bound with a typed failure, and test the maximum accepted value plus
    the first rejected value.
+
+The 2026-10-16 owner disposition for AS-15, SW-16 and SW-17 is recorded in the
+[accepted asset restrictions](approved-audit-fixes.md#accepted-asset-restrictions--2026-10-16);
+their opt-in protective assertions remain available to reviewers.
 
 Until these TODOs are closed, any deployment configuration must allowlist only
 reviewed exact-transfer assets with supported decimals. These items do not

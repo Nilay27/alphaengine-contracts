@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {
     TransparentUpgradeableProxy
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {
     AlphaEngineCompetitionStrategyManager
@@ -363,8 +364,7 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         _assertAllProperties();
     }
 
-    /// @dev CM-11/R4 POLICY-CONDITIONAL: desired completed-work protection, deliberately red on current code.
-    /// This is exploratory until the owner chooses this policy rather than a hard finalization cutoff.
+    /// @dev CM-11/R4: public expiry requires cancellation authority; late authorized finalization remains available.
     function test_CM11_exploratory_completedEvaluationSurvivesPublicExpiryCancellation() public {
         handler.beginEvaluation();
         handler.evaluateNext();
@@ -374,10 +374,9 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
         vm.warp(uint256(competition.evaluationDeadline) + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineCompetitionStrategyManager.CompetitionCancellationNotAvailable.selector,
-                competitionId,
-                AlphaEngineCompetitionStrategyManager.CompetitionStatus.Evaluating,
-                block.timestamp
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                address(this),
+                manager.COMPETITION_CANCELLER_ROLE()
             )
         );
         manager.cancelExpiredCompetition(competitionId);

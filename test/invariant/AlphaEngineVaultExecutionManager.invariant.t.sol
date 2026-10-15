@@ -197,6 +197,21 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         invariantExpectedFailuresAreAtomicAndReplayNeverSucceeds();
     }
 
+    function test_EX15_bothExitSelectorsRequireShareRiskAndRespectCaps() public {
+        handler.exerciseDirectShareBurn(2, true);
+        handler.exerciseDirectShareBurn(3, true);
+        handler.exerciseDirectShareBurn(2, false);
+        handler.exerciseDirectShareBurn(3, false);
+        invariantExpectedFailuresAreAtomicAndReplayNeverSucceeds();
+        invariantDirectShareBurnRequiresAnExplicitlyCompleteEconomicEnvelope_Exploratory();
+    }
+
+    function testFuzz_EX15_directShareBurnRisk(uint32 rawAssets, bool omitShareRisk) public {
+        handler.exerciseDirectShareBurn(rawAssets, omitShareRisk);
+        invariantExpectedFailuresAreAtomicAndReplayNeverSucceeds();
+        invariantDirectShareBurnRequiresAnExplicitlyCompleteEconomicEnvelope_Exploratory();
+    }
+
     function invariantSuccessfulBalancesMatchIndependentGhostLedger() public view {
         assertEq(
             assetIn.balanceOf(address(fundVault)),
@@ -279,13 +294,13 @@ contract AlphaEngineVaultExecutionManagerInvariantTest is StdInvariant, Test {
         assertEq(assetOut.balanceOf(address(handler.SECOND_EXECUTOR())), 0);
     }
 
-    /// @notice EX-15: explicit direct-burn risk accounting is exercised; omission is reported separately.
+    /// @notice EX-15: both direct-burn selectors require explicit share-risk coverage.
     function invariantDirectShareBurnRequiresAnExplicitlyCompleteEconomicEnvelope_Exploratory()
         public
         view
     {
         assertGt(handler.scenarioRuns(15), 0);
-        // EXPLORATORY: enabling ERC4626 policies without share limits is an owner decision.
+        // Keep the original protective assertion and persisted invariant identity.
         assertFalse(
             handler.exploratoryUntrackedShareBurn(),
             "EX-15: enabled direct burn bypassed omitted share risk"

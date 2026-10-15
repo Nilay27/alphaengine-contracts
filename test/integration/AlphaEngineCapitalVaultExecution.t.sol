@@ -420,6 +420,7 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
     uint256 public ghostIdle;
     uint256 public ghostPositionTokens;
     uint256 public markPrice = 1e6;
+    uint256 public ghostProtocolResidual;
     uint256 public ghostRecoveryUsdc;
     uint256 public ghostRecoveryPositions;
     uint256 public ghostExternalFunding = 1000e6;
@@ -465,9 +466,20 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
         uint256 supplyBefore = ghostSupply;
         assetIn.mint(owner, assets);
         ghostExternalFunding += assets;
-        if (supplyBefore != 0 && Math.mulDiv(assets, supplyBefore, recognized) == 0) {
+        uint256 expectedShares = Math.mulDiv(assets, supplyBefore + 1e12, recognized + 1);
+        if (expectedShares == 0 || supplyBefore + expectedShares < accounting.MIN_SHARE_SUPPLY()) {
             bytes32 beforeHash = _stateHash();
-            vm.expectRevert(AlphaEngineUSDCVaultManager.ZeroShares.selector);
+            if (expectedShares == 0) {
+                vm.expectRevert(AlphaEngineUSDCVaultManager.ZeroShares.selector);
+            } else {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector,
+                        supplyBefore + expectedShares,
+                        accounting.MIN_SHARE_SUPPLY()
+                    )
+                );
+            }
             vm.prank(owner);
             accounting.deposit(assets, owner, 0);
             assertEq(_stateHash(), beforeHash);
@@ -477,9 +489,9 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
         vm.prank(owner);
         uint256 minted = accounting.deposit(assets, owner, 0);
         if (supplyBefore != 0) {
-            assertLe(minted * recognized, assets * supplyBefore);
-            assertLt(assets * supplyBefore - minted * recognized, recognized);
-            if (assets * supplyBefore > minted * recognized + supplyBefore) {
+            assertLe(minted * (recognized + 1), assets * (supplyBefore + 1e12));
+            assertLt(assets * (supplyBefore + 1e12) - minted * (recognized + 1), recognized + 1);
+            if (assets * (supplyBefore + 1e12) > minted * (recognized + 1) + supplyBefore + 1e12) {
                 incomingRoundingLossViolation = true;
             }
         } else {
@@ -557,19 +569,29 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
         uint256 remaining = accounting.remainingLockedProfit();
         uint256 assets = ghostSupply == 0
             ? 0
-            : Math.mulDiv(expected.shares, ghostManaged - remaining, ghostSupply);
+            : Math.mulDiv(expected.shares, ghostManaged - remaining + 1, ghostSupply + 1e12);
+        uint256 required = expected.shares == ghostSupply ? ghostManaged : assets;
         bytes memory failure;
         if (expected.status != AlphaEngineUSDCVaultManager.RedemptionStatus.Pending) {
             failure = abi.encodeWithSelector(
                 AlphaEngineUSDCVaultManager.InvalidRedemptionStatus.selector, id, expected.status
             );
+        } else if (
+            expected.shares < ghostSupply
+                && ghostSupply - expected.shares < accounting.MIN_SHARE_SUPPLY()
+        ) {
+            failure = abi.encodeWithSelector(
+                AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector,
+                ghostSupply - expected.shares,
+                accounting.MIN_SHARE_SUPPLY()
+            );
         } else if (expected.shares == ghostSupply && remaining != 0) {
             failure = abi.encodeWithSelector(
                 AlphaEngineUSDCVaultManager.FinalRedemptionWhileProfitLocked.selector, remaining
             );
-        } else if (assets > ghostIdle) {
+        } else if (required > ghostIdle) {
             failure = abi.encodeWithSelector(
-                AlphaEngineUSDCVaultManager.InsufficientVaultLiquidity.selector, ghostIdle, assets
+                AlphaEngineUSDCVaultManager.InsufficientVaultLiquidity.selector, ghostIdle, required
             );
         }
         if (failure.length != 0) {
@@ -584,8 +606,9 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
         uint256 paid = accounting.completeRedeem(id);
         assertEq(paid, assets);
         assertEq(assetIn.balanceOf(expected.receiver) - cashBefore, assets);
-        ghostIdle -= assets;
-        ghostManaged -= assets;
+        ghostIdle -= required;
+        ghostManaged -= required;
+        ghostProtocolResidual += required - assets;
         ghostEscrowShares -= expected.shares;
         ghostSupply -= expected.shares;
         expected.status = AlphaEngineUSDCVaultManager.RedemptionStatus.Completed;
@@ -782,13 +805,35 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
             uint256 recovery = Math.min(profit, accounting.lossToRecover());
             uint256 expectedFee =
                 Math.mulDiv(profit - recovery, accounting.performanceFeeBps(), 10_000);
+            uint256 expectedFeeShares =
+                Math.mulDiv(expectedFee, ghostSupply + 1e12, ghostManaged + 1);
+            uint256 feeBefore = fundVault.balanceOf(feeRecipient);
             vm.recordLogs();
             vm.prank(navReporter);
             accounting.reportProfit(
                 epoch, referenceBlock, profit, keccak256(abi.encode("position NAV", book))
             );
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            uint256 minted = fundVault.balanceOf(feeRecipient) - feeBefore;
+            assertEq(minted, expectedFeeShares);
+            if (minted != 0) {
+                Vm.Log memory feeEvent = _event(
+                    logs,
+                    address(accounting),
+                    keccak256("PerformanceFeeMinted(address,uint256,uint256)")
+                );
+                assertEq(feeEvent.topics[1], bytes32(uint256(uint160(feeRecipient))));
+                assertEq(feeEvent.data, abi.encode(expectedFee, minted));
+                uint256 feeValue = Math.mulDiv(
+                    minted, ghostManaged + expectedFee + 1, ghostSupply + minted + 1e12
+                );
+                if (feeValue > expectedFee || feeValue + 1 < expectedFee) {
+                    feeEntitlementViolation = true;
+                }
+            }
+            _observeFeeMint(feeBefore);
             Vm.Log memory entry = _event(
-                vm.getRecordedLogs(),
+                logs,
                 address(accounting),
                 keccak256("ProfitReported(uint64,uint64,uint256,uint256,uint256,bytes32)")
             );
@@ -800,7 +845,6 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
                     profit, recovery, expectedFee, keccak256(abi.encode("position NAV", book))
                 )
             );
-            assertEq(accounting.pendingFeeAssets(), expectedFee);
             ghostManaged += profit;
             ++successfulProfitReports;
         } else {
@@ -812,7 +856,7 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
             accounting.reportLoss(
                 epoch, referenceBlock, loss, keccak256(abi.encode("position NAV", book))
             );
-            _observeFeeMint(feeBefore);
+            assertEq(fundVault.balanceOf(feeRecipient), feeBefore);
             Vm.Log memory entry = _event(
                 vm.getRecordedLogs(),
                 address(accounting),
@@ -1157,6 +1201,11 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
                 _requestModel[_requests[i]].status
                     == AlphaEngineUSDCVaultManager.RedemptionStatus.Pending
             ) {
+                uint256 remainingSupply = ghostSupply - _requestModel[_requests[i]].shares;
+                if (remainingSupply != 0 && remainingSupply < accounting.MIN_SHARE_SUPPLY()) {
+                    completeRequest(i); // Must reject atomically under the minimum-supply rule.
+                    continue;
+                }
                 completeRequest(i);
                 assertEq(
                     uint8(_requestModel[_requests[i]].status),
@@ -1215,7 +1264,8 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
         assertEq(assetOut.balanceOf(fundVault.recoveryVault()), ghostRecoveryPositions);
         uint256 physicalCash = assetIn.balanceOf(lp0) + assetIn.balanceOf(lp1) + ghostIdle
             + assetIn.balanceOf(address(strategyTarget)) + ghostRecoveryUsdc
-            + assetIn.balanceOf(MARKET_LIQUIDITY_SINK);
+            + assetIn.balanceOf(MARKET_LIQUIDITY_SINK) + ghostProtocolResidual;
+        assertEq(assetIn.balanceOf(feeRecipient), ghostProtocolResidual);
         assertEq(physicalCash, ghostExternalFunding);
         assertEq(assetIn.allowance(address(fundVault), address(strategyTarget)), 0);
         assertEq(assetOut.allowance(address(fundVault), address(strategyTarget)), 0);
@@ -1262,26 +1312,8 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
 
     function _settle() private {
         uint256 feeBefore = fundVault.balanceOf(feeRecipient);
-        uint256 earned = accounting.pendingFeeAssets();
-        bool due = accounting.lockedProfit() != 0 && accounting.remainingLockedProfit() == 0;
-        vm.recordLogs();
-        accounting.settleFinishedProfit();
-        uint256 minted = fundVault.balanceOf(feeRecipient) - feeBefore;
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        if (minted != 0) {
-            Vm.Log memory entry = _event(
-                logs,
-                address(accounting),
-                keccak256("PerformanceFeeMinted(address,uint256,uint256)")
-            );
-            assertEq(entry.topics[1], bytes32(uint256(uint160(feeRecipient))));
-            assertEq(entry.data, abi.encode(earned, minted));
-        }
-        _observeFeeMint(feeBefore);
-        if (due && earned != 0 && ghostSupply != 0) {
-            uint256 feeValue = Math.mulDiv(minted, ghostManaged, ghostSupply);
-            if (feeValue > earned || feeValue + 1 < earned) feeEntitlementViolation = true;
-        }
+        assertEq(accounting.settleFinishedProfit(), 0);
+        assertEq(fundVault.balanceOf(feeRecipient), feeBefore);
     }
 
     function _observeFeeMint(uint256 previousBalance) private {
@@ -1403,7 +1435,6 @@ contract CapitalVaultLifecycleHandler is CapitalVaultExecutionFixture {
                 assetIn.allowance(address(fundVault), address(strategyTarget)),
                 assetOut.allowance(address(fundVault), address(strategyTarget)),
                 accounting.reportEpoch(),
-                accounting.pendingFeeAssets(),
                 registry.getQualification(trader),
                 executionManager.currentWindowSpend(trader, address(assetIn)),
                 executionManager.currentWindowSpend(trader, address(assetOut)),

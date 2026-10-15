@@ -23,6 +23,12 @@ and collision failures, and opt-in pinned Arbitrum Sepolia/One fork parity.
 Initial role arguments must match; the PoolManager-bound executor is chain-specific.
 CI runs the separate profile; real-network fork checks remain opt-in.
 
+AS-15, SW-16 and SW-17 are opt-in strict probes of the
+[accepted asset restrictions and capacity limit](approved-audit-fixes.md#accepted-asset-restrictions--2026-10-16).
+Run with `RUN_ACCEPTED_ASSET_LIMIT_PROBES=true forge test --offline --threads 2 --match-test 'testFuzz_(AS15|SW16|SW17)_Conditional' -vv`.
+Failures are expected under those deliberately unsupported conditions; assertions
+are retained. EX-15 remains in the default suite with mandatory exit share-risk coverage.
+
 Deployment-preparation regression checks additionally cover legacy/traversal
 manifest-path rejection, explicit test-only role collapse on Arbitrum Sepolia,
 mainnet rejection of collapsed roles, and candidate/omitted/verification manifest
@@ -146,8 +152,9 @@ track effective swap amounts/cooldowns and score cursor/pacing progress.
   deposits.
 - Stateful invariants use an independent accounting shadow model plus cumulative
   deposit, redemption, donation, and deployed-liquidity ghost ledgers. They
-  reproduce locked/recovery profit, pending fees, effective supply, loss
-  recovery, timestamps, available assets, and exact previews after randomized
+  reproduce net locked/recovery profit, upfront fee shares, virtual conversion,
+  global minimum supply, loss recovery, timestamps, final protocol residuals,
+  available assets, and exact previews after randomized
   action sequences. They also prove physical USDC conservation, complete share
   accounting, deposit/redemption non-dilution, exact fee shares, fee-settlement
   price neutrality, report sequencing, illiquid-completion atomicity, zero
@@ -243,6 +250,9 @@ track effective swap amounts/cooldowns and score cursor/pacing progress.
   collectively remain within the exact committed spend limit. The 65th
   distinct rolling-spend record is tested through the complete manager/vault
   path and must roll back after the bounded ledger fails closed.
+- ERC4626 `redeem`/`withdraw` require a nonzero spending envelope for the target
+  shares. EX-15 checks missing/zero coverage, actual burn caps, exact-limit
+  events and atomic failure in deterministic, fuzz and stateful tests.
 - The exact rolling 24-hour ledger aggregates spends in the same block, prunes
   each record only after 24 hours, prevents fixed-window boundary double-spend,
   and fails closed after 64 distinct records per trader/asset until the oldest

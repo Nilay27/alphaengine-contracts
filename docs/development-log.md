@@ -1,5 +1,31 @@
 # Development Log
 
+## 2026-10-16 — Fresh-deployment fee cleanup
+
+- Remove obsolete pending-fee fields/getters and error; update the ABI and
+  tests while retaining economic bounds. No existing deployment is migrated.
+
+## 2026-10-16 — EX-15 exit share-risk coverage
+
+- Require ERC4626 exit share spending limits in execution preflight; preserve
+  approval errors and existing delta/cap checks. No storage or event changes.
+- Extend the existing handler and protective assertion with both selectors,
+  missing/zero limits, over-spend rollback and exact-cap event checks.
+
+## 2026-10-16 — Accepted asset-limit probes
+
+- Make AS-15/SW-16/SW-17 opt-in via `RUN_ACCEPTED_ASSET_LIMIT_PROBES`; preserve
+  their assertions and record the accepted restrictions in the
+  [scope file](engineering/approved-audit-fixes.md#accepted-asset-restrictions--2026-10-16).
+  EX-15 remains active; no production contract changes in this step.
+
+## 2026-10-15 — Agreed audit fixes
+
+- Scope: [four fixes](engineering/approved-audit-fixes.md); no special recovery pricing.
+- Virtual offsets/minimum supply, upfront net-new-profit fees and protocol final
+  residuals; restrict expiry cancellation to the existing canceller role.
+- Original failing economic assertions retained; focused validation in the scope file.
+
 ## 2026-10-15 — Lifecycle invariants and harness repairs
 
 - Extended the existing critical-contract handlers with lifecycle scenarios,

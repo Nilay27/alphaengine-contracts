@@ -39,6 +39,7 @@ contract AlphaEngineFundVault is ERC20, Ownable2Step, Pausable, ReentrancyGuard 
     error UnauthorizedEmergencyAuthority(address caller);
     error ZeroAssets();
     error ZeroShares();
+    error OutstandingShares(uint256 supply);
     error AssetTransferMismatch(uint256 expected, uint256 received);
     error InsufficientUSDC(uint256 available, uint256 required);
     error EmptyBatch();
@@ -64,6 +65,7 @@ contract AlphaEngineFundVault is ERC20, Ownable2Step, Pausable, ReentrancyGuard 
     event RedemptionSharesReleased(address indexed account, uint256 shares);
     event RedemptionSettled(address indexed receiver, uint256 shares, uint256 assets);
     event FeeSharesMinted(address indexed receiver, uint256 shares);
+    event ProtocolResidualSettled(address indexed receiver, uint256 assets);
 
     modifier onlyUsdcManager() {
         _checkUsdcManager();
@@ -311,5 +313,18 @@ contract AlphaEngineFundVault is ERC20, Ownable2Step, Pausable, ReentrancyGuard 
 
         _mint(receiver, shares);
         emit FeeSharesMinted(receiver, shares);
+    }
+
+    /// @notice Pays virtual-accounting residue only after the final real shares are burned.
+    function settleProtocolResidual(address receiver, uint256 assets)
+        external
+        onlyUsdcManager
+        nonReentrant
+    {
+        if (receiver == address(0)) revert ZeroAddress();
+        if (assets == 0) revert ZeroAssets();
+        if (totalSupply() != 0) revert OutstandingShares(totalSupply());
+        USDC.safeTransfer(receiver, assets);
+        emit ProtocolResidualSettled(receiver, assets);
     }
 }

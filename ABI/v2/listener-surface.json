@@ -3015,6 +3015,10 @@
           "signature": "ExecutionCommitmentAlreadyConsumed(bytes32)"
         },
         {
+          "selector": "0xf4bd9447",
+          "signature": "ExitShareAssetNotRiskBound(uint256,address)"
+        },
+        {
           "selector": "0x8dfc202b",
           "signature": "ExpectedPause()"
         },

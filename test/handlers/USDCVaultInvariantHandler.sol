@@ -58,6 +58,7 @@ contract USDCVaultInvariantHandler is Test {
     uint256 public ghostManagedAssets;
     uint256 public ghostDepositedUsdc;
     uint256 public ghostRedeemedUsdc;
+    uint256 public ghostProtocolResidual;
     uint256 public ghostDonations;
     uint256 public ghostDeployedUsdc;
     uint256 public ghostCompletedRedemptionAssets;
@@ -66,11 +67,9 @@ contract USDCVaultInvariantHandler is Test {
     uint256 public ghostShareSupply;
     uint256 public ghostLockedProfit;
     uint256 public ghostLockedRecoveryProfit;
-    uint256 public ghostPendingFeeAssets;
     uint256 public ghostLossToRecover;
     uint64 public ghostProfitLockTimestamp;
     uint64 public ghostProfitUnlockTimestamp;
-    uint16 public ghostPendingFeeBps;
 
     uint256 public successfulDeposits;
     uint256 public successfulRequests;
@@ -89,6 +88,8 @@ contract USDCVaultInvariantHandler is Test {
     bool public failedCompletionMutation;
     bool public lossRecoveryFlowViolation;
     bool public accountingModelViolation;
+    uint256 private _trancheFeeAssets;
+    uint256 private _trancheFeeShares;
 
     constructor(
         MockERC20 usdc,
@@ -134,15 +135,27 @@ contract USDCVaultInvariantHandler is Test {
             return;
         }
         uint256 expectedShares = modelPreviewDeposit(assets);
-        if (MANAGER.paused() || FUND_VAULT.paused() || expectedShares == 0) {
+        uint256 expectedSupply = supplyBefore + expectedShares;
+        if (
+            MANAGER.paused() || FUND_VAULT.paused() || expectedShares == 0
+                || expectedSupply < MANAGER.MIN_SHARE_SUPPLY()
+        ) {
             bytes32 beforeState = lifecycleStateHash();
-            vm.expectRevert(
-                MANAGER.paused()
-                    ? Pausable.EnforcedPause.selector
-                    : (expectedShares == 0
-                            ? AlphaEngineUSDCVaultManager.ZeroShares.selector
-                            : Pausable.EnforcedPause.selector)
-            );
+            if (MANAGER.paused()) {
+                vm.expectRevert(Pausable.EnforcedPause.selector);
+            } else if (expectedShares == 0) {
+                vm.expectRevert(AlphaEngineUSDCVaultManager.ZeroShares.selector);
+            } else if (expectedSupply < MANAGER.MIN_SHARE_SUPPLY()) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector,
+                        expectedSupply,
+                        MANAGER.MIN_SHARE_SUPPLY()
+                    )
+                );
+            } else {
+                vm.expectRevert(Pausable.EnforcedPause.selector);
+            }
             vm.prank(actor);
             MANAGER.deposit(assets, actor, 0);
             assertEq(lifecycleStateHash(), beforeState);
@@ -159,7 +172,9 @@ contract USDCVaultInvariantHandler is Test {
         ghostShares[actor] += shares;
         ghostExternalFunding[actor] += assets;
         // FV-01: cross-multiplication bounds loss in ASSET units, not in shares.
-        if (supplyBefore != 0 && assets * supplyBefore > shares * assetsBefore + supplyBefore) {
+        uint256 pricingSupply = supplyBefore + MANAGER.SHARE_SCALE();
+        uint256 pricingAssets = assetsBefore + 1;
+        if (assets * pricingSupply > shares * pricingAssets + pricingSupply) {
             incomingRoundingLossViolation = true;
         }
         ghostManagedAssets += assets;
@@ -169,9 +184,9 @@ contract USDCVaultInvariantHandler is Test {
         if (MANAGER.lossToRecover() != lossToRecoverBefore) lossRecoveryFlowViolation = true;
 
         if (supplyBefore != 0) {
-            uint256 left = MANAGER.availableAssets() * supplyBefore;
-            uint256 right = assetsBefore * FUND_VAULT.totalSupply();
-            if (left < right || left - right >= assetsBefore) depositPriceViolation = true;
+            uint256 left = (MANAGER.availableAssets() + 1) * pricingSupply;
+            uint256 right = pricingAssets * (FUND_VAULT.totalSupply() + MANAGER.SHARE_SCALE());
+            if (left < right || left - right >= pricingAssets) depositPriceViolation = true;
         }
         _checkModelParity();
     }
@@ -210,6 +225,21 @@ contract USDCVaultInvariantHandler is Test {
             MANAGER.getRedemption(requestId);
 
         uint256 remainingProfit = modelRemainingLockedProfit();
+        uint256 remainingSupply = FUND_VAULT.totalSupply() - request.shares;
+        if (remainingSupply != 0 && remainingSupply < MANAGER.MIN_SHARE_SUPPLY()) {
+            bytes32 beforeState = lifecycleStateHash();
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector,
+                    remainingSupply,
+                    MANAGER.MIN_SHARE_SUPPLY()
+                )
+            );
+            MANAGER.completeRedeem(requestId);
+            assertEq(lifecycleStateHash(), beforeState);
+            ++rejectedActions;
+            return;
+        }
         if (request.shares == FUND_VAULT.totalSupply() && remainingProfit != 0) return;
 
         uint256 assets = modelPreviewRedeem(request.shares);
@@ -228,7 +258,8 @@ contract USDCVaultInvariantHandler is Test {
             ++rejectedActions;
             return;
         }
-        if (USDC.balanceOf(address(FUND_VAULT)) < assets) return;
+        uint256 residual = remainingSupply == 0 ? ghostManagedAssets - assets : 0;
+        if (USDC.balanceOf(address(FUND_VAULT)) < assets + residual) return;
 
         uint256 assetsBefore = MANAGER.availableAssets();
         uint256 supplyBefore = FUND_VAULT.totalSupply();
@@ -242,7 +273,8 @@ contract USDCVaultInvariantHandler is Test {
         ghostPaidOnBehalfOfOwner[request.owner] += assets;
         ghostRequestStatus[requestId] = AlphaEngineUSDCVaultManager.RedemptionStatus.Completed;
         _checkRequestParity(requestId);
-        ghostManagedAssets -= assets;
+        ghostManagedAssets -= assets + residual;
+        ghostProtocolResidual += residual;
         ghostRedeemedUsdc += assets;
         ghostCompletedRedemptionAssets += assets;
         ghostShareSupply -= request.shares;
@@ -257,9 +289,10 @@ contract USDCVaultInvariantHandler is Test {
         }
         ghostLossToRecover = expectedLossToRecover;
         if (supplyAfter != 0) {
-            uint256 left = MANAGER.availableAssets() * supplyBefore;
-            uint256 right = assetsBefore * supplyAfter;
-            if (left < right || left - right >= supplyBefore) redemptionPriceViolation = true;
+            uint256 pricingSupply = supplyBefore + MANAGER.SHARE_SCALE();
+            uint256 left = (MANAGER.availableAssets() + 1) * pricingSupply;
+            uint256 right = (assetsBefore + 1) * (supplyAfter + MANAGER.SHARE_SCALE());
+            if (left < right || left - right >= pricingSupply) redemptionPriceViolation = true;
         }
         _checkModelParity();
     }
@@ -269,20 +302,26 @@ contract USDCVaultInvariantHandler is Test {
         if (!found) return;
         AlphaEngineUSDCVaultManager.RedemptionRequest memory request =
             MANAGER.getRedemption(requestId);
+        uint256 remainingSupply = FUND_VAULT.totalSupply() - request.shares;
+        if (remainingSupply != 0 && remainingSupply < MANAGER.MIN_SHARE_SUPPLY()) {
+            attemptGuardedCompletion(requestSeed);
+            return;
+        }
         uint256 remainingProfit = modelRemainingLockedProfit();
         if (request.shares == FUND_VAULT.totalSupply() && remainingProfit != 0) return;
 
         uint256 assets = modelPreviewRedeem(request.shares);
         if (MANAGER.previewRedeem(request.shares) != assets) accountingModelViolation = true;
         uint256 available = USDC.balanceOf(address(FUND_VAULT));
-        if (assets == 0 || available >= assets || assets < request.minAssets) return;
+        uint256 required = remainingSupply == 0 ? ghostManagedAssets : assets;
+        if (required == 0 || available >= required || assets < request.minAssets) return;
 
         uint256 managedBefore = MANAGER.managedAssets();
         uint256 supplyBefore = FUND_VAULT.totalSupply();
         uint256 escrowBefore = FUND_VAULT.balanceOf(address(FUND_VAULT));
         vm.expectRevert(
             abi.encodeWithSelector(
-                AlphaEngineUSDCVaultManager.InsufficientVaultLiquidity.selector, available, assets
+                AlphaEngineUSDCVaultManager.InsufficientVaultLiquidity.selector, available, required
             )
         );
         MANAGER.completeRedeem(requestId);
@@ -302,41 +341,59 @@ contract USDCVaultInvariantHandler is Test {
         (uint64 epoch, uint64 referenceBlock) = _nextReport();
         uint256 availableBefore = modelAvailableAssets();
         uint256 recoveryProfit = Math.min(profit, ghostLossToRecover);
-        uint256 feeableProfit = profit - recoveryProfit;
-
-        if (MANAGER.paused()) {
+        uint256 feeAssets =
+            Math.mulDiv(profit - recoveryProfit, MANAGER.performanceFeeBps(), 10_000);
+        uint256 feeShares = Math.mulDiv(feeAssets, ghostShareSupply + 1e12, availableBefore + 1);
+        if (MANAGER.paused() || (feeAssets != 0 && feeShares == 0)) {
             address reporter = MANAGER.navReporter();
-            vm.expectRevert(Pausable.EnforcedPause.selector);
+            bytes32 beforeState = lifecycleStateHash();
+            vm.expectRevert(
+                MANAGER.paused()
+                    ? Pausable.EnforcedPause.selector
+                    : AlphaEngineUSDCVaultManager.ZeroShares.selector
+            );
             vm.prank(reporter);
-            MANAGER.reportProfit(epoch, referenceBlock, profit, keccak256("paused profit"));
+            MANAGER.reportProfit(epoch, referenceBlock, profit, keccak256("rejected profit"));
+            assertEq(lifecycleStateHash(), beforeState);
             ++rejectedActions;
             return;
         }
-        // FV-07/FV-10: a principal floor, not a copy of fee-share conversion.
         for (uint256 i; i < ACTOR_COUNT; ++i) {
-            uint256 owned = ownedShares(_actors[i]);
-            cohortPrincipal[i] = ghostPaidOnBehalfOfOwner[_actors[i]]
-                + Math.mulDiv(owned, availableBefore, ghostShareSupply);
+            cohortPrincipal[i] =
+                ghostPaidOnBehalfOfOwner[_actors[i]] + modelPreviewRedeem(ownedShares(_actors[i]));
         }
         feeCohortActive = true;
         ++fundedCohorts;
         USDC.mint(address(FUND_VAULT), profit);
         ghostFundedProfit += profit;
+        address recipient = MANAGER.feeRecipient();
+        uint256 beforeShares = FUND_VAULT.balanceOf(recipient);
         vm.prank(MANAGER.navReporter());
         MANAGER.reportProfit(
             epoch, referenceBlock, profit, keccak256(abi.encode("invariant profit", epoch, profit))
         );
+        uint256 received = FUND_VAULT.balanceOf(recipient) - beforeShares;
+        if (received != feeShares) feeExactnessViolation = true;
+        // Fee value at the current recognized price, before subsequent vesting gain.
+        uint256 feeValue = Math.mulDiv(
+            received, availableBefore + feeAssets + 1, ghostShareSupply + received + 1e12
+        );
+        if (feeValue > feeAssets) feeOverchargeViolation = true;
+        if (feeValue + 1 < feeAssets) earnedFeeErasureViolation = true;
+        ghostShares[recipient] += received;
+        ghostShareSupply += feeShares;
+        if (feeShares != 0) ++successfulFeeSettlements;
+        _trancheFeeAssets = feeAssets;
+        _trancheFeeShares = feeShares;
         ghostManagedAssets += profit;
         ghostReportedProfit += profit;
         ghostLossToRecover -= recoveryProfit;
-        ghostLockedProfit = profit;
+        ghostLockedProfit = profit - feeAssets;
         ghostLockedRecoveryProfit = recoveryProfit;
-        ghostPendingFeeBps = MANAGER.performanceFeeBps();
-        ghostPendingFeeAssets = Math.mulDiv(feeableProfit, ghostPendingFeeBps, MANAGER.BPS());
         ghostProfitLockTimestamp = uint64(block.timestamp);
         ghostProfitUnlockTimestamp = uint64(block.timestamp) + MANAGER.vestingPeriod();
-        successfulProfitReports += 1;
-        if (modelAvailableAssets() != availableBefore) accountingModelViolation = true;
+        ++successfulProfitReports;
+        if (modelAvailableAssets() != availableBefore + feeAssets) accountingModelViolation = true;
         _checkModelParity();
     }
 
@@ -372,20 +429,18 @@ contract USDCVaultInvariantHandler is Test {
         MANAGER.reportLoss(
             epoch, referenceBlock, loss, keccak256(abi.encode("invariant loss", epoch, loss))
         );
-        (uint256 feeAssets, uint256 expectedFeeShares) = _applyModelLoss(loss);
+        _applyModelLoss(loss);
+        _trancheFeeAssets = 0; // Real losses legitimately reduce already-issued treasury shares.
+        _trancheFeeShares = 0;
         ghostManagedAssets -= loss;
         ghostReportedLoss += loss;
         successfulLossReports += 1;
-        uint256 receivedFeeShares = FUND_VAULT.balanceOf(MANAGER.feeRecipient()) - feeBalanceBefore;
-        ghostShares[MANAGER.feeRecipient()] += receivedFeeShares;
-        if (receivedFeeShares != expectedFeeShares) feeExactnessViolation = true;
-        if (receivedFeeShares != 0 && MANAGER.previewRedeem(receivedFeeShares) > feeAssets) {
-            feeOverchargeViolation = true;
+        if (
+            FUND_VAULT.balanceOf(MANAGER.feeRecipient()) != feeBalanceBefore
+                || ghostShareSupply != supplyBefore
+        ) {
+            feeExactnessViolation = true;
         }
-        if (ghostShareSupply != supplyBefore + expectedFeeShares) {
-            accountingModelViolation = true;
-        }
-        if (expectedFeeShares != 0) successfulFeeSettlements += 1;
         _checkModelParity();
     }
 
@@ -401,8 +456,6 @@ contract USDCVaultInvariantHandler is Test {
 
     function _settleFinishedProfit() private {
         bool shouldSettle = ghostLockedProfit != 0 && modelRemainingLockedProfit() == 0;
-        uint256 feeAssets = shouldSettle ? ghostPendingFeeAssets : 0;
-        uint256 expectedFeeShares = shouldSettle ? _modelFeeShares(feeAssets) : 0;
         uint256 probeShares = Math.min(ghostShareSupply, 1e18);
         uint256 depositPreviewBefore;
         uint256 redeemPreviewBefore;
@@ -412,30 +465,20 @@ contract USDCVaultInvariantHandler is Test {
         }
         uint256 sharesBefore = FUND_VAULT.balanceOf(MANAGER.feeRecipient());
         uint256 minted = MANAGER.settleFinishedProfit();
-        if (minted != expectedFeeShares) feeExactnessViolation = true;
-
+        if (minted != 0 || FUND_VAULT.balanceOf(MANAGER.feeRecipient()) != sharesBefore) {
+            feeExactnessViolation = true;
+        }
         if (shouldSettle) {
             if (feeCohortActive) ++cohortSettlements;
-            uint256 settledClaim = minted == 0
-                ? 0
-                : Math.mulDiv(minted, MANAGER.managedAssets(), FUND_VAULT.totalSupply());
-            if (settledClaim + MANAGER.pendingFeeAssets() + 1 < feeAssets) {
+            if (modelPreviewRedeem(_trancheFeeShares) + 1 < _trancheFeeAssets) {
                 earnedFeeErasureViolation = true;
             }
             ghostLockedProfit = 0;
             ghostLockedRecoveryProfit = 0;
-            ghostPendingFeeAssets = 0;
-            ghostPendingFeeBps = 0;
             ghostProfitLockTimestamp = 0;
             ghostProfitUnlockTimestamp = 0;
-            ghostShareSupply += expectedFeeShares;
-        }
-
-        uint256 received = FUND_VAULT.balanceOf(MANAGER.feeRecipient()) - sharesBefore;
-        ghostShares[MANAGER.feeRecipient()] += received;
-        if (received != expectedFeeShares) feeExactnessViolation = true;
-        if (received != 0 && MANAGER.previewRedeem(received) > feeAssets) {
-            feeOverchargeViolation = true;
+            _trancheFeeAssets = 0;
+            _trancheFeeShares = 0;
         }
         if (shouldSettle && modelAvailableAssets() != 0) {
             if (
@@ -443,7 +486,6 @@ contract USDCVaultInvariantHandler is Test {
                     || MANAGER.previewRedeem(probeShares) != redeemPreviewBefore
             ) feeSettlementPriceViolation = true;
         }
-        if (minted != 0) successfulFeeSettlements += 1;
         _checkModelParity();
     }
 
@@ -590,10 +632,19 @@ contract USDCVaultInvariantHandler is Test {
         if (shares == FUND_VAULT.totalSupply() && MANAGER.remainingLockedProfit() != 0) {
             return (shares, false);
         }
+        uint256 remainingSupply = FUND_VAULT.totalSupply() - shares;
+        if (remainingSupply != 0 && remainingSupply < MANAGER.MIN_SHARE_SUPPLY()) {
+            _request(actor, actor, shares, 0);
+            attemptGuardedCompletion(_requestIds.length - 1);
+            cancelRedeem(_requestIds.length - 1);
+            return (shares, false);
+        }
         uint256 quoted = MANAGER.previewRedeem(shares);
-        if (quoted > USDC.balanceOf(address(FUND_VAULT))) return (shares, false);
-        uint256 wealthBefore = USDC.balanceOf(actor)
-            + Math.mulDiv(ownedShares(actor), MANAGER.availableAssets(), FUND_VAULT.totalSupply());
+        if (
+            (remainingSupply == 0 ? ghostManagedAssets : quoted)
+                > USDC.balanceOf(address(FUND_VAULT))
+        ) return (shares, false);
+        uint256 wealthBefore = USDC.balanceOf(actor) + modelPreviewRedeem(ownedShares(actor));
         _request(actor, actor, shares, 0);
         completeRedeem(_requestIds.length - 1);
         if (quoted == 0) {
@@ -601,9 +652,19 @@ contract USDCVaultInvariantHandler is Test {
             return (shares, false);
         }
         uint256 expectedShares = modelPreviewDeposit(quoted);
-        if (expectedShares == 0) {
+        if (expectedShares == 0 || ghostShareSupply + expectedShares < MANAGER.MIN_SHARE_SUPPLY()) {
             bytes32 beforeState = lifecycleStateHash();
-            vm.expectRevert(AlphaEngineUSDCVaultManager.ZeroShares.selector);
+            if (expectedShares == 0) {
+                vm.expectRevert(AlphaEngineUSDCVaultManager.ZeroShares.selector);
+            } else {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector,
+                        ghostShareSupply + expectedShares,
+                        MANAGER.MIN_SHARE_SUPPLY()
+                    )
+                );
+            }
             vm.prank(actor);
             MANAGER.deposit(quoted, actor, 0);
             assertEq(lifecycleStateHash(), beforeState);
@@ -616,7 +677,11 @@ contract USDCVaultInvariantHandler is Test {
         vm.prank(actor);
         uint256 issued = MANAGER.deposit(quoted, actor, 0);
         assertEq(issued, expectedShares);
-        if (supplyBefore != 0 && quoted * supplyBefore > issued * availableBefore + supplyBefore) {
+        if (
+            supplyBefore != 0
+                && quoted * (supplyBefore + 1e12)
+                    > issued * (availableBefore + 1) + supplyBefore + 1e12
+        ) {
             incomingRoundingLossViolation = true;
         }
         ghostShares[actor] += issued;
@@ -627,8 +692,7 @@ contract USDCVaultInvariantHandler is Test {
         ghostShareSupply += issued;
         feeCohortActive = false;
         ++successfulDeposits;
-        uint256 wealthAfter = USDC.balanceOf(actor)
-            + Math.mulDiv(ownedShares(actor), MANAGER.availableAssets(), FUND_VAULT.totalSupply());
+        uint256 wealthAfter = USDC.balanceOf(actor) + modelPreviewRedeem(ownedShares(actor));
         if (wealthAfter > wealthBefore + 2) roundTripGainViolation = true;
         if (wealthBefore > wealthAfter + 2) roundTripLossViolation = true;
         shares = issued;
@@ -646,7 +710,15 @@ contract USDCVaultInvariantHandler is Test {
         bytes memory expected;
         uint256 locked = MANAGER.remainingLockedProfit();
         uint256 quote = MANAGER.previewRedeem(r.shares);
-        if (r.shares == modelEffectiveSupply() && locked != 0) {
+        uint256 remainingSupply = modelEffectiveSupply() - r.shares;
+        uint256 required = remainingSupply == 0 ? ghostManagedAssets : quote;
+        if (remainingSupply != 0 && remainingSupply < MANAGER.MIN_SHARE_SUPPLY()) {
+            expected = abi.encodeWithSelector(
+                AlphaEngineUSDCVaultManager.InsufficientShareSupply.selector,
+                remainingSupply,
+                MANAGER.MIN_SHARE_SUPPLY()
+            );
+        } else if (r.shares == modelEffectiveSupply() && locked != 0) {
             expected = abi.encodeWithSelector(
                 AlphaEngineUSDCVaultManager.FinalRedemptionWhileProfitLocked.selector, locked
             );
@@ -654,11 +726,11 @@ contract USDCVaultInvariantHandler is Test {
             expected = abi.encodeWithSelector(
                 AlphaEngineUSDCVaultManager.InsufficientAssets.selector, quote, r.minAssets
             );
-        } else if (quote > USDC.balanceOf(address(FUND_VAULT))) {
+        } else if (required > USDC.balanceOf(address(FUND_VAULT))) {
             expected = abi.encodeWithSelector(
                 AlphaEngineUSDCVaultManager.InsufficientVaultLiquidity.selector,
                 USDC.balanceOf(address(FUND_VAULT)),
-                quote
+                required
             );
         } else {
             completeRedeem(requestSeed);
@@ -718,33 +790,21 @@ contract USDCVaultInvariantHandler is Test {
         _checkModelParity();
     }
 
-    /// @notice FV-20/FV-21/FV-22: prospective config, active fee gates and immutable active timestamps.
+    /// @notice FV-20/FV-21/FV-22: prospective config, issued fee ownership and immutable active timestamps.
     function configureAccounting(uint16 feeSeed, uint32 durationSeed, bool changeRecipient) public {
         uint16 fee = uint16(bound(feeSeed, 0, 2000));
-        uint256 pending = MANAGER.pendingFeeAssets();
-        uint16 oldTrancheFee = MANAGER.pendingFeeBps();
+        uint256 issuedFeeShares = FUND_VAULT.balanceOf(MANAGER.feeRecipient());
         uint64 oldUnlock = MANAGER.profitUnlockTimestamp();
         address owner = MANAGER.owner();
         vm.prank(owner);
         MANAGER.setPerformanceFeeBps(fee);
-        assertEq(MANAGER.pendingFeeBps(), oldTrancheFee);
+        assertEq(FUND_VAULT.balanceOf(MANAGER.feeRecipient()), issuedFeeShares);
         assertEq(MANAGER.profitUnlockTimestamp(), oldUnlock);
         if (changeRecipient) {
             address recipient =
                 MANAGER.feeRecipient() == FEE_RECIPIENT ? SECOND_FEE_RECIPIENT : FEE_RECIPIENT;
-            if (pending != 0) {
-                vm.expectRevert(
-                    abi.encodeWithSelector(
-                        AlphaEngineUSDCVaultManager.ActiveFeePending.selector, pending
-                    )
-                );
-                vm.prank(owner);
-                MANAGER.setFeeRecipient(recipient);
-                ++rejectedActions;
-            } else {
-                vm.prank(owner);
-                MANAGER.setFeeRecipient(recipient);
-            }
+            vm.prank(owner);
+            MANAGER.setFeeRecipient(recipient);
         }
         uint64 duration = uint64(bound(durationSeed, 1, 7 days));
         uint256 locked = MANAGER.remainingLockedProfit();
@@ -869,9 +929,12 @@ contract USDCVaultInvariantHandler is Test {
                 MANAGER.getRedemption(_requestIds[i]);
             if (r.status != AlphaEngineUSDCVaultManager.RedemptionStatus.Pending) continue;
             uint256 quote = MANAGER.previewRedeem(r.shares);
+            uint256 remainingSupply = FUND_VAULT.totalSupply() - r.shares;
+            uint256 required = remainingSupply == 0 ? ghostManagedAssets : quote;
             if (
                 (r.shares == FUND_VAULT.totalSupply() && MANAGER.remainingLockedProfit() != 0)
-                    || quote < r.minAssets || quote > USDC.balanceOf(address(FUND_VAULT))
+                    || (remainingSupply != 0 && remainingSupply < MANAGER.MIN_SHARE_SUPPLY())
+                    || quote < r.minAssets || required > USDC.balanceOf(address(FUND_VAULT))
             ) continue;
             completeRedeem(i);
             assertEq(
@@ -890,11 +953,9 @@ contract USDCVaultInvariantHandler is Test {
                 MANAGER.managedAssets(),
                 MANAGER.lockedProfit(),
                 MANAGER.lockedRecoveryProfit(),
-                MANAGER.pendingFeeAssets(),
                 MANAGER.lossToRecover(),
                 MANAGER.profitLockTimestamp(),
                 MANAGER.profitUnlockTimestamp(),
-                MANAGER.pendingFeeBps(),
                 MANAGER.reportEpoch(),
                 MANAGER.lastReferenceBlock(),
                 MANAGER.nextRedemptionId(),
@@ -939,7 +1000,7 @@ contract USDCVaultInvariantHandler is Test {
     {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _closeCohort();
-        uint256 initial = bound(initialRaw, 1e6, 1_000_000e6);
+        uint256 initial = bound(initialRaw, 100e6, 1_000_000e6);
         uint256 profit = bound(profitRaw, initial / 2, 2 * initial);
         uint8 mode = kind % 3;
         address owner = MANAGER.owner();
@@ -973,7 +1034,15 @@ contract USDCVaultInvariantHandler is Test {
                                         : (residualSeed % 5 == 3 ? 1e12 : 1e18)))
                 )
                 : FUND_VAULT.totalSupply() / 100;
-            if (residual >= FUND_VAULT.totalSupply()) residual = 1;
+            if (residual >= FUND_VAULT.balanceOf(actorAt(0))) residual = 1;
+            uint256 totalRemainder =
+                FUND_VAULT.totalSupply() - FUND_VAULT.balanceOf(actorAt(0)) + residual;
+            if (totalRemainder < MANAGER.MIN_SHARE_SUPPLY()) {
+                _request(actorAt(0), actorAt(0), FUND_VAULT.balanceOf(actorAt(0)) - residual, 0);
+                attemptGuardedCompletion(_requestIds.length - 1);
+                cancelRedeem(_requestIds.length - 1);
+                residual += MANAGER.MIN_SHARE_SUPPLY() - totalRemainder;
+            }
             _request(actorAt(0), actorAt(0), FUND_VAULT.balanceOf(actorAt(0)) - residual, 0);
             completeRedeem(_requestIds.length - 1);
             advanceToVestBoundary(1);
@@ -983,11 +1052,13 @@ contract USDCVaultInvariantHandler is Test {
         _checkModelParity();
     }
 
-    /// @notice FV-04/FV-06: one-base-unit bootstrap, total loss, protected minimum, zero-value cleanup and re-entry.
+    /// @notice FV-04/FV-06: rejected dust bootstrap, tiny funded entry, total loss and re-entry.
     function exerciseZeroAndTinyLifecycle(uint8 branch, uint96 rawInitial) public {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _prepareCohort(0, 100);
-        uint256 initial = branch % 2 == 0 ? 1 : bound(rawInitial, 2, MAX_ACTION_ASSETS);
+        deposit(0, uint96(branch % 2 == 0 ? 1 : 1e6 - 1));
+        assertEq(FUND_VAULT.totalSupply(), 0);
+        uint256 initial = bound(rawInitial, 1e6, MAX_ACTION_ASSETS);
         uint256 first = successfulDeposits;
         deposit(0, uint96(initial));
         assertEq(successfulDeposits, first + 1);
@@ -999,6 +1070,14 @@ contract USDCVaultInvariantHandler is Test {
             assertEq(FUND_VAULT.balanceOf(actorAt(1)), 1e12);
             reportLoss(1); // Cancels the single locked unit; neither investor loses principal.
             assertEq(MANAGER.availableAssets(), initial + 1);
+        }
+        // A zero-value terminal exit still needs the entire global supply; consolidate Bob's dust.
+        uint256 tiny = FUND_VAULT.balanceOf(actorAt(1));
+        if (tiny != 0) {
+            vm.prank(actorAt(1));
+            FUND_VAULT.transfer(actorAt(0), tiny);
+            ghostShares[actorAt(1)] -= tiny;
+            ghostShares[actorAt(0)] += tiny;
         }
         uint256 supply = FUND_VAULT.totalSupply();
         uint256 aliceShares = FUND_VAULT.balanceOf(actorAt(0));
@@ -1029,7 +1108,9 @@ contract USDCVaultInvariantHandler is Test {
         assertEq(FUND_VAULT.totalSupply(), 0);
         assertEq(MANAGER.lossToRecover(), 0);
         deposit(2, 1);
-        assertEq(FUND_VAULT.balanceOf(actorAt(2)), 1e12);
+        assertEq(FUND_VAULT.totalSupply(), 0);
+        deposit(2, 1e6);
+        assertEq(FUND_VAULT.balanceOf(actorAt(2)), 1e18);
         _closeCohort();
         ++scenarioRuns[6];
     }
@@ -1040,37 +1121,39 @@ contract USDCVaultInvariantHandler is Test {
     {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _prepareCohort(0, 100);
-        uint256 initial = bound(rawInitial, 1e6, MAX_ACTION_ASSETS);
-        uint256 later = bound(rawLater, 1e6, MAX_ACTION_ASSETS);
+        uint256 initial = bound(rawInitial, 2e6, MAX_ACTION_ASSETS);
+        uint256 later = bound(rawLater, 2e6, MAX_ACTION_ASSETS);
         uint256 profit = (uint256(rawProfit) % 10_000 + 1) * 100;
         deposit(0, uint96(initial));
         reportProfit(uint96(profit));
         uint256 started = MANAGER.profitLockTimestamp();
         vm.warp(started + 50);
         uint256 aliceShares = FUND_VAULT.balanceOf(actorAt(0));
-        uint256 aliceBefore = initial + profit / 2;
+        uint256 aliceBefore = modelPreviewRedeem(FUND_VAULT.balanceOf(actorAt(0)));
         deposit(1, uint96(later));
         uint256 bobShares = FUND_VAULT.balanceOf(actorAt(1));
         uint256 supply = aliceShares + bobShares;
         uint256 recognized = initial + later + profit / 2;
-        uint256 aliceClaim = Math.mulDiv(aliceShares, recognized, supply);
-        uint256 bobClaim = Math.mulDiv(bobShares, recognized, supply);
+        uint256 aliceClaim = Math.mulDiv(aliceShares, recognized + 1, supply + 1e12);
+        uint256 bobClaim = Math.mulDiv(bobShares, recognized + 1, supply + 1e12);
         if (aliceClaim + 1 < aliceBefore || bobClaim > later || bobClaim + 1 < later) {
             actorEntitlementViolation = true;
         }
         vm.warp(started + 99);
-        uint256 expectedAlice = aliceBefore + Math.mulDiv(profit * 49 / 100, aliceShares, supply);
+        uint256 expectedAlice =
+            aliceBefore + Math.mulDiv(profit * 49 / 100, aliceShares, supply + 1e12);
         uint256 paidBefore = ghostPaidOnBehalfOfOwner[actorAt(0)];
         _request(actorAt(0), actorAt(0), aliceShares, 0);
         completeRedeem(_requestIds.length - 1);
         _checkAssetBudget(ghostPaidOnBehalfOfOwner[actorAt(0)] - paidBefore, expectedAlice, 3);
-        uint256 bobRecognizedBefore = MANAGER.availableAssets();
+        uint256 bobRecognizedBefore = modelPreviewRedeem(bobShares);
         deposit(2, uint96(later));
         uint256 carolShares = FUND_VAULT.balanceOf(actorAt(2));
         uint256 finalSupply = bobShares + carolShares;
         uint256 expectedBob =
-            bobRecognizedBefore + Math.mulDiv(profit / 100, bobShares, finalSupply);
-        uint256 expectedCarol = later + Math.mulDiv(profit / 100, carolShares, finalSupply);
+            bobRecognizedBefore + Math.mulDiv(profit / 100, bobShares, finalSupply + 1e12);
+        uint256 expectedCarol = modelPreviewRedeem(carolShares)
+            + Math.mulDiv(profit / 100, carolShares, finalSupply + 1e12);
         vm.warp(started + 100);
         uint256 bobPaidBefore = ghostPaidOnBehalfOfOwner[actorAt(1)];
         _request(actorAt(1), actorAt(1), bobShares, 0);
@@ -1090,7 +1173,7 @@ contract USDCVaultInvariantHandler is Test {
     {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _prepareCohort(0, 100);
-        uint256 initial = bound(rawInitial, 1e6, MAX_ACTION_ASSETS);
+        uint256 initial = bound(rawInitial, 2e6, MAX_ACTION_ASSETS);
         uint256 profit = uint256(rawProfit) % 1e9 + 100;
         deposit(0, uint96(initial));
         reportProfit(uint96(profit));
@@ -1117,8 +1200,16 @@ contract USDCVaultInvariantHandler is Test {
     function exerciseFinalExitGuard(uint96 rawInitial, uint32 rawProfit, bool chargeFee) public {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _prepareCohort(chargeFee ? 2000 : 0, 100);
-        deposit(0, uint96(bound(rawInitial, 1e6, MAX_ACTION_ASSETS)));
+        deposit(0, uint96(bound(rawInitial, 2e6, MAX_ACTION_ASSETS)));
         reportProfit(uint96(uint256(rawProfit) % 1e6 + 100));
+        uint256 feeShares = FUND_VAULT.balanceOf(MANAGER.feeRecipient());
+        if (feeShares != 0) {
+            vm.prank(MANAGER.feeRecipient());
+            FUND_VAULT.transfer(actorAt(0), feeShares);
+            ghostShares[MANAGER.feeRecipient()] -= feeShares;
+            ghostShares[actorAt(0)] += feeShares;
+            feeCohortActive = false;
+        }
         _request(actorAt(0), actorAt(0), FUND_VAULT.balanceOf(actorAt(0)), 0);
         uint256 id = _requestIds.length - 1;
         attemptGuardedCompletion(id);
@@ -1135,22 +1226,19 @@ contract USDCVaultInvariantHandler is Test {
         ++scenarioRuns[9];
     }
 
-    /// @notice FV-13: exact relative loss, unearned fee cancellation and subsequent recovery reports.
+    /// @notice FV-13: exact relative loss, issued fee-share ownership and fee-free recovery.
     function exerciseFeeLossBoundaries(uint96 rawInitial, uint32 rawProfit, uint8 edge) public {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _prepareCohort(2000, 100);
-        uint256 initial = bound(rawInitial, 1e6, MAX_ACTION_ASSETS);
+        uint256 initial = bound(rawInitial, 2e6, MAX_ACTION_ASSETS);
         uint256 profit = (uint256(rawProfit) % 10_000 + 1) * 100;
         deposit(0, uint96(initial));
         reportProfit(uint96(profit));
         uint256 elapsed = (edge / 3) % 3 == 0 ? 0 : (edge / 3) % 3 == 1 ? 50 : 99;
         vm.warp(MANAGER.profitLockTimestamp() + elapsed);
-        uint256 locked = profit * (100 - elapsed) / 100;
+        uint256 locked = Math.mulDiv(profit - profit / 5, 100 - elapsed, 100, Math.Rounding.Ceil);
         uint256 loss = edge % 3 == 0 ? locked - 1 : edge % 3 == 1 ? locked : locked + 1;
-        uint256 fee = profit / 5;
-        uint256 unearnedCancelled = Math.min(loss, locked);
-        uint256 feeReduction = (unearnedCancelled + 4) / 5;
-        uint256 survivingFee = fee > feeReduction ? fee - feeReduction : 0;
+        uint256 mintedFeeShares = FUND_VAULT.balanceOf(MANAGER.feeRecipient());
         uint256 recognizedBefore = MANAGER.availableAssets();
         uint256 managedBefore = MANAGER.managedAssets();
         if (loss == 0) _attemptZeroReport(false);
@@ -1159,17 +1247,15 @@ contract USDCVaultInvariantHandler is Test {
         assertEq(MANAGER.availableAssets(), recognizedBefore - (loss > locked ? loss - locked : 0));
         assertEq(MANAGER.lossToRecover(), loss > locked ? loss - locked : 0);
         if (loss < locked) {
-            assertEq(MANAGER.pendingFeeAssets(), survivingFee);
             attemptProfitOverwrite(1);
             vm.warp(MANAGER.profitUnlockTimestamp());
             _settleFinishedProfit();
-        } else {
-            assertEq(MANAGER.pendingFeeAssets(), 0);
         }
+        assertEq(FUND_VAULT.balanceOf(MANAGER.feeRecipient()), mintedFeeShares);
         uint256 recover = MANAGER.lossToRecover();
         reportProfit(uint96(recover + 100));
         assertEq(MANAGER.lossToRecover(), 0);
-        assertEq(MANAGER.pendingFeeAssets(), 20);
+        assertGt(FUND_VAULT.balanceOf(MANAGER.feeRecipient()), mintedFeeShares);
         vm.warp(MANAGER.profitUnlockTimestamp());
         _settleFinishedProfit();
         _closeCohort();
@@ -1180,7 +1266,7 @@ contract USDCVaultInvariantHandler is Test {
     function exerciseLossTiming(uint96 rawInitial, uint32 rawLoss, bool enterBeforeLoss) public {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _prepareCohort(0, 100);
-        uint256 initial = bound(rawInitial, 1e6, MAX_ACTION_ASSETS);
+        uint256 initial = bound(rawInitial, 2e6, MAX_ACTION_ASSETS);
         deposit(0, uint96(initial));
         deposit(1, uint96(initial));
         uint256 beforeExitCash = ghostPaidOnBehalfOfOwner[actorAt(0)];
@@ -1217,7 +1303,7 @@ contract USDCVaultInvariantHandler is Test {
     function exerciseRecoveryAndFreshMoney(uint96 rawInitial, uint32 rawLoss, uint16 split) public {
         if (MANAGER.paused() || FUND_VAULT.paused()) return;
         _prepareCohort(2000, 100);
-        uint256 initial = bound(rawInitial, 1e6, MAX_ACTION_ASSETS);
+        uint256 initial = bound(rawInitial, 2e6, MAX_ACTION_ASSETS);
         deposit(0, uint96(initial));
         uint256 loss = uint256(rawLoss) % (initial - 1) + 1;
         reportLoss(uint96(loss));
@@ -1231,15 +1317,17 @@ contract USDCVaultInvariantHandler is Test {
         assertEq(MANAGER.lossToRecover(), deficit);
         uint256 firstRecovery = uint256(split) % deficit + 1;
         reportProfit(uint96(firstRecovery));
-        assertEq(MANAGER.pendingFeeAssets(), 0);
         assertEq(MANAGER.lossToRecover(), deficit - firstRecovery);
         vm.warp(MANAGER.profitUnlockTimestamp());
         _settleFinishedProfit();
         uint256 remaining = deficit - firstRecovery;
         uint256 feeable = uint256(rawLoss) % (MAX_ACTION_ASSETS - remaining) + 1;
+        uint256 feeSharesBefore = FUND_VAULT.balanceOf(MANAGER.feeRecipient());
+        uint256 expectedNewShares =
+            Math.mulDiv(feeable / 5, ghostShareSupply + 1e12, modelAvailableAssets() + 1);
         reportProfit(uint96(remaining + feeable));
         assertEq(MANAGER.lossToRecover(), 0);
-        assertEq(MANAGER.pendingFeeAssets(), feeable / 5);
+        assertEq(FUND_VAULT.balanceOf(MANAGER.feeRecipient()) - feeSharesBefore, expectedNewShares);
         vm.warp(MANAGER.profitUnlockTimestamp());
         _settleFinishedProfit();
         _closeCohort();
@@ -1410,58 +1498,32 @@ contract USDCVaultInvariantHandler is Test {
         return ghostManagedAssets - modelRemainingLockedProfit();
     }
 
-    function modelEffectiveSupply() public view returns (uint256 supply) {
-        supply = ghostShareSupply;
-        if (
-            ghostLockedProfit == 0 || modelRemainingLockedProfit() != 0
-                || ghostPendingFeeAssets == 0
-        ) return supply;
-        return supply + _modelFeeShares(ghostPendingFeeAssets);
+    function modelEffectiveSupply() public view returns (uint256) {
+        return ghostShareSupply;
     }
 
-    function modelPreviewDeposit(uint256 assets) public view returns (uint256 shares) {
-        uint256 supply = modelEffectiveSupply();
-        if (supply == 0) return assets * MANAGER.SHARE_SCALE();
-        shares = Math.mulDiv(assets, supply, modelAvailableAssets());
+    function modelPreviewDeposit(uint256 assets) public view returns (uint256) {
+        return Math.mulDiv(assets, ghostShareSupply + 1e12, modelAvailableAssets() + 1);
     }
 
-    function modelPreviewRedeem(uint256 shares) public view returns (uint256 assets) {
-        uint256 supply = modelEffectiveSupply();
-        if (supply == 0) return 0;
-        assets = Math.mulDiv(shares, modelAvailableAssets(), supply);
+    function modelPreviewRedeem(uint256 shares) public view returns (uint256) {
+        if (ghostShareSupply == 0) return 0;
+        return Math.mulDiv(shares, modelAvailableAssets() + 1, ghostShareSupply + 1e12);
     }
 
-    function _applyModelLoss(uint256 loss)
-        private
-        returns (uint256 settledFeeAssets, uint256 settledFeeShares)
-    {
+    function _applyModelLoss(uint256 loss) private {
         uint256 remainingProfit = modelRemainingLockedProfit();
         uint256 remainingRecovery = modelRemainingLockedRecoveryProfit();
-        uint256 remainingFeeable = remainingProfit - remainingRecovery;
         uint256 cancelledProfit = Math.min(loss, remainingProfit);
-        uint256 cancelledFeeable = Math.min(cancelledProfit, remainingFeeable);
+        uint256 cancelledFeeable = Math.min(cancelledProfit, remainingProfit - remainingRecovery);
         uint256 cancelledRecovery = cancelledProfit - cancelledFeeable;
-
-        uint256 feeReduction =
-            Math.mulDiv(cancelledFeeable, ghostPendingFeeBps, MANAGER.BPS(), Math.Rounding.Ceil);
-        ghostPendingFeeAssets -= Math.min(ghostPendingFeeAssets, feeReduction);
-
-        uint256 newLockedRecovery = remainingRecovery - cancelledRecovery;
-        uint256 newLockedProfit = remainingProfit - cancelledProfit;
-        ghostLockedProfit = newLockedProfit;
-        ghostLockedRecoveryProfit = newLockedRecovery;
-        ghostLossToRecover += cancelledRecovery + (loss - cancelledProfit);
-
-        if (newLockedProfit == 0) {
-            settledFeeAssets = ghostPendingFeeAssets;
-            settledFeeShares =
-                _modelFeeSharesAt(settledFeeAssets, ghostShareSupply, ghostManagedAssets - loss);
+        ghostLockedProfit = remainingProfit - cancelledProfit;
+        ghostLockedRecoveryProfit = remainingRecovery - cancelledRecovery;
+        ghostLossToRecover += cancelledRecovery + loss - cancelledProfit;
+        if (ghostLockedProfit == 0) {
             ghostLockedRecoveryProfit = 0;
-            ghostPendingFeeAssets = 0;
-            ghostPendingFeeBps = 0;
             ghostProfitLockTimestamp = 0;
             ghostProfitUnlockTimestamp = 0;
-            ghostShareSupply += settledFeeShares;
         } else {
             ghostProfitLockTimestamp = uint64(block.timestamp);
         }
@@ -1474,19 +1536,6 @@ contract USDCVaultInvariantHandler is Test {
         uint256 remainingTime = ghostProfitUnlockTimestamp - uint64(block.timestamp);
         uint256 lockDuration = ghostProfitUnlockTimestamp - ghostProfitLockTimestamp;
         return Math.mulDiv(amount, remainingTime, lockDuration, Math.Rounding.Ceil);
-    }
-
-    function _modelFeeShares(uint256 feeAssets) private view returns (uint256) {
-        return _modelFeeSharesAt(feeAssets, ghostShareSupply, ghostManagedAssets);
-    }
-
-    function _modelFeeSharesAt(uint256 feeAssets, uint256 supply, uint256 assets)
-        private
-        pure
-        returns (uint256)
-    {
-        if (feeAssets == 0 || supply == 0 || assets <= feeAssets) return 0;
-        return Math.mulDiv(feeAssets, supply, assets - feeAssets);
     }
 
     function ownedShares(address actor) public view returns (uint256) {
@@ -1538,7 +1587,7 @@ contract USDCVaultInvariantHandler is Test {
         if (feeCohortActive && ghostShareSupply != 0) {
             for (uint256 i; i < ACTOR_COUNT; ++i) {
                 uint256 wealth = ghostPaidOnBehalfOfOwner[_actors[i]]
-                    + Math.mulDiv(ownedShares(_actors[i]), modelAvailableAssets(), ghostShareSupply);
+                    + modelPreviewRedeem(ownedShares(_actors[i]));
                 // One unit per bounded floor operation, not a share-price-dependent tolerance.
                 uint256 roundingBudget = 2 * (successfulCompletions + successfulDeposits + 1);
                 if (wealth + roundingBudget < cohortPrincipal[i]) feeCohortViolation = true;
@@ -1562,11 +1611,9 @@ contract USDCVaultInvariantHandler is Test {
             MANAGER.managedAssets() != ghostManagedAssets
                 || MANAGER.lockedProfit() != ghostLockedProfit
                 || MANAGER.lockedRecoveryProfit() != ghostLockedRecoveryProfit
-                || MANAGER.pendingFeeAssets() != ghostPendingFeeAssets
                 || MANAGER.lossToRecover() != ghostLossToRecover
                 || MANAGER.profitLockTimestamp() != ghostProfitLockTimestamp
                 || MANAGER.profitUnlockTimestamp() != ghostProfitUnlockTimestamp
-                || MANAGER.pendingFeeBps() != ghostPendingFeeBps
                 || FUND_VAULT.totalSupply() != ghostShareSupply
                 || MANAGER.remainingLockedProfit() != modelRemainingLockedProfit()
                 || MANAGER.remainingLockedRecoveryProfit() != modelRemainingLockedRecoveryProfit()

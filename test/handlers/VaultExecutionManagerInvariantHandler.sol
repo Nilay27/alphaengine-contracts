@@ -1180,7 +1180,7 @@ contract VaultExecutionManagerInvariantHandler {
         ++scenarioRuns[13];
     }
 
-    /// @notice EX-15: explicit share risk catches direct-burn over-spend; omitted coverage is an exploratory lead.
+    /// @notice EX-15: both ERC4626 exits reject missing/zero share risk and enforce actual burn limits.
     function exerciseDirectShareBurn(uint32 rawAssets, bool omitShareRisk) external {
         uint256 assets = uint256(rawAssets) % 1e6 + 2;
         MockERC20 token = new MockERC20("Scenario asset", "SCA", 6);
@@ -1190,11 +1190,9 @@ contract VaultExecutionManagerInvariantHandler {
         token.mint(address(this), assets);
         token.approve(address(position), assets);
         uint256 shares = position.deposit(assets, FUND_VAULT);
+        bytes4 selector = rawAssets % 2 == 0 ? IERC4626.withdraw.selector : IERC4626.redeem.selector;
         bytes32 leaf = _customLeaf(
-            address(decoder),
-            address(position),
-            IERC4626.redeem.selector,
-            abi.encode(FUND_VAULT, FUND_VAULT)
+            address(decoder), address(position), selector, abi.encode(FUND_VAULT, FUND_VAULT)
         );
         _installRoot(leaf);
         uint64 nonce = _takeNonce();
@@ -1206,7 +1204,12 @@ contract VaultExecutionManagerInvariantHandler {
             address(decoder),
             address(position),
             0,
-            abi.encodeCall(IERC4626.redeem, (shares, FUND_VAULT, FUND_VAULT))
+            abi.encodeWithSelector(
+                selector,
+                selector == IERC4626.withdraw.selector ? assets : shares,
+                FUND_VAULT,
+                FUND_VAULT
+            )
         );
         AlphaEngineExecutionHashLib.AssetDeltaLimitV1[] memory limits =
             new AlphaEngineExecutionHashLib.AssetDeltaLimitV1[](omitShareRisk ? 1 : 2);
@@ -1234,10 +1237,17 @@ contract VaultExecutionManagerInvariantHandler {
         proofs[0] = new bytes32[](0);
         bytes32 commitment = CAPITAL_MANAGER.approve(authorization);
         if (omitShareRisk) {
-            MANAGER.executeCapitalIntent(authorization, calls, limits, proofs);
-            assert(position.balanceOf(FUND_VAULT) == 0 && token.balanceOf(FUND_VAULT) == assets);
+            _expectFailure(
+                authorization,
+                calls,
+                limits,
+                proofs,
+                commitment,
+                AlphaEngineVaultExecutionManager.ExitShareAssetNotRiskBound.selector
+            );
+            if (position.balanceOf(FUND_VAULT) != shares) exploratoryUntrackedShareBurn = true;
+            assert(position.balanceOf(FUND_VAULT) == shares && token.balanceOf(FUND_VAULT) == 0);
             assert(MANAGER.currentWindowSpend(TRADER, address(position)) == 0);
-            exploratoryUntrackedShareBurn = true;
         } else {
             _expectFailure(
                 authorization,
@@ -1248,11 +1258,32 @@ contract VaultExecutionManagerInvariantHandler {
                 AlphaEngineVaultExecutionManager.AssetSpendExceeded.selector
             );
             assert(position.balanceOf(FUND_VAULT) == shares && token.balanceOf(FUND_VAULT) == 0);
+            uint256 shareIndex = limits[0].asset == address(position) ? 0 : 1;
+            limits[shareIndex].maxSpend = 0;
+            limits[shareIndex].minReceive = 1;
+            authorization.riskEnvelopeHash = AlphaEngineExecutionHashLib.hashRiskEnvelope(limits);
+            commitment = CAPITAL_MANAGER.approve(authorization);
+            _expectFailure(
+                authorization,
+                calls,
+                limits,
+                proofs,
+                commitment,
+                AlphaEngineVaultExecutionManager.ExitShareAssetNotRiskBound.selector
+            );
+            assert(position.balanceOf(FUND_VAULT) == shares && token.balanceOf(FUND_VAULT) == 0);
             for (uint256 i; i < limits.length; ++i) {
-                if (limits[i].asset == address(position)) limits[i].maxSpend = shares;
+                if (limits[i].asset == address(position)) {
+                    limits[i].maxSpend = shares;
+                    limits[i].minReceive = 0;
+                }
             }
             authorization.riskEnvelopeHash = AlphaEngineExecutionHashLib.hashRiskEnvelope(limits);
             CAPITAL_MANAGER.approve(authorization);
+            VM.expectEmit(true, true, false, true, address(MANAGER));
+            emit AlphaEngineVaultExecutionManager.AssetDeltaEnforced(
+                authorization.intentId, address(position), shares, 0, shares
+            );
             MANAGER.executeCapitalIntent(authorization, calls, limits, proofs);
             assert(position.balanceOf(FUND_VAULT) == 0 && token.balanceOf(FUND_VAULT) == assets);
             assert(MANAGER.currentWindowSpend(TRADER, address(position)) == shares);

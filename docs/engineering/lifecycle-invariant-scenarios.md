@@ -1,5 +1,8 @@
 # Lifecycle invariant scenario review
 
+This inventory records **pre-fix evidence**. Current implementation scope,
+focused results and rerun commands are in [the agreed fixes](approved-audit-fixes.md).
+
 Scenario implementation — 2026-10-15. Production baseline: `257eb3183c86359d84cd80019a0feaba8e4e2a8a`.
 
 ## Scope and coverage status
