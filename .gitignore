@@ -9,5 +9,6 @@ echidna-corpus/
 *.gas-snapshot
 .env
 x-ray/
+.solidity-auditor/
 __pycache__/
 deployments/v2/rehearsals/
