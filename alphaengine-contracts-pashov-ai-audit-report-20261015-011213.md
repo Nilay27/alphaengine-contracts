@@ -96,7 +96,7 @@ Exact integer check: 100 USDC creates 100e18 share units. An honest funded 100-U
 +            Math.mulDiv(shares, assetsForShares, supply, Math.Rounding.Ceil);
 +        if (pricedAssets != assets) revert DepositRoundingLoss(assets, pricedAssets);
      }
- 
+
      function previewRedeem(uint256 shares) public view returns (uint256 assets) {
 ```
 
@@ -123,7 +123,7 @@ Arithmetic check: with 1,000 USDC principal, 100 USDC gain, a 20 USDC fee, and 1
 --- a/src/vault/AlphaEngineUSDCVaultManager.sol
 +++ b/src/vault/AlphaEngineUSDCVaultManager.sol
 @@ -263,6 +263,9 @@
- 
+
          _settleFinishedProfit();
          uint256 remainingProfit = remainingLockedProfit();
 +        if (remainingProfit != 0 && pendingFeeAssets != 0) {
@@ -143,7 +143,7 @@ This unapplied containment delays fee-bearing redemption completion until vestin
 +++ b/src/vault/AlphaEngineUSDCVaultManager.sol
 @@ -384,7 +384,15 @@
      }
- 
+
      function availableAssets() public view returns (uint256) {
 -        return managedAssets - remainingLockedProfit();
 +        uint256 remainingProfit = remainingLockedProfit();
@@ -156,7 +156,7 @@ This unapplied containment delays fee-bearing redemption completion until vestin
 +        uint256 vestedFeeAssets = pendingFeeAssets - Math.min(pendingFeeAssets, unvestedFeeAssets);
 +        return recognizedAssets - vestedFeeAssets;
      }
- 
+
      function remainingLockedProfit() public view returns (uint256) {
 ```
 
