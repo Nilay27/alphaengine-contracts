@@ -292,6 +292,9 @@ track effective swap amounts/cooldowns and score cursor/pacing progress.
   trigger a solc Yul stack-depth defect under `--ir-minimum`. The script remains
   compiled normally and is tested separately; production `src/**` remains fully
   instrumented.
+- Coverage alone sets `FOUNDRY_GAS_LIMIT=4294967296`: the minimally optimized
+  256-entry competition lifecycle exceeds the default per-test gas budget.
+  Production settings and ordinary test budgets remain unchanged.
 
 ## Fhenix policy
 

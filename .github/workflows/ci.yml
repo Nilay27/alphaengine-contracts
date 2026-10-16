@@ -69,6 +69,9 @@ jobs:
         run: forge test --offline --match-contract DeployAlphaEngineCreate2Test
 
       - name: Run coverage
+        env:
+          # Minimal optimization increases gas for aggregated lifecycle tests.
+          FOUNDRY_GAS_LIMIT: "4294967296"
         run: forge coverage --offline --ir-minimum --report summary --skip DeployAlphaEngineV2 --skip DeployAlphaEngineCreate2
 
       - name: Check ABI and storage-layout snapshots

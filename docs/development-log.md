@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-10-16 — Coverage lifecycle gas budget
+
+- Set a coverage-only gas budget in CI/release. The unchanged 256-entry
+  competition lifecycle needs 1.395B gas under minimal IR optimization and
+  exceeds the default 1.074B test limit. Contracts/tests and ordinary budgets unchanged.
+- Focused coverage test fails at the default budget and passes with the increase.
+  Full local coverage stopped at user request; complete validation delegated to CI.
+
 ## 2026-10-16 — Production-only CI size gate
 
 - Exclude `test/` and `script/` from CI/nightly/release size reports; the large
