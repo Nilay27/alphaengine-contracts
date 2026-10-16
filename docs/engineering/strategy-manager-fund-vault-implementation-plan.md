@@ -690,6 +690,10 @@ Production defaults:
 - Immediate pause and zero-root revocation.
 - Each proxy has an independent `ProxyAdmin`.
 - Testnet role collapse is allowed only when explicitly marked `testOnlyRoleCollapse: true` in the manifest.
+- Owner-approved bootstrap exception (16 October 2026): `BOOTSTRAP_ROLE_COLLAPSE=true`
+  permits identical temporary initial roles on both chains, recorded as
+  `bootstrapRoleCollapse: true`. Keep lifecycle contracts paused and unfunded until
+  ownership/role handover, deployer revocations and timelock setup are verified.
 
 | Authority | Recommended holder | Allowed | Prohibited |
 |---|---|---|---|

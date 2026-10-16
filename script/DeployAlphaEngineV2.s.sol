@@ -89,6 +89,7 @@ contract DeployAlphaEngineV2 is Script {
         bytes32 abiBundleHash;
         bytes32 storageLayoutBundleHash;
         bool testOnlyRoleCollapse;
+        bool bootstrapRoleCollapse;
     }
 
     struct DeploymentConfig {
@@ -364,6 +365,8 @@ contract DeployAlphaEngineV2 is Script {
             object, "storageLayoutBundleHash", config.metadata.storageLayoutBundleHash
         );
         vm.serializeBool(object, "testOnlyRoleCollapse", config.metadata.testOnlyRoleCollapse);
+        // Bootstrap roles must be handed over and verified before funding or activation.
+        vm.serializeBool(object, "bootstrapRoleCollapse", config.metadata.bootstrapRoleCollapse);
         vm.serializeBool(object, "deploymentTransactionHashesRecorded", false);
         vm.serializeString(object, "legacyManifestPath", LEGACY_MANIFEST_PATH);
         vm.serializeString(object, "legacyManifestSha256", LEGACY_MANIFEST_SHA256);
@@ -715,7 +718,9 @@ contract DeployAlphaEngineV2 is Script {
             config.metadata.testOnlyRoleCollapse && block.chainid != 421_614
                 && block.chainid != 31_337
         ) revert TestOnlyRoleCollapseOnUnsupportedChain(block.chainid);
-        if (!config.metadata.testOnlyRoleCollapse) _validateRoleSeparation(config.roles);
+        if (!config.metadata.testOnlyRoleCollapse && !config.metadata.bootstrapRoleCollapse) {
+            _validateRoleSeparation(config.roles);
+        }
         if (bytes(config.metadata.deploymentGitSha).length == 0) {
             revert MissingArtifactMetadata("DEPLOYMENT_GIT_SHA");
         }
@@ -818,7 +823,8 @@ contract DeployAlphaEngineV2 is Script {
             dependencyLockHash: vm.envBytes32("DEPENDENCY_LOCK_HASH"),
             abiBundleHash: vm.envBytes32("ABI_BUNDLE_HASH"),
             storageLayoutBundleHash: vm.envBytes32("STORAGE_LAYOUT_BUNDLE_HASH"),
-            testOnlyRoleCollapse: vm.envOr("TEST_ONLY_ROLE_COLLAPSE", false)
+            testOnlyRoleCollapse: vm.envOr("TEST_ONLY_ROLE_COLLAPSE", false),
+            bootstrapRoleCollapse: vm.envOr("BOOTSTRAP_ROLE_COLLAPSE", false)
         });
     }
 

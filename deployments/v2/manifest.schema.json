@@ -46,6 +46,7 @@
     "swapStatus": { "type": "string" },
     "fundVaultStatus": { "type": "string" },
     "testOnlyRoleCollapse": { "type": "boolean" },
+    "bootstrapRoleCollapse": { "type": "boolean", "description": "Temporary initial role overlap; handover must be verified before funding or activation." },
     "contractApiRevision": { "const": "v2-cofhe-0.2" },
     "cofheContractsVersion": { "enum": ["0.2.0", "1.0.0"] },
     "confidentialContractsVersion": { "const": "0.4.0" },

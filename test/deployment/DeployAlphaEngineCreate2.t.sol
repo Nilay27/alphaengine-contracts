@@ -18,6 +18,15 @@ import {
 } from "src/strategy/AlphaEngineCompetitionStrategyManager.sol";
 import {AlphaEngineConfidentialSwapEscrow} from "src/swap/AlphaEngineConfidentialSwapEscrow.sol";
 import {AlphaEngineV4SwapExecutor} from "src/executors/AlphaEngineV4SwapExecutor.sol";
+import {
+    AlphaEngineTraderQualificationRegistry
+} from "src/strategy/AlphaEngineTraderQualificationRegistry.sol";
+import {
+    AlphaEngineCapitalStrategyManager
+} from "src/strategy/AlphaEngineCapitalStrategyManager.sol";
+import {
+    AlphaEngineConfidentialSwapController
+} from "src/swap/AlphaEngineConfidentialSwapController.sol";
 
 contract Create2DeploymentHarness is DeployAlphaEngineCreate2 {
     function deployAs(DeploymentConfig memory config, address sender)
@@ -161,6 +170,41 @@ contract DeployAlphaEngineCreate2Test is Test {
         assertEq(_libraryAddress().code.length, 0);
     }
 
+    function test_bootstrapRequiresExplicitOptInBeforeLibraryDeployment() public {
+        vm.chainId(42_161);
+        config = _bootstrapConfig(config.poolManager);
+        config.metadata.bootstrapRoleCollapse = false;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployAlphaEngineV2.RoleOverlap.selector,
+                bytes32("ADMIN_PROXY_ADMIN"),
+                TESTNET_DEPLOYER
+            )
+        );
+        script.deploy(config);
+        assertEq(_libraryAddress().code.length, 0);
+    }
+
+    function test_bootstrapFlagPreservesAddressesAndRecordsHandoverRequirement() public {
+        vm.chainId(421_614);
+        config = _bootstrapConfig(config.poolManager);
+        uint256 snapshot = vm.snapshotState();
+        DeployAlphaEngineV2.Deployment memory first = script.deployAs(config, TESTNET_DEPLOYER);
+        _assertWiring(first);
+        string memory path = "deployments/v2/rehearsals/bootstrap-test.json";
+        vm.createDir("deployments/v2/rehearsals", true);
+        script.writeManifest(path, config, first);
+        string memory manifest = vm.readFile(path);
+        assertTrue(vm.parseJsonBool(manifest, ".bootstrapRoleCollapse"));
+        assertFalse(vm.parseJsonBool(manifest, ".testOnlyRoleCollapse"));
+        vm.removeFile(path);
+        assertTrue(vm.revertToStateAndDelete(snapshot));
+        config.metadata.bootstrapRoleCollapse = false;
+        config.metadata.testOnlyRoleCollapse = true;
+        DeployAlphaEngineV2.Deployment memory second = script.deployAs(config, temporaryDeployer);
+        assertEq(abi.encode(first), abi.encode(second));
+    }
+
     function test_rejectsMissingOrChangedFactory() public {
         vm.etch(script.FACTORY(), hex"00");
         vm.expectRevert(
@@ -244,6 +288,14 @@ contract DeployAlphaEngineCreate2Test is Test {
     }
 
     function testFork_arbitrumNetworksWithDifferentDeployers() public {
+        _checkBothForks(false);
+    }
+
+    function testFork_bootstrapSameInitialRolesWithDifferentDeployers() public {
+        _checkBothForks(true);
+    }
+
+    function _checkBothForks(bool bootstrap) private {
         vm.skip(!vm.envOr("RUN_CREATE2_FORK", false));
         // Real factory and PoolManager code are read from each network, never etched here.
         uint256 testnet = vm.createFork(
@@ -258,7 +310,7 @@ contract DeployAlphaEngineCreate2Test is Test {
         script = Create2DeploymentHarness(
             deployCode("DeployAlphaEngineCreate2.t.sol:Create2DeploymentHarness")
         );
-        config = _config(TESTNET_POOL);
+        config = bootstrap ? _bootstrapConfig(TESTNET_POOL) : _config(TESTNET_POOL);
         vm.deal(TESTNET_DEPLOYER, 10 ether);
         DeployAlphaEngineV2.Deployment memory first = script.deployAs(config, TESTNET_DEPLOYER);
         emit log_named_uint(
@@ -266,12 +318,15 @@ contract DeployAlphaEngineCreate2Test is Test {
         );
         emit log_named_address("testnet sender", TESTNET_DEPLOYER);
         (address firstWrapper, address firstWrapperAdmin) = _forkWrapper(first, TESTNET_DEPLOYER);
-        _writeForkManifest("testnet-fixture.json", first);
+        _assertWiring(first);
+        _writeForkManifest(
+            bootstrap ? "bootstrap-testnet-fixture.json" : "testnet-fixture.json", first
+        );
         vm.selectFork(mainnet);
         script = Create2DeploymentHarness(
             deployCode("DeployAlphaEngineCreate2.t.sol:Create2DeploymentHarness")
         );
-        config = _config(MAINNET_POOL);
+        config = bootstrap ? _bootstrapConfig(MAINNET_POOL) : _config(MAINNET_POOL);
         vm.deal(temporaryDeployer, 10 ether);
         DeployAlphaEngineV2.Deployment memory second = script.deployAs(config, temporaryDeployer);
         emit log_named_uint("Arbitrum One RPC fork block", vm.envUint("CREATE2_MAINNET_FORK_BLOCK"));
@@ -280,7 +335,9 @@ contract DeployAlphaEngineCreate2Test is Test {
             _forkWrapper(second, temporaryDeployer);
         assertEq(firstWrapper, secondWrapper);
         assertEq(firstWrapperAdmin, secondWrapperAdmin);
-        _writeForkManifest("mainnet-fixture.json", second);
+        _writeForkManifest(
+            bootstrap ? "bootstrap-mainnet-fixture.json" : "mainnet-fixture.json", second
+        );
         emit log_named_address(
             "wrapper proxy (both forks, different underlying tokens)", secondWrapper
         );
@@ -351,6 +408,12 @@ contract DeployAlphaEngineCreate2Test is Test {
             deployment.assetRegistry
         );
         assertTrue(competition.paused());
+        assertTrue(
+            AlphaEngineTraderQualificationRegistry(deployment.qualificationRegistryProxy).paused()
+        );
+        assertTrue(AlphaEngineCapitalStrategyManager(deployment.capitalManagerProxy).paused());
+        assertTrue(AlphaEngineConfidentialSwapController(deployment.swapControllerProxy).paused());
+        assertTrue(AlphaEngineConfidentialSwapEscrow(deployment.swapEscrowProxy).paused());
         assertEq(competition.submissionLimit(), 3);
         assertEq(competition.submissionWindowSeconds(), 300);
         assertEq(competition.defaultAdmin(), config.roles.defaultAdmin);
@@ -416,7 +479,35 @@ contract DeployAlphaEngineCreate2Test is Test {
             dependencyLockHash: keccak256("dependencies"),
             abiBundleHash: keccak256("abi"),
             storageLayoutBundleHash: keccak256("layout"),
-            testOnlyRoleCollapse: false
+            testOnlyRoleCollapse: false,
+            bootstrapRoleCollapse: false
+        });
+    }
+
+    function _bootstrapConfig(address pool)
+        private
+        returns (DeployAlphaEngineV2.DeploymentConfig memory result)
+    {
+        result = _config(pool);
+        result.metadata.bootstrapRoleCollapse = true;
+        result.roles = DeployAlphaEngineV2.RoleConfig({
+            defaultAdmin: TESTNET_DEPLOYER,
+            proxyAdminOwner: TESTNET_DEPLOYER,
+            pauser: TESTNET_DEPLOYER,
+            qualificationRevoker: TESTNET_DEPLOYER,
+            competitionFheOperator: TESTNET_DEPLOYER,
+            competitionCreator: TESTNET_DEPLOYER,
+            competitionCanceller: TESTNET_DEPLOYER,
+            competitionEvaluator: TESTNET_DEPLOYER,
+            competitionFinalizer: TESTNET_DEPLOYER,
+            competitionQualifier: TESTNET_DEPLOYER,
+            scoreRevealer: TESTNET_DEPLOYER,
+            capitalFheOperator: TESTNET_DEPLOYER,
+            capitalEvaluator: TESTNET_DEPLOYER,
+            capitalRevoker: TESTNET_DEPLOYER,
+            swapOperator: TESTNET_DEPLOYER,
+            assetRegistryOwner: TESTNET_DEPLOYER,
+            swapExecutorOwner: TESTNET_DEPLOYER
         });
     }
 }

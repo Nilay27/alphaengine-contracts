@@ -230,6 +230,7 @@ contract DeployAlphaEngineV2Test is Test {
         );
         assertEq(vm.parseJsonUint(manifest, ".schemaVersion"), 2);
         assertEq(vm.parseJsonUint(manifest, ".chainId"), block.chainid);
+        assertFalse(vm.parseJsonBool(manifest, ".bootstrapRoleCollapse"));
         assertEq(
             vm.parseJsonString(manifest, ".legacyManifestPath"),
             "deployments/arbitrum-sepolia-latest.json"
@@ -317,7 +318,8 @@ contract DeployAlphaEngineV2Test is Test {
             dependencyLockHash: keccak256("dependency-lock"),
             abiBundleHash: keccak256("abi-bundle"),
             storageLayoutBundleHash: keccak256("storage-layout-bundle"),
-            testOnlyRoleCollapse: false
+            testOnlyRoleCollapse: false,
+            bootstrapRoleCollapse: false
         });
     }
 

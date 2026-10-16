@@ -44,6 +44,7 @@ def main():
     parser.add_argument("--forge", default="forge")
     parser.add_argument("--cast", default="cast")
     parser.add_argument("--create2", action="store_true", help="Use the isolated CREATE2 build and deployment script")
+    parser.add_argument("--bootstrap", action="store_true", help="Opt into temporary role overlap; hand over before activation")
     parser.add_argument("--run-id", default=datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d-%H%M%S"))
     args = parser.parse_args()
     if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}", args.run_id):
@@ -64,6 +65,9 @@ def main():
         env[name] = value
     if args.create2:
         env["FOUNDRY_PROFILE"] = "create2"
+    if args.bootstrap:
+        env["BOOTSTRAP_ROLE_COLLAPSE"] = "true"
+        env["TEST_ONLY_ROLE_COLLAPSE"] = "false"
     for name in ROLES + ["OWNER", "LISTENER_OPERATOR", "BROADCASTER", "POOL_MANAGER"]:
         value = env.get(name, "")
         if not re.fullmatch(r"0x[0-9a-fA-F]{40}", value) or int(value, 16) == 0:
@@ -72,6 +76,9 @@ def main():
         raise ValueError("Arbitrum Sepolia chain guard mismatch")
     if env.get("TEST_ONLY_ROLE_COLLAPSE") not in ("true", "false"):
         raise ValueError("Explicit TEST_ONLY_ROLE_COLLAPSE required")
+    env.setdefault("BOOTSTRAP_ROLE_COLLAPSE", "false")
+    if env["BOOTSTRAP_ROLE_COLLAPSE"] not in ("true", "false"):
+        raise ValueError("Invalid BOOTSTRAP_ROLE_COLLAPSE")
     fork_block = int(rpc("eth_blockNumber", []), 16)
     tm = run([args.cast, "call", BOOK, "getTm(uint256)(address)", "1", "--rpc-url", RPC,
               "--block", str(fork_block)], env)
@@ -109,6 +116,7 @@ def main():
                   chainId=421614, forkBlockNumber=fork_block,
                   sourceTreeHash=source_hash,
                   roles={name: env[name] for name in ROLES}, sender=env["BROADCASTER"],
+                  bootstrapRoleCollapse=env["BOOTSTRAP_ROLE_COLLAPSE"] == "true",
                   poolManager=env["POOL_MANAGER"], cofheAddressBook=BOOK, taskManager=tm,
                   dependencies=dependencies, foundryVersion=env["FOUNDRY_VERSION"],
                   legacyManifestSha256=legacy_hash, simulationPassed=False,
@@ -143,7 +151,7 @@ def main():
     (output / "preflight.json").write_text(json.dumps(report, indent=2) + "\n")
     if args.create2:
         # Public values only: reuse the exact rehearsed inputs without exporting secrets.
-        names = ROLES + ["EXPECTED_CHAIN_ID", "TEST_ONLY_ROLE_COLLAPSE", "POOL_MANAGER", "DEPLOYMENT_GIT_SHA", "FOUNDRY_VERSION", "FHENIX_PACKAGE_REVISION", "DEPENDENCY_LOCK_HASH", "ABI_BUNDLE_HASH", "STORAGE_LAYOUT_BUNDLE_HASH"]
+        names = ROLES + ["EXPECTED_CHAIN_ID", "TEST_ONLY_ROLE_COLLAPSE", "BOOTSTRAP_ROLE_COLLAPSE", "POOL_MANAGER", "DEPLOYMENT_GIT_SHA", "FOUNDRY_VERSION", "FHENIX_PACKAGE_REVISION", "DEPENDENCY_LOCK_HASH", "ABI_BUNDLE_HASH", "STORAGE_LAYOUT_BUNDLE_HASH"]
         lines = ["# Public rehearsal inputs. Finalize shared initial roles before mainnet-compatible deployment.", "export FOUNDRY_PROFILE=create2"]
         lines.extend("export " + name + "=" + shlex.quote(env[name]) for name in names)
         lines.append("export DEPLOYMENT_MANIFEST=" + shlex.quote((output / "broadcast-candidate.json").relative_to(ROOT).as_posix()))

@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-10-16 — User-broadcast CREATE2 deployment verified
+
+- Reconcile 17 successful Sepolia transactions creating 24 contracts, including
+  seven internally created ProxyAdmins. Arbiscan confirms all 24 source verifications.
+- Seven proxy/admin slot pairs and runtime hashes match; five lifecycle proxies
+  remain paused. Bootstrap handover/admin actions remain pending; no extra broadcasts.
+- Preserve addresses/receipts in `deployments/v2/arbitrum-sepolia-create2-2026-10-16-confirmed.json`.
+
+## 2026-10-16 — Explicit deployment bootstrap
+
+- Add opt-in `BOOTSTRAP_ROLE_COLLAPSE` to deployment scripts/manifests; default
+  role separation and test-only mainnet rejection remain. No `src/` changes.
+- Use identical initial deployer roles on both forks, with different senders;
+  hand over ownership/roles and verify revocations before funding or activation.
+- Validation: 11 deployment regressions and 16 CREATE2 checks pass, including
+  both live RPC forks. Contract sources and prior creation-code hashes unchanged.
+
 ## 2026-10-16 — Fresh-deployment fee cleanup
 
 - Remove obsolete pending-fee fields/getters and error; update the ABI and

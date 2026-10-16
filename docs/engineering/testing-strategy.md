@@ -31,7 +31,8 @@ are retained. EX-15 remains in the default suite with mandatory exit share-risk 
 
 Deployment-preparation regression checks additionally cover legacy/traversal
 manifest-path rejection, explicit test-only role collapse on Arbitrum Sepolia,
-mainnet rejection of collapsed roles, and candidate/omitted/verification manifest
+mainnet rejection of test-only collapsed roles, explicit temporary bootstrap
+opt-in with deployer-held roles on both forks, and candidate/omitted/verification manifest
 statuses. The CoFHE 1.0.0 mock address book is installed with runtime bytecode
 without consuming a CREATE nonce, preserving persisted invariant-handler
 addresses and replaying saved cases rather than discarding them. The
