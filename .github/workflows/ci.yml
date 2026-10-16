@@ -58,7 +58,7 @@ jobs:
           fi
 
       - name: Build and enforce EIP-170
-        run: forge build --sizes
+        run: forge build src --sizes
 
       - name: Run unit, fuzz, invariant, and integration tests
         run: forge test --offline

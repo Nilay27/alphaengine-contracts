@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-10-16 — Production-only CI size gate
+
+- Exclude `test/` and `script/` from CI/nightly/release size reports; the large
+  invariant handler is test-only. Keep the full test suite and production limits.
+- Original build reproduces EIP-170 failure; `forge build src --sizes` and
+  ABI/layout/23,000-byte checks pass. Full suite: 375 pass, zero fail, six expected skips.
+
 ## 2026-10-16 — User-broadcast CREATE2 deployment verified
 
 - Reconcile 17 successful Sepolia transactions creating 24 contracts, including

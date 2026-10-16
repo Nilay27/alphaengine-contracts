@@ -43,7 +43,7 @@ jobs:
         run: forge fmt --check
 
       - name: Build and enforce EIP-170
-        run: forge build --sizes
+        run: forge build src --sizes
 
       - name: Run release test matrix
         run: forge test --offline

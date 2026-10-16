@@ -36,7 +36,7 @@ jobs:
         run: bash script/ci/check-repository-hygiene.sh
 
       - name: Build with production compiler settings
-        run: forge build --sizes
+        run: forge build src --sizes
 
       - name: Run stress fuzz and invariants
         run: forge test --offline
