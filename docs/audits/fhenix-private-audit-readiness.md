@@ -3,8 +3,33 @@
 - Status: Stage 16 implementation complete; admission-review documentation prepared
 - Review type: Fhenix FHE-efficiency, behavior and basic-security review
 - Designated reviewer: `@liorbond`
-- Review commit: `0595ef4`; dependency migration is a separate remediation commit
+- Historical Fhenix review commit: `0595ef4`; dependency migration is a separate remediation commit
 - Production claim: none; this is not a full external security audit
+
+## 16 October internal source checkpoint
+
+Commit `7ed4c49d2568bc8f89bf6b426b5c66321dbe3f5a` has a refreshed X-Ray,
+requirements-to-existing-fuzz mapping and one Solidity Auditor pass with all
+12 specialties at Max: zero confirmed findings and five unscored leads. The
+[review record](internal-review-2026-10-16.md) preserves the exact scope,
+dispositions, CI results and limits. This does not extend the historical
+Fhenix review or close live-network/governance gates.
+
+The confirmed October 16 Sepolia manifest records 24 explorer source records.
+[Mainnet preparation](../engineering/mainnet-preparation-2026-10-16.md) now
+records the user-broadcast Arbitrum One deployment and bootstrap handover:
+17 deployment and 15 handover transactions succeeded; all 24 runtime hashes,
+seven proxy pairs and five paused states match. All 24 contracts have
+explorer-verified source and independently matched runtime hashes. Six ProxyAdmin
+records reuse verified source through `SimilarMatch` pointers; these do not
+represent missing verifications. Additional explicit submissions returned
+`Already Verified`, and Sourcify independently reports six runtime matches.
+Read-only checks on October 21 at Arbitrum One block 516939262 confirm all five
+default-admin transfers accepted by `0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95`,
+with no pending successor and all five lifecycle contracts still paused.
+Operational-role migration, final governance and live CoFHE checks remain open.
+
+## Historical Fhenix review and migration context
 
 October 8–9 preparation changes the working dependency to CoFHE v1.0.0,
 without broadcasting or changing the consumer ABI. Preserve the review SHAs
@@ -65,8 +90,9 @@ they execute no FHE operations.
   these protocol admission budgets. See the
   [remediation contract](../engineering/fhenix-decrypt-pressure-remediation.md).
 - Stage 17 pinned Pendle market enter/hold/exit fork integration is pending.
-- Consolidated X-Ray, Solidity Auditor, remediation, final fuzzing and
-  independent external audit are not complete.
+- The October 16 internal source pass is complete within its recorded scope.
+  Its retained leads, remaining final-release/live-integration gates and
+  independent external audit are not closed by that result.
 - Deferred swap-hardening hypotheses remain tracked in the canonical plan and
   cannot be omitted from the later release review.
 

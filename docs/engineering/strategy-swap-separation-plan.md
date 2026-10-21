@@ -6,6 +6,9 @@
 > `docs/engineering/strategy-manager-fund-vault-implementation-plan.md`,
 > which defines separate competition and capital StrategyManagers, bound
 > confidential swaps, and the second-pass treasury FundVault boundary.
+> Its [16 October canonical-token decision](strategy-manager-fund-vault-implementation-plan.md#canonical-confidential-token-decision-2026-10-16)
+> also supersedes this historical plan's AlphaEngine wrapper-creation direction:
+> future swaps use Fhenix's canonical confidential assets and supported liquidity.
 
 - Decision date: 2026-08-26
 - Status: approved architecture plan; implementation not started

@@ -1,5 +1,103 @@
 # Development Log
 
+## 2026-10-21 — Reconcile live beta and accepted mainnet admins
+
+- Record the active beta's October 9 Sepolia proxy, October 10 implementation
+  upgrade and fresh two-week competition in
+  `deployments/v2/arbitrum-sepolia-beta-state-2026-10-21.json`. Read-only checks
+  at block 321420620 confirm the expected implementation, an open/unpaused
+  competition and one active submission. The hosted dashboard/listener still
+  bind this proxy; do not confuse it with the separate October 16 CREATE2 set.
+- Recheck all 24 October 16 CREATE2 Sepolia runtime hashes against the recorded
+  build evidence at that same block; all match. Preserve the original receipts,
+  manifests, deployment SHAs and implementation-upgrade record.
+- Mainnet block 516939262 confirms all five default admins are the intended
+  `0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95`, pending admins/schedules are
+  zero, and all five lifecycle contracts remain paused. Add a superseding
+  acceptance observation without rewriting the October 16 initiation snapshot;
+  remove acceptance from outstanding activation gates.
+- Refresh handoff/readiness notes to distinguish the already-approved PR #2
+  baseline and owner-reported messages from unverified live CoFHE admission.
+  This is deployment-record/documentation reconciliation only: no Solidity,
+  dependency, ABI, wallet, transaction, upgrade or activation change.
+
+## 2026-10-16 — Canonical Fhenix assets for future swaps
+
+- Owner confirms swaps must integrate Fhenix's canonical confidential tokens
+  and their supported liquidity. Do not issue AE-eUSDC or other AlphaEngine
+  confidential-token variants, or deploy per-asset AlphaEngine wrappers as the
+  production onboarding path. This supersedes the older custom-wrapper target;
+  FundVault share/accounting decisions are unchanged.
+- Record the requirement and deferred compatibility work in the canonical plan
+  and architecture. Obtain actual token/pool addresses and interfaces from Fhenix;
+  the existing public Uniswap v4 route is not assumed to fit their liquidity.
+  Registry/gateway/escrow custom claim and registry dependencies need adaptation,
+  retaining existing custody, proof, replay, settlement and refund protections.
+- Competition/capital integration proceeds first; swaps remain deferred. The
+  October 16 deployment created only the wrapper template, with no per-asset
+  instances. Documentation only: no source, dependency, test, deployment or
+  on-chain change; historical manifests remain intact.
+
+## 2026-10-16 — Arbitrum One deployment and bootstrap handover
+
+- Reconcile the user's 17 successful deployment transactions and 15 successful
+  handover transactions against Alchemy Arbitrum One RPC. Deployment spans
+  blocks 515424455–515424529 at source commit `7ed4c49`.
+- All 24 runtime hashes, 17 creation-input hashes and seven implementation/admin
+  slot pairs match the prepared deployment. All five lifecycle contracts remain
+  paused; every deployed contract has zero native balance. Deployment and handover
+  calls carry zero ETH and perform no activation or protocol funding.
+- Seven ProxyAdmin ownerships, registry/executor business ownerships and the
+  registry's future-wrapper ProxyAdmin owner now point to
+  `0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95`. The five default-admin
+  transfers are pending to that same successor; their schedules are October 18,
+  21:48:24–21:48:28 IST. Accept after the schedules; 22:00 IST is sufficient.
+- All 24 contracts have explorer-verified source and independently matched
+  runtime hashes. Six ProxyAdmin API records include a `SimilarMatch` pointer
+  to the registry ProxyAdmin. The explorer UI displays `Exact Match` alongside
+  this source-reuse badge and a constructor caveat; the pointer does not mean
+  six contracts are unverified. Creation inputs and current ownership were
+  independently reconciled. Correct the manifest's verified count from 18 to 24.
+  Additional explicit submissions returned `Already Verified`; no repeat is
+  required. Sourcify also confirms six runtime matches (five creation matches;
+  the escrow ProxyAdmin creation field is null).
+- Preserve the confirmed mainnet manifest in
+  `deployments/v2/arbitrum-mainnet-create2-2026-10-16-confirmed.json`.
+  Operational-role/FHE-operator migration, Safe/timelock handover and live CoFHE
+  admission/permission tests remain activation gates. The reminder is disabled
+  at the user's request. No production source or existing deployment script changed.
+
+## 2026-10-16 — Max source review and mainnet preparation
+
+- Refresh X-Ray, map existing fuzz assertions, and complete one Solidity
+  Auditor pass with all 12 specialties at Max against `7ed4c49`.
+  Zero confirmed findings; five retained leads cover upstream task validation,
+  NAV policy and unsolicited vault shares. Preserve approved economics and
+  asset restrictions; no production/test/dependency changes or new campaign.
+- Exact-SHA CI passed: 375 tests, zero failures, six expected skips; coverage
+  94.23% lines / 77.90% branches. No full local coverage restart.
+- Mainnet local-fork rehearsal passes with a different simulated sender and
+  identical initial roles: 23 addresses match Sepolia; executor changes with
+  PoolManager. Prepare all 24 explorer verifications, including seven nested
+  ProxyAdmins. Zero signing, broadcast, funding or verification submissions.
+- Repeat the mainnet rehearsal with selected sender `0x02188Cadd14e1cc02D92683381d291b2589335D7`
+  at block 515404493: all 24 prepared mainnet addresses and 17 creation-code
+  hashes match; 17 zero-value unsigned transactions, zero receipts and no wallet
+  unlock. Preserve original bootstrap initialization inputs. Authority transfer
+  is separate, including five 48-hour default-admin transfers and explicit
+  ownership/operational-role handover; no handover was executed.
+- Replace the selected sender/successor with `0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95`;
+  the earlier candidate is retired. Rehearse the unchanged 17-deployment flow
+  plus 15 explicit ownership/admin-initiation calls on a local mainnet fork.
+  All 24 addresses and 17 creation-code hashes match. Early acceptance and
+  former-owner actions fail with the expected errors; acceptance after a local
+  time advance succeeds and lifecycle contracts stay paused. The one-time
+  handover helper is separate from the unchanged deployment script. Use
+  `ARBITRUM_MAINNET_RPC_URL` for later user-run commands; no live broadcasts.
+- Evidence and lead dispositions: [review record](audits/internal-review-2026-10-16.md).
+  [Mainnet preparation](engineering/mainnet-preparation-2026-10-16.md) remains
+  paused/unfunded in scope; whitelisting, live checks and handover are activation gates.
+
 ## 2026-10-16 — Coverage lifecycle gas budget
 
 - Set a coverage-only gas budget in CI/release. The unchanged 256-entry

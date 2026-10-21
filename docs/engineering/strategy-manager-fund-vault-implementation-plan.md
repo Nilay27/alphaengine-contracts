@@ -1,5 +1,37 @@
 # AlphaEngine Strategy Manager, Confidential Swap, and FundVault Plan
 
+## Canonical confidential-token decision (2026-10-16)
+
+The owner requires confidential swaps to integrate Fhenix's canonical deployed
+FHERC20 assets and their supported liquidity. AlphaEngine will not issue its own
+confidential token variants, such as AE-eUSDC, or deploy per-asset AlphaEngine
+wrappers as the production swap onboarding path. This supersedes older target
+descriptions below that assume AlphaEngine-created per-token wrappers; those
+descriptions still document the implemented code. FundVault shares and accounting
+are outside this swap-only decision.
+
+Before swap activation, obtain and verify the actual canonical token, wrapper
+and liquidity-venue addresses, chain, code and interfaces with Fhenix. Using
+official source code for a separately deployed AlphaEngine token does not satisfy
+the canonical-asset requirement. Do not assume that available liquidity uses the
+current public Uniswap v4 unshield/swap/reshield route; the settlement boundary
+and any necessary executor adapter depend on the confirmed venue interfaces.
+
+The current registry/gateway/escrow require AlphaEngine-specific
+`wrapperRegistry()` and `latestUnshieldClaimId()` surfaces. Their compatibility
+changes are deferred. Preserve claim/proof binding, actual returned handles,
+custody conservation, replay protection, committed recipients/minimum output,
+refund liveness and zero residual balances. Assess how existing withdrawal and
+admission controls apply to externally controlled canonical tokens; disclose
+gaps before changing contracts rather than silently removing protections or
+claiming authority over Fhenix token implementations.
+
+The October 16 deployment includes a wrapper implementation template and no
+per-asset AlphaEngine wrapper instances. Keep the deployed code and dependency
+pins unchanged for now, and preserve historical deployment evidence. Competition
+and capital integration proceeds first; swaps remain deferred until canonical
+token/liquidity compatibility and the existing activation gates are satisfied.
+
 ## Fhenix review amendments (2026-09-25)
 
 The owner approved the CoFHE 0.2 / FHERC20 0.4 migration and completing findings

@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "recordType": "active-beta-state-observation",
+  "chainId": 421614,
+  "observedAtUtc": "2026-10-21T14:26:23.423Z",
+  "observedBlock": 321420620,
+  "observedBlockHash": "0x7258ad04a3ed0960794d20c6c7d0be12b3bb26a68627e1ee9b24b06af34ffdb3",
+  "deploymentManifest": "deployments/v2/arbitrum-sepolia-2026-10-09-4ffb31f-confirmed.json",
+  "implementationUpgradeRecord": "deployments/v2/arbitrum-sepolia-competition-upgrade-2026-10-10.json",
+  "proxy": "0x9CBF3917Ff31E41393e5D992b3bdbf1fC9C80744",
+  "implementation": "0xfc81bf4d378dc526894bc7a132064f204d922361",
+  "competitionId": "0x7fd99c6d9518b697a201dedd3955603b72449ad3e867628cc8187f978bd9813d",
+  "paused": false,
+  "competition": {
+    "rulesHash": "0xd281377da3936141bfb1096669102ba93f10d83aa90d60fc992ca192c832f2a7",
+    "submissionDeadline": 1793800369,
+    "evaluationDeadline": 1793886769,
+    "qualificationValidUntil": 1795182769,
+    "competitionNonce": "2",
+    "qualificationSlots": 1,
+    "activeSubmissionCount": 1,
+    "evaluatedCount": 0,
+    "publishedQualificationCount": 0,
+    "status": 1
+  },
+  "competitionCreationTransaction": "0x04020636a5038f7ac8941b8bafdd3c2793651b6815ce770002f292849b653938",
+  "competitionCreationBlock": 321412906,
+  "separateCreate2Deployment": {
+    "manifest": "deployments/v2/arbitrum-sepolia-create2-2026-10-16-confirmed.json",
+    "runtimeMatches": {
+      "confidentialTokenLibrary": {
+        "address": "0x89C0FEdfEC30a097BE2b7Fb782Be9610686309f1",
+        "runtimeCodeHash": "0x6b66dbb0694d7d6fb6d54122f26f72446015c9c91c92ef41e837dd18361b2088",
+        "matches": true
+      },
+      "assetWrapperImplementation": {
+        "address": "0xa9CA9F6CBF3Da76dDEeD4419D9374d82dE519CfC",
+        "runtimeCodeHash": "0xb414fee10b2f5171e6c5f891b95f61a1c11d2ca0153576cce564d4a095662e3c",
+        "matches": true
+      },
+      "assetRegistryImplementation": {
+        "address": "0x2C03866e688714deF5b72bDE77cdF5496b7868Fb",
+        "runtimeCodeHash": "0x8e3c48e7f17d7517c7db37b4dcb6d2ca1a45d36cdbf3ca62409018ceecb1327d",
+        "matches": true
+      },
+      "assetRegistry": {
+        "address": "0x4262462423C931BADCFA0DA07bDC67b1b51aa17F",
+        "runtimeCodeHash": "0x576dc840cd4d97f624a36f98ff5f8d500ebb711f158a22d7d94881964631f026",
+        "matches": true
+      },
+      "assetRegistryProxyAdmin": {
+        "address": "0x4eC4ee582b94b97AA846e781DBD4d14bfAFa3362",
+        "runtimeCodeHash": "0x7664c06c3ff64366b0c870eb585d9d80aa5730441eccca3025054e0366a20d0b",
+        "matches": true
+      },
+      "assetGatewayImplementation": {
+        "address": "0x98719e008b30ac48eE2F4bEe0155e60b9c7185Cb",
+        "runtimeCodeHash": "0x78dc69bec90e0094471b742bc90d406a7cbe7e730cea5ad87c451a4e7d02fb5f",
+        "matches": true
+      },
+      "assetGateway": {
+        "address": "0x5B3aF3fe2A504D4B2a371c13988729785c6a27Dc",
+        "runtimeCodeHash": "0x6a19c297843ddc88db1e639b3bcb72a38aa9e9eec5b133f9687033de498df44b",
+        "matches": true
+      },
+      "assetGatewayProxyAdmin": {
+        "address": "0x7374eAbC825d6FF57929c62BdC35F262b4974137",
+        "runtimeCodeHash": "0x7664c06c3ff64366b0c870eb585d9d80aa5730441eccca3025054e0366a20d0b",
+        "matches": true
+      },
+      "qualificationRegistryImplementation": {
+        "address": "0x6DeBF287f1E9B64918078fCcbC36b659D8ea68eD",
+        "runtimeCodeHash": "0xee4d39a243d479ac29667e0e02d5857879b0fba893468f361a5d2c4a0a23e407",
+        "matches": true
+      },
+      "qualificationRegistryProxy": {
+        "address": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+        "runtimeCodeHash": "0xb3810982b0a53a4baaac6574ae15085d7be45459c22e38831a0af1b4ca7dcde2",
+        "matches": true
+      },
+      "qualificationRegistryProxyAdmin": {
+        "address": "0x5bEFE82e4d0138E840bc3498ad5bdb3ebE6E1632",
+        "runtimeCodeHash": "0x7664c06c3ff64366b0c870eb585d9d80aa5730441eccca3025054e0366a20d0b",
+        "matches": true
+      },
+      "competitionManagerImplementation": {
+        "address": "0xA0e845476674Ad39319761f55dEbfba30CFcE1E0",
+        "runtimeCodeHash": "0x9f78e935c2bc6ad09cb062bba9dcb76861f56de3aeffb91dce9de87bcc58eb8a",
+        "matches": true
+      },
+      "competitionManagerProxy": {
+        "address": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+        "runtimeCodeHash": "0x8c81d40ac5f2fa7f3b647f8eeb86e53caf3b74133091733629e25e2abcf2771b",
+        "matches": true
+      },
+      "competitionManagerProxyAdmin": {
+        "address": "0x0D4CbA28056f6D4C5d06C1E0d87e9F8A55C0cae0",
+        "runtimeCodeHash": "0x7664c06c3ff64366b0c870eb585d9d80aa5730441eccca3025054e0366a20d0b",
+        "matches": true
+      },
+      "capitalManagerImplementation": {
+        "address": "0x36FC84355163EebDb5a882C5eFc80B565041b4fB",
+        "runtimeCodeHash": "0xb4cc975587e26e42c228f0832baf32bf31ad78c737686eaaa1d9867411a37159",
+        "matches": true
+      },
+      "capitalManagerProxy": {
+        "address": "0x169e1E9371B421C0Ab8D0259e597d148E4F450a9",
+        "runtimeCodeHash": "0x7c74f6e54f05e39342cfeacf0c5191acca0ac268e587722a0756bf6f379fd2e5",
+        "matches": true
+      },
+      "capitalManagerProxyAdmin": {
+        "address": "0x808a47f1E9e9A7A25c7b7d53c255FA6BeD0F0De7",
+        "runtimeCodeHash": "0x7664c06c3ff64366b0c870eb585d9d80aa5730441eccca3025054e0366a20d0b",
+        "matches": true
+      },
+      "swapControllerImplementation": {
+        "address": "0x4e3aA848F20342e8A72119046769cA05aCd75CbB",
+        "runtimeCodeHash": "0x2e921032c33c48cb0c7acb7a3a8fc790f617a73ccaf780e5b54a3d7578ee74e1",
+        "matches": true
+      },
+      "swapControllerProxy": {
+        "address": "0x083492999E0903500f292A9B8926F8cEEAbb023B",
+        "runtimeCodeHash": "0x935c343b8917a0deb592196670cef98a9550d1dfaf549fdb22ec29448beee0ac",
+        "matches": true
+      },
+      "swapControllerProxyAdmin": {
+        "address": "0x6B6C2aCEd29705f7b8F34D8Eea9d9d668A2Ed844",
+        "runtimeCodeHash": "0x7664c06c3ff64366b0c870eb585d9d80aa5730441eccca3025054e0366a20d0b",
+        "matches": true
+      },
+      "swapEscrowImplementation": {
+        "address": "0x2966Ff2104D7A5c69c4e4433D181DE8bCa42c38E",
+        "runtimeCodeHash": "0xb08e73f87eba52b313bfb58596ae86a28814fdd57647f7102d72f5cdc7c2ef85",
+        "matches": true
+      },
+      "swapEscrowProxy": {
+        "address": "0x5fB529c05A182df3B23fe7B305dBc1ea9e19b314",
+        "runtimeCodeHash": "0xf133f5a60dad47af4495f403cab76760796c8fa4b23503755f6301c38cdeff5f",
+        "matches": true
+      },
+      "swapEscrowProxyAdmin": {
+        "address": "0x1E997Cff7e22B599209C937FC0abaC83b1c2532b",
+        "runtimeCodeHash": "0x7664c06c3ff64366b0c870eb585d9d80aa5730441eccca3025054e0366a20d0b",
+        "matches": true
+      },
+      "swapExecutor": {
+        "address": "0x336e1dbc80935a553a5d5F8D1f12D1a906526386",
+        "runtimeCodeHash": "0x5412a11e915a29d7aa22cb98958e7e9184aa37f7b600830a724f79dac8306c0d",
+        "matches": true
+      }
+    },
+    "matchedRuntimeCount": 24,
+    "consumerBinding": "The hosted beta still uses the October 9 proxy and October 10 upgrade above. This observation does not migrate it to the separate October 16 CREATE2 deployment."
+  }
+}

@@ -17,6 +17,16 @@ manifest changes; no public broadcast accompanies this preparation.
 
 ## Current shape
 
+Owner-approved swap target, 16 October 2026: integrate Fhenix's canonical
+confidential tokens and supported liquidity without issuing AlphaEngine token
+variants or creating per-asset AlphaEngine wrappers. The current implementation
+described below still contains wrapper creation, registry binding and custom
+claim-ID lookup; it has not yet been adapted to this target. No per-asset wrapper
+instances were created in the October 16 mainnet deployment. Resolve actual
+token and pool interfaces before choosing an execution route or upgrading the
+affected proxies. See the
+[canonical-token decision](strategy-manager-fund-vault-implementation-plan.md#canonical-confidential-token-decision-2026-10-16).
+
 - The active source tree contains independent competition, capital, confidential
   swap, asset registry/gateway, escrow, and protocol-specific executor domains.
 - The superseded `AlphaEngineIntentController` and
