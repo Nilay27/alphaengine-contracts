@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "status": "confirmed-active",
+  "chainId": 42161,
+  "deploymentSourceCommit": "7ed4c49d2568bc8f89bf6b426b5c66321dbe3f5a",
+  "originalDeploymentManifest": "deployments/v2/arbitrum-mainnet-create2-2026-10-16-confirmed.json",
+  "configurationFile": "deployments/v2/arbitrum-mainnet-first-competition-2026-10-22.json",
+  "configurationHash": "0xb06eb0d3767e0880d90443665cbb105edcf8c4196bc73822238d053ad770d7ca",
+  "competitionId": "0xfdb35917be05418b47908b8f046d23815fb50c02375323c39d9cf94b9bb46618",
+  "competitionManager": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+  "qualificationRegistry": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+  "adminKeystoreLabel": "alphaengine-mainnet-deployer",
+  "setupScript": "script/SetupMainnetCompetition.s.sol",
+  "setupScriptCommittedAtBroadcast": false,
+  "setupScriptProvenance": "The script was present as an untracked local file at broadcast; the working-tree SHA256 below pins the verified script. The deployed production contracts remain at the original source commit.",
+  "scope": "User-broadcast roles/operator changes, old bootstrap role removals, registry and manager unpause, and active competition creation.",
+  "confirmation": {
+    "block": 517207489,
+    "blockHash": "0xf45be74ecefce8ddc8920c6d37c097575d31d3c2ed5cc19043aa91b4962d9a85",
+    "checkedAtUtc": "2026-10-22T11:15:15.659Z",
+    "cmPaused": false,
+    "regPaused": false,
+    "cmAdmin": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+    "regAdmin": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+    "operator": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+    "nonce": 1,
+    "competitionExists": true,
+    "managerRoles": [
+      {
+        "name": "COMPETITION_CREATOR_ROLE",
+        "granted": true
+      },
+      {
+        "name": "COMPETITION_CANCELLER_ROLE",
+        "granted": true
+      },
+      {
+        "name": "EVALUATOR_ROLE",
+        "granted": true
+      },
+      {
+        "name": "FINALIZER_ROLE",
+        "granted": true
+      },
+      {
+        "name": "QUALIFIER_ROLE",
+        "granted": true
+      },
+      {
+        "name": "SCORE_REVEALER_ROLE",
+        "granted": true
+      },
+      {
+        "name": "PAUSER_ROLE",
+        "granted": true
+      }
+    ],
+    "registryRoles": [
+      {
+        "name": "QUALIFICATION_REVOKER_ROLE",
+        "granted": true
+      },
+      {
+        "name": "PAUSER_ROLE",
+        "granted": true
+      }
+    ],
+    "managerIsIssuer": true,
+    "oldBootstrapRoles": [
+      false,
+      false,
+      false
+    ],
+    "competition": {
+      "rulesHash": "0xd281377da3936141bfb1096669102ba93f10d83aa90d60fc992ca192c832f2a7",
+      "submissionDeadline": 1793874600,
+      "evaluationDeadline": 1793961000,
+      "qualificationValidUntil": 1795257000,
+      "competitionNonce": "0",
+      "qualificationSlots": 1,
+      "activeSubmissionCount": 0,
+      "evaluatedCount": 0,
+      "publishedQualificationCount": 0,
+      "status": 1
+    },
+    "receiptsVerified": 17,
+    "creationTransactionHash": "0x46def456385798d226d4fd8a22aea7901ac1f75603f8d8788e1e4402f98abde5",
+    "setupBlockStart": 517207185,
+    "setupBlockEnd": 517207243,
+    "actualExecutionCostWei": "17315496365318",
+    "scriptWorkingTreeSha256": "36b80bda1698506575760876bab89f567208077fd3f4b7309fab628c1676c52c",
+    "transactions": [
+      {
+        "step": 1,
+        "transactionHash": "0x29f7bd9e120ed1d0938f5571e593366a7bbebf58d3a5e337806e4e0476d9b080",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207185",
+        "gasUsed": "57022",
+        "effectiveGasPriceWei": "20042001",
+        "input": "0x2f2ff15d873d4fb9e8bd9c395550230e08534d5e728fa6d3bddfcff917e0c21fd02f5bc7000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 2,
+        "transactionHash": "0xcfeeb1aa59019f07233a5af431ea627af376c02a9db7d8cdfc91b29a3827488d",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207187",
+        "gasUsed": "57023",
+        "effectiveGasPriceWei": "20012001",
+        "input": "0x2f2ff15df50c97434b433fbd561d7e6f0545017ca5eab954b4e7c7f133919b2e29fd3d45000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 3,
+        "transactionHash": "0x998b816f563012b4a2a46aba2fa2c3e4096741124523b6bbbd2c80cd4d9c7122",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207191",
+        "gasUsed": "57022",
+        "effectiveGasPriceWei": "20024001",
+        "input": "0x2f2ff15d4848aa3d2c0568bab3ca9720f91818ee0957e95426fa0627cc4809e2e5ed8be0000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 4,
+        "transactionHash": "0x61fdacc57711b66df0dbd83fad7afcaf229d3a5ca8632b0fc0105421ac01fedb",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207195",
+        "gasUsed": "57022",
+        "effectiveGasPriceWei": "20040001",
+        "input": "0x2f2ff15d53ea8c2084bd069d8c2df22bdca7223415cd9c0b605c29d1a0d06f15fcd3eed4000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 5,
+        "transactionHash": "0x18dd582f4bb1fca6894f6a22b3c7875a05f065951b7d7a2c2dc0c3137057fb0e",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207201",
+        "gasUsed": "57023",
+        "effectiveGasPriceWei": "20000001",
+        "input": "0x2f2ff15dc00d228a1658af132951d626e3e43f846c0b2341f3ae1bd016beea5e1867331f000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 6,
+        "transactionHash": "0xd37012ee25d6bfabd341bf865c6bf8043e334f04709e448a71f6426d4e6269d4",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207204",
+        "gasUsed": "57023",
+        "effectiveGasPriceWei": "20000001",
+        "input": "0x2f2ff15dfd2581a15d6dc52c84d019973aae55d194fe932f3087ab157181604c83e354fe000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 7,
+        "transactionHash": "0xdb613464f85be34f807ffd1629b560722a9fdd9032a80e3bf00c2d3f6141109f",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207208",
+        "gasUsed": "57023",
+        "effectiveGasPriceWei": "20016001",
+        "input": "0x2f2ff15d65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 8,
+        "transactionHash": "0x3949819886270451697d11e01c9a79f8395c2cfc88391dab9cdb210a25ad58dc",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0xf7017f2e11e22094ef5e3952ea86768ed302c98d",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207210",
+        "gasUsed": "56803",
+        "effectiveGasPriceWei": "20000001",
+        "input": "0x2f2ff15d3be66c9bb267e91c89bce0019f25ac183ebc1943338a1758b224dda93e1c8eb9000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 9,
+        "transactionHash": "0xe11ca2c10e90f1888a6666d3fc980e8ac9e25ae23aedf6706b3c0c0a39e30b61",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0xf7017f2e11e22094ef5e3952ea86768ed302c98d",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207214",
+        "gasUsed": "56803",
+        "effectiveGasPriceWei": "20000001",
+        "input": "0x2f2ff15d65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 10,
+        "transactionHash": "0x6c73a96b725aae6b1ddb2e552a4f7dbbc3bb2ee8394e431e82f0299856da5409",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0xf7017f2e11e22094ef5e3952ea86768ed302c98d",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207217",
+        "gasUsed": "56803",
+        "effectiveGasPriceWei": "20002001",
+        "input": "0x2f2ff15dd1b1567f1c572969723bca97690b60a23066a85e2d4f4d7fb2df4336bddbf0040000000000000000000000007ffcda0a08401acf1d114c83b32ce439c48c3681"
+      },
+      {
+        "step": 11,
+        "transactionHash": "0x9f1fa9cde0882d921fa72d0230f69d773c6e01bb16623a054fcda867244d8fdd",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207220",
+        "gasUsed": "38488",
+        "effectiveGasPriceWei": "20000001",
+        "input": "0x5aa649af000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95"
+      },
+      {
+        "step": 12,
+        "transactionHash": "0x607f05212d3665e9a2ce94b22b15049b87eafb7ad88c476b707cedc709aaa622",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207223",
+        "gasUsed": "36049",
+        "effectiveGasPriceWei": "20000001",
+        "input": "0xd547741f65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a0000000000000000000000000cd73a4e3d34d5488bc4e547fecedac86305db9d"
+      },
+      {
+        "step": 13,
+        "transactionHash": "0x833281907e14598ea9d2b5061885dc80b4053659653414dfc686fc4e02e0fcc1",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0xf7017f2e11e22094ef5e3952ea86768ed302c98d",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207227",
+        "gasUsed": "35433",
+        "effectiveGasPriceWei": "20012001",
+        "input": "0xd547741f3be66c9bb267e91c89bce0019f25ac183ebc1943338a1758b224dda93e1c8eb90000000000000000000000000cd73a4e3d34d5488bc4e547fecedac86305db9d"
+      },
+      {
+        "step": 14,
+        "transactionHash": "0xa9f40126794de4f6dd256e6f3b2ae8c75a62006e21241c6820dee84c5d493c7c",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0xf7017f2e11e22094ef5e3952ea86768ed302c98d",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207231",
+        "gasUsed": "35433",
+        "effectiveGasPriceWei": "20010001",
+        "input": "0xd547741f65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a0000000000000000000000000cd73a4e3d34d5488bc4e547fecedac86305db9d"
+      },
+      {
+        "step": 15,
+        "transactionHash": "0x538c123a05f6cc2a589b9db63772d38c884d8de4040fe4ce4b6d5fc28c670744",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0xf7017f2e11e22094ef5e3952ea86768ed302c98d",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207235",
+        "gasUsed": "30081",
+        "effectiveGasPriceWei": "20004001",
+        "input": "0x3f4ba83a"
+      },
+      {
+        "step": 16,
+        "transactionHash": "0x380c0110879799c8500f1acebd8e91bb24f5462a8682d960ee20c3a8df7277fa",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207239",
+        "gasUsed": "30523",
+        "effectiveGasPriceWei": "20004001",
+        "input": "0x3f4ba83a"
+      },
+      {
+        "step": 17,
+        "transactionHash": "0x46def456385798d226d4fd8a22aea7901ac1f75603f8d8788e1e4402f98abde5",
+        "from": "0xacc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+        "to": "0x7ffcda0a08401acf1d114c83b32ce439c48c3681",
+        "valueWei": "0",
+        "status": "success",
+        "blockNumber": "517207243",
+        "gasUsed": "89744",
+        "effectiveGasPriceWei": "20004001",
+        "input": "0xf8807f40d281377da3936141bfb1096669102ba93f10d83aa90d60fc992ca192c832f2a7000000000000000000000000000000000000000000000000000000006aec5aa8000000000000000000000000000000000000000000000000000000006aedac28000000000000000000000000000000000000000000000000000000006b0172a80000000000000000000000000000000000000000000000000000000000000001"
+      }
+    ]
+  },
+  "remainingIntegrationWork": "Mainnet frontend/listener binding, matching operator identity and a real encrypted-submission/decryption/evaluation/UI smoke test. Final Safe/timelock governance handover is separate."
+}

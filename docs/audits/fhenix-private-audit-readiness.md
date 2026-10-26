@@ -29,6 +29,22 @@ default-admin transfers accepted by `0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95`
 with no pending successor and all five lifecycle contracts still paused.
 Operational-role migration, final governance and live CoFHE checks remain open.
 
+On October 22, read-only checks at block 517195823 confirm CoFHE is enabled,
+its access list is enabled, and all four deployed FHE caller proxies are listed.
+The [competition setup plan](../engineering/mainnet-competition-activation-2026-10-22.md)
+records eleven unsigned setup calls plus three old-bootstrap role removals;
+all independently simulate successfully. The competition manager and
+qualification registry remain paused. Admission is now confirmed; live
+encrypted-operation checks, operational setup and final governance remain open.
+
+Later on October 22, the user broadcast the
+[competition setup](../../deployments/v2/arbitrum-mainnet-competition-2026-10-22-confirmed.json):
+all seventeen receipts/calldata match and succeed. RPC at block 517207489
+confirms role/operator migration, old-role removal, the exact active competition,
+and both manager/registry unpaused. This supersedes the paused preparation above;
+it adds no production source or dependency change. Mainnet encrypted-flow
+integration checks and final governance handover remain outstanding.
+
 ## Historical Fhenix review and migration context
 
 October 8–9 preparation changes the working dependency to CoFHE v1.0.0,

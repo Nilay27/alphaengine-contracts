@@ -10,6 +10,17 @@ the default fuzz/invariant profile; nightly and release-candidate workflows use
 at least 10,000 fuzz runs and 256 invariant runs at depth 128. GitHub Actions
 and the Foundry setup action are pinned by full commit SHA.
 
+The PR/push CI workflow also runs Gitleaks `v8.30.1`, downloaded from its
+official release with a pinned SHA-256 checksum, against all fetched Git
+history (`--all --full-history`). Findings are fully redacted in logs and fail
+the job. `.gitleaks.toml` extends the default rules; its only exceptions are
+specific public deployment address/code-hash fields and a deterministic hash
+test-vector field, scoped to the generic API-key rule and matching paths.
+The repository-hygiene script separately rejects tracked environment files
+(except `.env.example`, `.env.sample`, and `.env.template`), key/keystore files,
+broadcast/cache files, and local security reports. Ignore rules protect local
+files but do not replace these checks.
+
 During bounded implementation stages, local validation runs only the affected
 unit/fuzz/invariant contracts at the required depth. Complete-repository fuzz,
 coverage, and release gates remain mandatory at the final integration stage;
@@ -355,6 +366,17 @@ not threshold-network signature validation. Live CoFHE testing remains a release
 - PoolManager swap execution tests now live behind the dedicated executor boundary and must continue to avoid importing Uniswap into the controller or vault.
 
 ## External protocol fixture policy
+
+Mainnet competition setup has a focused pinned-address suite, run with
+`FOUNDRY_PROFILE=create2 forge test --offline --match-contract SetupMainnetCompetitionTest`.
+The focused tests cover permission/event counts, registry and manager unpause,
+active competition creation without a pause, no-op reruns and partial setup,
+plus typed chain, sender, implementation, admin, operator, admission, limit,
+schedule, nonce and existing-configuration failures. The default profile skips these
+fixtures because their runtime-hash checks intentionally require the deployed
+CREATE2 metadata profile; CI runs them in its CREATE2 step. Live public-RPC
+script simulation remains separate from local admission mocks and never proves
+encrypted-operation parity or transaction confirmation.
 
 - `@uniswap/v4-core` is allowed for Foundry-only executor fixtures, direct `PoolSwapTest` reference swaps, and the separately-approved executor boundary.
 - Production strategy-manager, swap-controller, and swap-escrow tests must not

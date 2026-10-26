@@ -103,15 +103,24 @@ Implementation is complete through **Stage 16** of the canonical plan:
 - deterministic Merkle policy artifacts and the immutable vault execution manager;
 - focused unit, fuzz, invariant, and integration coverage for each stage.
 
-The user deployed the selected strategy/confidential-swap core to Arbitrum
-Sepolia on 9 October 2026; see the [final addresses and receipt record](docs/engineering/deployment-arbitrum-sepolia-2026-10-09.md).
-FundVault and per-asset wrappers remain undeployed. The local competition
-submission/decryption/evaluation/leaderboard flow has been exercised; on-chain
-evaluation/finalization/reveal and capital/swap activation remain pending.
-Stage 17 still requires pinned real-market Pendle
-enter/hold/exit fork integration.
-Consolidated X-Ray, Solidity Auditor, remediation, final fuzzing, production
-Fhenix validation, and release freeze remain later gates. This codebase must
+The strategy/confidential-swap core was deployed to Arbitrum Sepolia on
+9 October 2026; see the [addresses and receipt record](docs/engineering/deployment-arbitrum-sepolia-2026-10-09.md).
+The subsequent [Arbitrum One deployment record](docs/engineering/mainnet-preparation-2026-10-16.md)
+documents the October 16 deployment, explorer source verification, and accepted
+bootstrap-admin handover. The [October 22 competition confirmation](docs/engineering/mainnet-competition-activation-2026-10-22.md)
+records operational-role setup, removal of the old bootstrap's competition
+permissions, and an active competition with the manager and registry unpaused.
+These are dated deployment observations, not a fresh live-state check.
+
+The [October 16 internal source review](docs/audits/internal-review-2026-10-16.md)
+at `7ed4c49` completed X-Ray, a requirements-to-existing-fuzz review, and one
+Solidity Auditor pass: zero confirmed findings and five unscored leads. It was
+an internal AI-assisted review, not an independent external security audit.
+
+FundVault and per-asset wrappers remain undeployed. Mainnet encrypted-flow
+integration checks, final Safe/timelock governance handover, Stage 17 real-market
+Pendle enter/hold/exit fork integration, independent external review, and the
+remaining product-specific release gates are still open. This codebase must
 not be described as production-ready or externally audited.
 
 ## Build and verify
@@ -127,6 +136,14 @@ python3 script/reference/alphaengine_listener_surface.py --check
 git diff --check
 ```
 
+CI also runs checksum-pinned Gitleaks `v8.30.1` over all fetched Git history,
+including deleted files. To reproduce with that version installed:
+
+```bash
+gitleaks git --no-banner --redact=100 --log-opts="--all --full-history" .
+bash script/ci/check-repository-hygiene.sh
+```
+
 Release profiles increase fuzz and invariant runs; see
 [testing-strategy.md](docs/engineering/testing-strategy.md). Generated listener
 ABIs live under [`ABI/v2/`](ABI/v2/), and deployment/cutover behavior is
@@ -139,3 +156,10 @@ The retired mixed `AlphaEngineIntentController` and
 ABI, layouts, addresses, and Git history remain preserved as historical
 evidence. Fresh contracts use independent storage, nonces, pause domains,
 roles, ABIs, and deployment addresses; no legacy storage is reinterpreted.
+
+## License and security
+
+AlphaEngine-authored code is available under the [MIT License](LICENSE).
+Third-party dependencies retain their own licenses and notices.
+See [SECURITY.md](SECURITY.md) for private vulnerability reporting and review
+limitations.

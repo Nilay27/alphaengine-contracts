@@ -17,11 +17,14 @@ git submodule foreach --recursive --quiet \
 
 tracked_sensitive_paths="$(
     git ls-files | awk '
-        /(^|\/)\.env$/ ||
+        /(^|\/)\.env\.(example|sample|template)$/ { next }
+        /(^|\/)\.env($|\.)/ ||
         /(^|\/)broadcast\// ||
         /(^|\/)cache\// ||
         /\.pem$/ ||
-        /\.key$/ { print }
+        /\.(key|p12|pfx)$/ ||
+        /(^|\/)(keystore|keystores)\// ||
+        /(^|\/)\.gstack\/security-reports\// { print }
     '
 )"
 if [[ -n "$tracked_sensitive_paths" ]]; then

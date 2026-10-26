@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "deploymentSourceCommit": "7ed4c49d2568bc8f89bf6b426b5c66321dbe3f5a",
+  "sourceManifest": "deployments/v2/arbitrum-mainnet-create2-2026-10-16-confirmed.json",
+  "status": "prepared-not-broadcast",
+  "chainId": 42161,
+  "checkedAtUtc": "2026-10-22T10:19:49.312Z",
+  "observedBlock": 517195823,
+  "observedBlockHash": "0x88e02c5c3699af05ad41f94015fe79bcfa225ba4826cb04de2b061906d0f19e9",
+  "incomingAdmin": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+  "previousBootstrap": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "incomingNativeBalanceWei": "1660911756378550",
+  "state": {
+    "competitionManager": {
+      "address": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "implementation": "0xA0e845476674Ad39319761f55dEbfba30CFcE1E0",
+      "implementationCodeHash": "0x9f78e935c2bc6ad09cb062bba9dcb76861f56de3aeffb91dce9de87bcc58eb8a",
+      "defaultAdmin": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "pendingAdmin": "0x0000000000000000000000000000000000000000",
+      "paused": true,
+      "roles": [
+        {
+          "roleName": "COMPETITION_CREATOR_ROLE",
+          "role": "0x873d4fb9e8bd9c395550230e08534d5e728fa6d3bddfcff917e0c21fd02f5bc7",
+          "incomingHas": false,
+          "outgoingHas": false
+        },
+        {
+          "roleName": "COMPETITION_CANCELLER_ROLE",
+          "role": "0xf50c97434b433fbd561d7e6f0545017ca5eab954b4e7c7f133919b2e29fd3d45",
+          "incomingHas": false,
+          "outgoingHas": false
+        },
+        {
+          "roleName": "EVALUATOR_ROLE",
+          "role": "0x4848aa3d2c0568bab3ca9720f91818ee0957e95426fa0627cc4809e2e5ed8be0",
+          "incomingHas": false,
+          "outgoingHas": false
+        },
+        {
+          "roleName": "FINALIZER_ROLE",
+          "role": "0x53ea8c2084bd069d8c2df22bdca7223415cd9c0b605c29d1a0d06f15fcd3eed4",
+          "incomingHas": false,
+          "outgoingHas": false
+        },
+        {
+          "roleName": "QUALIFIER_ROLE",
+          "role": "0xc00d228a1658af132951d626e3e43f846c0b2341f3ae1bd016beea5e1867331f",
+          "incomingHas": false,
+          "outgoingHas": false
+        },
+        {
+          "roleName": "SCORE_REVEALER_ROLE",
+          "role": "0xfd2581a15d6dc52c84d019973aae55d194fe932f3087ab157181604c83e354fe",
+          "incomingHas": false,
+          "outgoingHas": false
+        },
+        {
+          "roleName": "PAUSER_ROLE",
+          "role": "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
+          "incomingHas": false,
+          "outgoingHas": true
+        }
+      ],
+      "fheOperator": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+      "submissionLimit": 3,
+      "submissionWindowSeconds": 300,
+      "competitionNonce": "0"
+    },
+    "qualificationRegistry": {
+      "address": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+      "implementation": "0x6DeBF287f1E9B64918078fCcbC36b659D8ea68eD",
+      "implementationCodeHash": "0xee4d39a243d479ac29667e0e02d5857879b0fba893468f361a5d2c4a0a23e407",
+      "defaultAdmin": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "pendingAdmin": "0x0000000000000000000000000000000000000000",
+      "paused": true,
+      "roles": [
+        {
+          "roleName": "QUALIFICATION_REVOKER_ROLE",
+          "role": "0x3be66c9bb267e91c89bce0019f25ac183ebc1943338a1758b224dda93e1c8eb9",
+          "incomingHas": false,
+          "outgoingHas": true
+        },
+        {
+          "roleName": "PAUSER_ROLE",
+          "role": "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
+          "incomingHas": false,
+          "outgoingHas": true
+        }
+      ],
+      "competitionManagerIsIssuer": false
+    }
+  },
+  "cofhe": {
+    "taskManager": "0x52E7a0cAF234b266bCFAa6aA933a412FDe58432A",
+    "enabled": true,
+    "accessListEnabled": true,
+    "competitionManagerListed": true,
+    "capitalManagerListed": true,
+    "swapControllerListed": true,
+    "swapEscrowListed": true
+  },
+  "setupTransactions": [
+    {
+      "step": 1,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "COMPETITION_CREATOR_ROLE",
+      "args": [
+        "0x873d4fb9e8bd9c395550230e08534d5e728fa6d3bddfcff917e0c21fd02f5bc7",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15d873d4fb9e8bd9c395550230e08534d5e728fa6d3bddfcff917e0c21fd02f5bc7000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 2,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "COMPETITION_CANCELLER_ROLE",
+      "args": [
+        "0xf50c97434b433fbd561d7e6f0545017ca5eab954b4e7c7f133919b2e29fd3d45",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15df50c97434b433fbd561d7e6f0545017ca5eab954b4e7c7f133919b2e29fd3d45000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 3,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "EVALUATOR_ROLE",
+      "args": [
+        "0x4848aa3d2c0568bab3ca9720f91818ee0957e95426fa0627cc4809e2e5ed8be0",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15d4848aa3d2c0568bab3ca9720f91818ee0957e95426fa0627cc4809e2e5ed8be0000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 4,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "FINALIZER_ROLE",
+      "args": [
+        "0x53ea8c2084bd069d8c2df22bdca7223415cd9c0b605c29d1a0d06f15fcd3eed4",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15d53ea8c2084bd069d8c2df22bdca7223415cd9c0b605c29d1a0d06f15fcd3eed4000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 5,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "QUALIFIER_ROLE",
+      "args": [
+        "0xc00d228a1658af132951d626e3e43f846c0b2341f3ae1bd016beea5e1867331f",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15dc00d228a1658af132951d626e3e43f846c0b2341f3ae1bd016beea5e1867331f000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 6,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "SCORE_REVEALER_ROLE",
+      "args": [
+        "0xfd2581a15d6dc52c84d019973aae55d194fe932f3087ab157181604c83e354fe",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15dfd2581a15d6dc52c84d019973aae55d194fe932f3087ab157181604c83e354fe000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 7,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "PAUSER_ROLE",
+      "args": [
+        "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15d65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 8,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "QUALIFICATION_REVOKER_ROLE",
+      "args": [
+        "0x3be66c9bb267e91c89bce0019f25ac183ebc1943338a1758b224dda93e1c8eb9",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15d3be66c9bb267e91c89bce0019f25ac183ebc1943338a1758b224dda93e1c8eb9000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 9,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "PAUSER_ROLE",
+      "args": [
+        "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x2f2ff15d65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    },
+    {
+      "step": 10,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+      "value": "0x0",
+      "function": "grantRole(bytes32,address)",
+      "roleName": "QUALIFICATION_ISSUER_ROLE",
+      "simulation": "passed",
+      "args": [
+        "0xd1b1567f1c572969723bca97690b60a23066a85e2d4f4d7fb2df4336bddbf004",
+        "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681"
+      ],
+      "data": "0x2f2ff15dd1b1567f1c572969723bca97690b60a23066a85e2d4f4d7fb2df4336bddbf0040000000000000000000000007ffcda0a08401acf1d114c83b32ce439c48c3681"
+    },
+    {
+      "step": 11,
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "updateFheOperator(address)",
+      "args": [
+        "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95"
+      ],
+      "data": "0x5aa649af000000000000000000000000acc08cbbed784ba9b5b07adb5f0e299cb0fd3d95",
+      "simulation": "passed"
+    }
+  ],
+  "cleanupTransactions": [
+    {
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+      "value": "0x0",
+      "function": "revokeRole(bytes32,address)",
+      "roleName": "PAUSER_ROLE",
+      "args": [
+        "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
+        "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d"
+      ],
+      "data": "0xd547741f65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a0000000000000000000000000cd73a4e3d34d5488bc4e547fecedac86305db9d",
+      "simulation": "passed",
+      "step": 12
+    },
+    {
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+      "value": "0x0",
+      "function": "revokeRole(bytes32,address)",
+      "roleName": "QUALIFICATION_REVOKER_ROLE",
+      "args": [
+        "0x3be66c9bb267e91c89bce0019f25ac183ebc1943338a1758b224dda93e1c8eb9",
+        "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d"
+      ],
+      "data": "0xd547741f3be66c9bb267e91c89bce0019f25ac183ebc1943338a1758b224dda93e1c8eb90000000000000000000000000cd73a4e3d34d5488bc4e547fecedac86305db9d",
+      "simulation": "passed",
+      "step": 13
+    },
+    {
+      "chainId": 42161,
+      "from": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+      "to": "0xF7017f2e11E22094ef5E3952eA86768eD302C98D",
+      "value": "0x0",
+      "function": "revokeRole(bytes32,address)",
+      "roleName": "PAUSER_ROLE",
+      "args": [
+        "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
+        "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d"
+      ],
+      "data": "0xd547741f65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a0000000000000000000000000cd73a4e3d34d5488bc4e547fecedac86305db9d",
+      "simulation": "passed",
+      "step": 14
+    }
+  ],
+  "scope": "Competition manager and trader qualification registry only; no activation, funding, upgrade or broadcast.",
+  "simulationMethod": "Independent eth_call simulations from the public intended-admin address at the observed block; no sequential fork or live CoFHE lifecycle test."
+}

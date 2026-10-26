@@ -1,6 +1,15 @@
 # Arbitrum One preparation — 16 October 2026
 
-Status: **user-broadcast mainnet deployment confirmed; paused and unfunded**.
+Status: **deployment confirmed; competition and qualification registry activated October 22**.
+
+October 22 update: the [confirmed competition setup](../../deployments/v2/arbitrum-mainnet-competition-2026-10-22-confirmed.json)
+records seventeen successful user-broadcast transactions. RPC at block 517207489
+confirms roles/operator migrated, competition active, and manager/qualification
+registry unpaused. All four CoFHE caller proxies are allowlisted. No protocol
+funding or implementation upgrade is part of this setup. Earlier paused
+checkpoints remain historical; frontend/backend integration, a live encrypted
+flow and final Safe/timelock governance remain separate work. See the
+[activation runbook](mainnet-competition-activation-2026-10-22.md).
 
 Owner decision after deployment: future swaps must use Fhenix's canonical
 confidential assets and supported liquidity, with no AlphaEngine-issued token

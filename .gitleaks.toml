@@ -1,0 +1,24 @@
+title = "AlphaEngine Contracts secret scanning"
+
+[extend]
+useDefault = true
+
+# Public deployment addresses and runtime hashes are not API credentials.
+# Restrict exceptions to this rule, these paths, and exact field/value shapes.
+[[allowlists]]
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^deployments/v2/[^/]+\.json$''']
+regexTarget = "match"
+regexes = [
+    '''(?i)^confidentialTokenLibrary"\s*:\s*"0x(?:[0-9a-f]{40}|[0-9a-f]{64})"$''',
+    '''(?i)^confidentialTokenLibraryCodeHash"\s*:\s*"0x[0-9a-f]{64}"$''',
+]
+
+# This field is a deterministic bytes32 strategy-hash test vector.
+[[allowlists]]
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^test/vectors/alphaengine-hash-v1\.json$''']
+regexTarget = "match"
+regexes = ['''(?i)^timeframeKey"\s*:\s*"0x[0-9a-f]{64}"$''']

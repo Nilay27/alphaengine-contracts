@@ -1,5 +1,103 @@
 # Development Log
 
+## 2026-10-27 — Use GitHub private vulnerability reporting
+
+- Replace the published email contact in `SECURITY.md` with GitHub's private
+  vulnerability-reporting form. Repository-level enablement accompanies public
+  visibility; the Markdown policy alone does not enable the reporting channel.
+
+## 2026-10-26 — Prepare repository for public source publication
+
+- Expand ignore rules and tracked-path hygiene to cover environment variants,
+  private-key/keystore files and local security reports while allowing explicit
+  environment templates.
+- Add a separate PR/push secret-scan job using checksum-pinned Gitleaks 8.30.1
+  over all fetched Git history, with fully redacted output. Extend its default
+  rules with narrow generic-API-key exceptions for public deployment
+  address/code-hash fields and the deterministic timeframe hash vector.
+- Add the MIT license matching existing Solidity SPDX headers, retain dependency
+  licensing, and add a private-reporting security policy. Refresh README status
+  against the existing mainnet deployment, competition confirmation and internal
+  source-review records, preserving open external-audit and activation gates.
+- Validation: full-history Gitleaks scan and repository hygiene pass; workflow
+  YAML and shell syntax parse. Focused temporary-fixture checks verify that
+  secrets deleted from HEAD and secrets outside allowlisted fields/paths are
+  rejected, and that environment/key paths are rejected while templates remain
+  allowed. No contract source, ABI, storage, signing or deployment change.
+
+## 2026-10-22 — Confirm active mainnet competition and operational roles
+
+- Reconcile all seventeen user-broadcast transactions against public Arbitrum
+  One receipts and reviewed calldata. All succeed in blocks 517207185–517207243,
+  with zero ETH call value and total cost `0.000017315496365318 ETH`. All
+  seventeen final receipts are present; the pasted 16/17 display was stale.
+- At block 517207489, manager/registry are unpaused, both default admins and
+  the manager's FHE operator are `0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95`,
+  all nine EOA operational grants and the manager's registry issuer grant are
+  present, and the old bootstrap's three observed roles are absent.
+- Competition `0xfdb35917be05418b47908b8f046d23815fb50c02375323c39d9cf94b9bb46618`
+  is active with the exact approved rules, November 5/6/21 16:00 IST deadlines
+  and one qualification slot. Creation nonce zero, next nonce one; no
+  submissions at the observation.
+- Save the public confirmation in
+  `deployments/v2/arbitrum-mainnet-competition-2026-10-22-confirmed.json`,
+  including the local setup script hash and uncommitted-at-broadcast provenance.
+  Preserve original deployment evidence and production source `7ed4c49`.
+- Frontend/listener mainnet binding, matching decrypting identity, a real
+  encrypted-submission/evaluation/UI check and final Safe/timelock handover
+  remain separate work. The user signed; agent actions only verify/read public
+  chain data and update public records.
+
+## 2026-10-22 — Script role setup and active mainnet competition start
+
+- Owner finalizes the desired result: grant roles/update operator/remove old
+  bootstrap permissions, unpause the qualification registry and competition
+  manager, then create the competition. Seventeen calls from the observed
+  initial state; no pause transaction and both contracts end unpaused. Earlier
+  paused/deferred-creation proposals are superseded.
+- Add `script/SetupMainnetCompetition.s.sol` with pinned chain/sender/runtime,
+  admin, admission, registry, limit and schedule checks. Log readable role
+  names, holders and targets, predicted competition ID, scope/configuration
+  hash and final simulated state. A checked rerun skips completed steps and
+  verifies an existing exact active competition without duplicating it.
+- Owner approves Sepolia-relative settings and rules: fourteen-day submissions,
+  one-day evaluation, fifteen further days of capital qualification validity,
+  one slot. Save fixed November 5/6/21 16:00 IST deadlines in
+  `deployments/v2/arbitrum-mainnet-first-competition-2026-10-22.json`.
+  Qualification validity does not constrain the next competition or leaderboard.
+- Focused CREATE2-profile tests cover the start sequence/events, no pause,
+  repeated/partial setup and typed preflight failures. CI includes this suite.
+  Full production source, ABI, storage and dependency versions are unchanged.
+- All sixteen focused tests pass. The final public-RPC simulation at block
+  517206640 prepares seventeen zero-value calls, no receipts, an active
+  competition and unpaused/unpaused final state. Its first fourteen calls match
+  the role plan exactly; the last three are registry unpause, manager unpause
+  and creation. The initial paused-creation rehearsal is historical only.
+  No wallet access, signing or broadcast occurs in agent validation. The user
+  reviews dry-run output and signs the final broadcast in their own terminal.
+  Receipt and fresh RPC verification remain necessary afterward.
+
+## 2026-10-22 — Prepare mainnet competition permissions and lifecycle sequence
+
+- Read-only Arbitrum One block 517195823 confirms the competition manager and
+  qualification registry have the intended accepted admin and remain paused;
+  their implementation slots/runtime hashes match the deployed `7ed4c49` build.
+  The manager has no competition yet and retains the three-per-300-second cap.
+- Confirm CoFHE TaskManager enabled/access-list-enabled and all four deployed
+  FHE caller proxies listed. This closes the admission-status uncertainty,
+  without asserting a successful mainnet encrypted lifecycle test.
+- Prepare eleven unsigned setup calls and three old-bootstrap role revocations
+  in `deployments/v2/arbitrum-mainnet-competition-role-setup-2026-10-22-prepared.json`.
+  All fourteen independently simulate successfully from the public admin
+  address. Preserve the manager's registry issuer permission as a contract grant,
+  and distinguish FHE-operator rotation from operational role grants.
+- Record creation/unpause ordering, unselected competition configuration,
+  matching backend decrypting identity and the currently manual on-chain
+  evaluation/finalization/qualification steps in
+  `docs/engineering/mainnet-competition-activation-2026-10-22.md`.
+  No Solidity, runtime configuration, signing, broadcasting, funding or
+  activation changes. Existing final-governance and live-operation gates remain.
+
 ## 2026-10-21 — Reconcile live beta and accepted mainnet admins
 
 - Record the active beta's October 9 Sepolia proxy, October 10 implementation
