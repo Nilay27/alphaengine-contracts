@@ -96,6 +96,8 @@ Plaintext readiness remains asynchronous and separate from authorization.
   or qualified. Failure preserves the previous entry, nonce and allowance.
 - Paused limit/window changes retain timestamps; existing nonces index bounded
   history. Stateful tests reconstruct the allowance independently from attempts.
+- Active counts stay within their round's effective cap. Capacity updates cannot
+  go below the active count or affect another round, wallet history, or rank state.
 
 ## Fhenix decrypt-pressure lifecycle invariants
 

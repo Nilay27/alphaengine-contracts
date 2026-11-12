@@ -527,6 +527,25 @@
       "inputs": [
         {
           "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getCompetitionCapacity",
+      "outputs": [
+        {
+          "internalType": "uint16",
+          "name": "",
+          "type": "uint16"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
           "name": "submissionId",
           "type": "bytes32"
         }
@@ -1130,6 +1149,24 @@
         },
         {
           "internalType": "uint16",
+          "name": "capacity",
+          "type": "uint16"
+        }
+      ],
+      "name": "setCompetitionCapacity",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
           "name": "rank",
           "type": "uint16"
         }
@@ -1303,6 +1340,25 @@
         }
       ],
       "name": "CompetitionCancelled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint16",
+          "name": "capacity",
+          "type": "uint16"
+        }
+      ],
+      "name": "CompetitionCapacityUpdated",
       "type": "event"
     },
     {
@@ -2162,6 +2218,27 @@
     {
       "inputs": [],
       "name": "ExpectedPause",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "competitionId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint16",
+          "name": "capacity",
+          "type": "uint16"
+        },
+        {
+          "internalType": "uint16",
+          "name": "activeCount",
+          "type": "uint16"
+        }
+      ],
+      "name": "InvalidCompetitionCapacity",
       "type": "error"
     },
     {

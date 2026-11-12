@@ -35,9 +35,12 @@ contract AlphaEngineCompetitionStrategyManager is
 {
     uint48 public constant DEFAULT_ADMIN_DELAY = 48 hours;
     uint256 public constant MAX_COMPONENT_COUNT = 16;
+    /// @dev Legacy default capacity, wallet timestamp ring size and qualification-slot bound.
     uint16 public constant MAX_ACTIVE_SUBMISSIONS = 256;
     uint16 public constant MAX_SCORE_REVEAL_BATCH = 8;
     uint256 public constant SCORE_REVEAL_INTERVAL = 5 seconds;
+    // Reveal calculates startRank + maxSubmissions before clamping to the final rank.
+    uint16 private constant MAX_COMPETITION_CAPACITY = type(uint16).max - MAX_SCORE_REVEAL_BATCH;
 
     bytes32 public constant COMPETITION_CREATOR_ROLE = keccak256("COMPETITION_CREATOR_ROLE");
     bytes32 public constant COMPETITION_CANCELLER_ROLE = keccak256("COMPETITION_CANCELLER_ROLE");
@@ -185,6 +188,7 @@ contract AlphaEngineCompetitionStrategyManager is
         bytes32 competitionId, CompetitionStatus status, uint256 currentTimestamp
     );
     error MaximumActiveSubmissionsReached(bytes32 competitionId);
+    error InvalidCompetitionCapacity(bytes32 competitionId, uint16 capacity, uint16 activeCount);
     error ActiveSubmissionAlreadyExists(
         bytes32 competitionId, address trader, bytes32 submissionId
     );
@@ -263,6 +267,7 @@ contract AlphaEngineCompetitionStrategyManager is
     );
     event FheOperatorUpdated(address indexed previousOperator, address indexed newOperator);
     event SubmissionLimitsUpdated(uint16 limit, uint32 windowSeconds);
+    event CompetitionCapacityUpdated(bytes32 indexed competitionId, uint16 capacity);
     event CompetitionStrategySuperseded(
         bytes32 indexed previousSubmissionId,
         bytes32 indexed replacementSubmissionId,
@@ -291,9 +296,10 @@ contract AlphaEngineCompetitionStrategyManager is
     mapping(address trader => uint40[256] timestamps) private _submissionTimestamps;
     uint16 public submissionLimit;
     uint32 public submissionWindowSeconds;
+    mapping(bytes32 competitionId => uint16 capacity) private _competitionCapacities;
 
-    /// @dev Thirteen repository-owned storage slots above plus this gap reserve 50 slots.
-    uint256[37] private __gap;
+    /// @dev Fourteen repository-owned storage slots above plus this gap reserve 50 slots.
+    uint256[36] private __gap;
 
     constructor() {
         _disableInitializers();
@@ -330,6 +336,29 @@ contract AlphaEngineCompetitionStrategyManager is
         submissionLimit = limit;
         submissionWindowSeconds = windowSeconds;
         emit SubmissionLimitsUpdated(limit, windowSeconds);
+    }
+
+    /// @notice Set capacity for one open competition while the manager is paused.
+    function setCompetitionCapacity(bytes32 competitionId, uint16 capacity)
+        external
+        whenPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        CompetitionRecord storage competition = _getOpenCompetition(competitionId);
+        uint16 activeCount = competition.activeSubmissionCount;
+        if (capacity == 0 || capacity > MAX_COMPETITION_CAPACITY || capacity < activeCount) {
+            revert InvalidCompetitionCapacity(competitionId, capacity, activeCount);
+        }
+        _competitionCapacities[competitionId] = capacity;
+        // The pause, role and competition checks only read local storage.
+        // forge-lint: disable-next-line(reentrancy-events)
+        emit CompetitionCapacityUpdated(competitionId, capacity);
+    }
+
+    /// @notice Return the effective capacity, including the default for unconfigured rounds.
+    function getCompetitionCapacity(bytes32 competitionId) external view returns (uint16) {
+        _getCompetition(competitionId);
+        return _competitionCapacity(competitionId);
     }
 
     /// @notice Check wallet admission; nextAllowedAt is zero when admission is available.
@@ -421,15 +450,7 @@ contract AlphaEngineCompetitionStrategyManager is
         externalEuint128[] calldata encryptedComponents,
         bytes calldata inputProof
     ) external whenNotPaused nonReentrant returns (bytes32 submissionId) {
-        CompetitionRecord storage competition = _getCompetition(competitionId);
-        if (competition.status != CompetitionStatus.Active) {
-            revert CompetitionNotActive(competitionId, competition.status);
-        }
-        if (block.timestamp >= competition.submissionDeadline) {
-            revert CompetitionSubmissionClosed(
-                competitionId, competition.submissionDeadline, block.timestamp
-            );
-        }
+        CompetitionRecord storage competition = _getOpenCompetition(competitionId);
         if (timeframeKey == bytes32(0)) {
             revert ZeroTimeframeKey();
         }
@@ -440,7 +461,7 @@ contract AlphaEngineCompetitionStrategyManager is
         bytes32 activeSubmissionId = _activeSubmissionByTrader[competitionId][msg.sender];
         if (
             activeSubmissionId == bytes32(0)
-                && competition.activeSubmissionCount >= MAX_ACTIVE_SUBMISSIONS
+                && competition.activeSubmissionCount >= _competitionCapacity(competitionId)
         ) {
             revert MaximumActiveSubmissionsReached(competitionId);
         }
@@ -999,6 +1020,27 @@ contract AlphaEngineCompetitionStrategyManager is
         if (competition.status == CompetitionStatus.Unset) {
             revert CompetitionNotFound(competitionId);
         }
+    }
+
+    function _getOpenCompetition(bytes32 competitionId)
+        private
+        view
+        returns (CompetitionRecord storage competition)
+    {
+        competition = _getCompetition(competitionId);
+        if (competition.status != CompetitionStatus.Active) {
+            revert CompetitionNotActive(competitionId, competition.status);
+        }
+        if (block.timestamp >= competition.submissionDeadline) {
+            revert CompetitionSubmissionClosed(
+                competitionId, competition.submissionDeadline, block.timestamp
+            );
+        }
+    }
+
+    function _competitionCapacity(bytes32 competitionId) private view returns (uint16) {
+        uint16 capacity = _competitionCapacities[competitionId];
+        return capacity == 0 ? MAX_ACTIVE_SUBMISSIONS : capacity;
     }
 
     function _getSubmission(bytes32 submissionId)

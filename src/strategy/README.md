@@ -92,13 +92,18 @@ Capital scores have no public-reveal path.
 | Control | Bound/behavior |
 |---|---|
 | Components per submission | 1 to 16 |
-| Active submissions per competition | 256 |
+| Active submissions per competition | `getCompetitionCapacity(competitionId)`; 256 by default |
 | Final entry per trader/competition | Latest successful submission; earlier attempts are superseded |
 | Wallet submission allowance | Initially 3 per exact rolling 5 minutes across all markets/competitions; cancellation does not refund |
 | Score-reveal request | 8 submissions / 24 handles maximum; once per rank; five-second global interval |
 | Capital authorization window | 1 hour maximum |
 | Qualification | Versioned, expiring and revocable |
 | Capital execution | Exact approved manager, vault, executor, calls, limits, evidence, nonce and expiry |
+
+While paused, the default admin can call `setCompetitionCapacity(competitionId,
+capacity)` before that round's submission deadline. The cap must be nonzero,
+at least the round's active count, and at most 65,527 to keep the reveal cursor
+and batch arithmetic safe. The setter emits `CompetitionCapacityUpdated`.
 
 Operator rotation affects only future submissions because previously granted
 ciphertext access cannot be revoked. Incident response therefore pauses new

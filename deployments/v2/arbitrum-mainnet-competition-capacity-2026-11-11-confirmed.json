@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "recordType": "competition-capacity-upgrade",
+  "chainId": 42161,
+  "proxy": "0x7fFcDa0A08401AcF1d114C83B32cE439C48c3681",
+  "proxyAdmin": "0x0D4CbA28056f6D4C5d06C1E0d87e9F8A55C0cae0",
+  "signer": "0xAcc08cBbeD784Ba9b5B07ADb5F0E299Cb0fD3d95",
+  "previousImplementation": "0xA0e845476674Ad39319761f55dEbfba30CFcE1E0",
+  "implementation": "0xe78bb1351c26d4f01c979c3a3f8ff2694f3f88bd",
+  "implementationRuntimeHash": "0x306d5590b48b948bd57cd61e033177a45bcb6e51918b00d90866627336108762",
+  "competitionId": "0xda6ffb7ec090a3eb2c19f17f18e3c22e96b19b23f7043f5e56ac04f2e9aea708",
+  "comparisonCompetitionId": "0xfdb35917be05418b47908b8f046d23815fb50c02375323c39d9cf94b9bb46618",
+  "cap": 512,
+  "unconfiguredRoundCap": 256,
+  "submissionLimit": 3,
+  "submissionWindowSeconds": 300,
+  "observedAtBlock": 523288167,
+  "observedBlockHash": "0x834955e40a9c4537d378633c2ca5f452437d7fc164cf7bf1285bffadcc7217f3",
+  "observedBlockTimestampUtc": "2026-11-11T13:22:42+00:00",
+  "observedActiveSubmissions": 95,
+  "paused": false,
+  "roundStatePreservedThroughUpgrade": true,
+  "totalFeeWei": "88601671815803",
+  "sourceBaselineGitSha": "22101e213f7643a2034e00d12134f51548fcb076",
+  "sourceSha256": {
+    "script/UpgradeCompetitionCapacity.s.sol": "1d323877c179f3e3fc8c6fd0978d890a4cc136bc33023605763164c60c87ca5a",
+    "src/strategy/AlphaEngineCompetitionStrategyManager.sol": "2a76189098791b0334e6506ccb3ce6a9cdc84fecdba9b67e6bf5bdc62fb66fc0",
+    "ABI/v2/AlphaEngineCompetitionStrategyManager.json": "52385185259e2c03dac480599ce44b8f5ef60557b15792b2f529f295915d13cf",
+    "storage-layouts/v2/AlphaEngineCompetitionStrategyManager.json": "0632d78ee30455570d04496d27a6afca42743aefcab4a7a21cbf5c918f1d9fbf"
+  },
+  "receipts": {
+    "deployment": {
+      "txHash": "0x2c4d32b351494410bf54ba3623a25dfe3b4c51fd547279f664c3c803d01cdc74",
+      "blockNumber": 523287911,
+      "blockHash": "0x3e62bb7687797adc7548392e9ad1e3f5957b39420cccfe95d9354e5593062fe0"
+    },
+    "pause": {
+      "txHash": "0xb154b6fd14d41e6dc453b555d03cc54b616e144fb6a77ed48ae22bb75613e412",
+      "blockNumber": 523287918,
+      "blockHash": "0xc1203d7dad00cf08f185ba1843aa8e2c6d8dbb3cfa921944d73339e602a92f70"
+    },
+    "upgrade": {
+      "txHash": "0x489d91413b3ecbaf257270f1adf4b363bae65b21a1405186635de2405620e0c7",
+      "blockNumber": 523287929,
+      "blockHash": "0x72580c12d26e1fe85848ef3bb7abe163dfadee0436e348cc990cc22bab60e143"
+    },
+    "setCapacity": {
+      "txHash": "0x76b44423f49269f0b862732006582b0f325d5fb361ac9d10fa98395833140999",
+      "blockNumber": 523287941,
+      "blockHash": "0xb34b18ca75c2e2b0150f8755f6b692fa92283973863c37e6a18fc237fe287d80"
+    },
+    "unpause": {
+      "txHash": "0x12ccc9543d3c0dd3ec7c106ccdd59d30ac0368115c355f621aacc225fa0d5173",
+      "blockNumber": 523287954,
+      "blockHash": "0xf4aee4f0d4f387f6ff590dd7029ed4d65ece53640300879bc80fb9a86ba81119"
+    }
+  },
+  "crossChainRuntimeComparison": {
+    "sepolia": {
+      "network": "Sepolia",
+      "observedAtBlock": 328199279,
+      "implementation": "0xab95cb8eea874364c8700ef1ead94e5da427d65e",
+      "cap": 512,
+      "paused": false,
+      "runtimeHash": "0x306d5590b48b948bd57cd61e033177a45bcb6e51918b00d90866627336108762",
+      "runtimeBytes": 19204
+    },
+    "mainnet": {
+      "network": "Arbitrum One",
+      "observedAtBlock": 523288256,
+      "implementation": "0xe78bb1351c26d4f01c979c3a3f8ff2694f3f88bd",
+      "cap": 512,
+      "paused": false,
+      "runtimeHash": "0x306d5590b48b948bd57cd61e033177a45bcb6e51918b00d90866627336108762",
+      "runtimeBytes": 19204
+    },
+    "byteForByteMatch": true
+  },
+  "explorerSourceVerification": {
+    "status": "confirmed-by-owner-foundry-output",
+    "url": "https://arbiscan.io/address/0xe78bb1351c26d4f01c979c3a3f8ff2694f3f88bd"
+  }
+}

@@ -33,6 +33,10 @@ DeployAlphaEngineCreate2Test`: sender/nonce fuzzing, atomic wiring, configuratio
 and collision failures, and opt-in pinned Arbitrum Sepolia/One fork parity.
 Initial role arguments must match; the PoolManager-bound executor is chain-specific.
 CI runs the separate profile; real-network fork checks remain opt-in.
+`SetupMainnetCompetitionTest` uses the original Arbitrum One manager runtime
+from the October 16 deployment for its pinned-code checks. The fixture hash is
+asserted against the setup script's existing deployment pin, independently of
+later Competition Manager builds.
 
 AS-15, SW-16 and SW-17 are opt-in strict probes of the
 [accepted asset restrictions and capacity limit](approved-audit-fixes.md#accepted-asset-restrictions--2026-10-16).
@@ -304,8 +308,15 @@ track effective swap amounts/cooldowns and score cursor/pacing progress.
   compiled normally and is tested separately; production `src/**` remains fully
   instrumented.
 - Coverage alone sets `FOUNDRY_GAS_LIMIT=4294967296`: the minimally optimized
-  256-entry competition lifecycle exceeds the default per-test gas budget.
+  512-entry competition lifecycle exceeds the default per-test gas budget.
   Production settings and ordinary test budgets remain unchanged.
+
+The capacity tests exercise the default and round isolation, role and deadline
+guards, active-count floor, overflow ceiling, and a complete 512-entry round.
+The opt-in `CompetitionCapacityUpgradeForkTest` rehearses the upgrade sequence on
+both pinned, populated proxies. It checks existing state and the wallet's exact
+rolling allowance, and exercises fresh submissions using the mock CoFHE task
+manager. See the [rollout runbook](competition-capacity-upgrade-2026-11-11.md).
 
 ## Fhenix policy
 

@@ -119,7 +119,7 @@ contract AlphaEngineCompetitionStrategyManagerInvariantTest is StdInvariant, Moc
             assertEq(competition.evaluatedCount, counts.evaluated);
             assertEq(competition.publishedQualificationCount, counts.published);
             assertEq(manager.scoreRevealedThrough(id), counts.revealed);
-            assertLe(competition.activeSubmissionCount, manager.MAX_ACTIVE_SUBMISSIONS());
+            assertLe(competition.activeSubmissionCount, manager.getCompetitionCapacity(id));
             assertLe(competition.evaluatedCount, competition.activeSubmissionCount);
             assertLe(competition.publishedQualificationCount, competition.qualificationSlots);
         }

@@ -583,6 +583,10 @@
           "signature": "ExpectedPause()"
         },
         {
+          "selector": "0x7941ff52",
+          "signature": "InvalidCompetitionCapacity(bytes32,uint16,uint16)"
+        },
+        {
           "selector": "0x9d5a27f0",
           "signature": "InvalidCompetitionSchedule(uint40,uint40,uint40)"
         },
@@ -703,6 +707,10 @@
         {
           "signature": "CompetitionCancelled(bytes32,address)",
           "topic0": "0x8e12b033467ddd80ccaf817804d2649ed28602da55a41a23c5e618765d184ddc"
+        },
+        {
+          "signature": "CompetitionCapacityUpdated(bytes32,uint16)",
+          "topic0": "0xa3f920fff51c9ffafb50da8a7499f6b8aa0727a342729e7fa705b9cdd359412c"
         },
         {
           "signature": "CompetitionCreated(bytes32,uint64,bytes32,uint40,uint40,uint40,uint16)",
@@ -923,6 +931,10 @@
           "signature": "getCompetition(bytes32)"
         },
         {
+          "selector": "0xa4000ca2",
+          "signature": "getCompetitionCapacity(bytes32)"
+        },
+        {
           "selector": "0xfce1ae6e",
           "signature": "getEvaluation(bytes32)"
         },
@@ -1017,6 +1029,10 @@
         {
           "selector": "0x70cb17ed",
           "signature": "scoreRevealedThrough(bytes32)"
+        },
+        {
+          "selector": "0x046d146f",
+          "signature": "setCompetitionCapacity(bytes32,uint16)"
         },
         {
           "selector": "0x54b583ae",

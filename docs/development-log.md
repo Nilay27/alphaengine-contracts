@@ -1,5 +1,55 @@
 # Development Log
 
+## 2026-11-11 — Confirm the Arbitrum One competition capacity upgrade
+
+- All five user-signed transactions succeeded. The current mainnet round is
+  open at 95 of 512 active entries, and the earlier round still reads 256.
+  The proxy is unpaused. The round record and wallet allowance survived the
+  upgrade.
+- The live Arbitrum One and Sepolia implementations have identical 19,204-byte
+  runtime code. Both current rounds read 512. The [mainnet receipt record](../deployments/v2/arbitrum-mainnet-competition-capacity-2026-11-11-confirmed.json)
+  records all five receipts and the blocks used for the bytecode comparison.
+
+## 2026-11-11 — Confirm the Sepolia competition capacity upgrade
+
+- All five user-signed transactions succeeded. At Sepolia block 328198411,
+  the proxy points to the expected implementation, is unpaused, and has a
+  capacity of 512 on the same round ID. The earlier round still reads 256.
+  The current round's record and active count survived the upgrade, and
+  the wallet allowance remains three submissions per rolling 300 seconds.
+- The same encrypted call from a wallet without an active entry returned
+  `MaximumActiveSubmissionsReached` before the upgrade and a submission ID
+  after it. Both were read-only calls against actual chain state, with no
+  overrides. The [receipt record](../deployments/v2/arbitrum-sepolia-competition-capacity-2026-11-11-confirmed.json)
+  preserves the calldata, event and state verification results.
+- A fresh Arbitrum One dry run produced the same runtime hash as the deployed
+  Sepolia implementation and targeted the current mainnet round at 512.
+  The keystore owner broadcast the mainnet upgrade after Sepolia verification.
+
+## 2026-11-11 — Configure active capacity per competition
+
+- Add a paused default-admin setter and an effective-cap getter. Unconfigured
+  rounds return 256. An open round can be configured between its active count
+  (at least one) and 65,527, the maximum safe for the existing eight-entry
+  reveal arithmetic. Keep the legacy constant for the wallet timestamp ring
+  and qualification-slot limit. The new mapping consumes one reserved slot.
+- Keep encrypted inputs, submission lifecycle and listener-facing event shapes.
+  The upgrade uses the same build on both networks, so Sepolia also receives
+  the already approved expired-competition cancellation role check.
+- The [rollout runbook](engineering/competition-capacity-upgrade-2026-11-11.md)
+  pins each live proxy and round, with a cap of 512. Both Foundry dry runs
+  produced runtime hash `0x306d5590b48b948bd57cd61e033177a45bcb6e51918b00d90866627336108762`.
+  Both fork rehearsals preserve populated proxy state and the exact wallet
+  cooldown. The Sepolia fork admits the 257th wallet with mock CoFHE inputs.
+  A public Sepolia `eth_call` rejects a historical encrypted submission at the
+  live cap and accepts it from the same wallet with the candidate runtime and
+  512-cap state overrides before broadcast.
+- Foundry validation passes: 383 tests in the standard suite, 372 under
+  coverage, 30 in the CREATE2 profile, and four in the opt-in fork suite.
+  ABI/layout/size checks pass; the manager runtime is 19,204 bytes. Keep the
+  original October mainnet setup test pinned to its confirmed deployment by
+  loading that implementation's hash-verified public runtime fixture.
+
 ## 2026-10-27 — Use GitHub private vulnerability reporting
 
 - Replace the published email contact in `SECURITY.md` with GitHub's private

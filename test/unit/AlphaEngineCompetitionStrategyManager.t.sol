@@ -99,6 +99,7 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
     );
     event FheOperatorUpdated(address indexed previousOperator, address indexed newOperator);
     event SubmissionLimitsUpdated(uint16 limit, uint32 windowSeconds);
+    event CompetitionCapacityUpdated(bytes32 indexed competitionId, uint16 capacity);
     event CompetitionStrategySuperseded(
         bytes32 indexed previousSubmissionId,
         bytes32 indexed replacementSubmissionId,
@@ -643,6 +644,132 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         assertEq(manager.getCompetition(competitionId).activeSubmissionCount, 1);
     }
 
+    function test_capacityDefaultsAndChangesOnlyForSelectedRound() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 other = _createCompetition(1);
+        assertEq(manager.getCompetitionCapacity(competitionId), 256);
+        assertEq(manager.getCompetitionCapacity(other), 256);
+        bytes32 beforeHash = keccak256(abi.encode(manager.getCompetition(competitionId)));
+        vm.prank(pauser);
+        manager.pause();
+        vm.expectEmit(true, false, false, true, address(manager));
+        emit CompetitionCapacityUpdated(competitionId, 512);
+        vm.prank(admin);
+        manager.setCompetitionCapacity(competitionId, 512);
+        assertEq(manager.getCompetitionCapacity(competitionId), 512);
+        assertEq(manager.getCompetitionCapacity(other), 256);
+        assertEq(manager.MAX_ACTIVE_SUBMISSIONS(), 256);
+        assertEq(keccak256(abi.encode(manager.getCompetition(competitionId))), beforeHash);
+    }
+
+    function test_capacityRequiresPausedManagerAndDefaultAdmin() public {
+        bytes32 competitionId = _createCompetition(1);
+        vm.expectRevert(PausableUpgradeable.ExpectedPause.selector);
+        vm.prank(admin);
+        manager.setCompetitionCapacity(competitionId, 512);
+        vm.prank(pauser);
+        manager.pause();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, pauser, bytes32(0)
+            )
+        );
+        vm.prank(pauser);
+        manager.setCompetitionCapacity(competitionId, 512);
+        assertEq(manager.getCompetitionCapacity(competitionId), 256);
+    }
+
+    function test_capacityRejectsUnknownClosedAndCancelledRounds() public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 cancelled = _createCompetition(1);
+        uint40 deadline = manager.getCompetition(competitionId).submissionDeadline;
+        vm.prank(canceller);
+        manager.cancelCompetition(cancelled);
+        vm.prank(pauser);
+        manager.pause();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.CompetitionNotFound.selector, bytes32(0)
+            )
+        );
+        manager.getCompetitionCapacity(bytes32(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.CompetitionNotFound.selector, bytes32(0)
+            )
+        );
+        vm.prank(admin);
+        manager.setCompetitionCapacity(bytes32(0), 512);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.CompetitionNotActive.selector,
+                cancelled,
+                AlphaEngineCompetitionStrategyManager.CompetitionStatus.Cancelled
+            )
+        );
+        vm.prank(admin);
+        manager.setCompetitionCapacity(cancelled, 512);
+        vm.warp(deadline);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.CompetitionSubmissionClosed.selector,
+                competitionId,
+                deadline,
+                uint256(deadline)
+            )
+        );
+        vm.prank(admin);
+        manager.setCompetitionCapacity(competitionId, 512);
+        assertEq(manager.getCompetitionCapacity(competitionId), 256);
+    }
+
+    function test_capacityCannotFallBelowActiveCountAndAllowsExactCount() public {
+        bytes32 competitionId = _createCompetition(1);
+        _submit(competitionId, trader, 1, 10);
+        _submit(competitionId, secondTrader, 1, 20);
+        vm.prank(pauser);
+        manager.pause();
+        _expectInvalidCapacity(competitionId, 1, 2);
+        vm.expectEmit(true, false, false, true, address(manager));
+        emit CompetitionCapacityUpdated(competitionId, 2);
+        vm.prank(admin);
+        manager.setCompetitionCapacity(competitionId, 2);
+        vm.prank(admin);
+        manager.unpause();
+        _submit(competitionId, trader, 2, 30);
+        assertEq(manager.getCompetition(competitionId).activeSubmissionCount, 2);
+        assertEq(manager.getCompetitionCapacity(competitionId), 2);
+    }
+
+    function test_capacityRejectsZeroAndCapacityThatWouldOverflowReveal() public {
+        bytes32 competitionId = _createCompetition(1);
+        vm.prank(pauser);
+        manager.pause();
+        _expectInvalidCapacity(competitionId, 0, 0);
+        _expectInvalidCapacity(competitionId, 65_528, 0);
+        vm.expectEmit(true, false, false, true, address(manager));
+        emit CompetitionCapacityUpdated(competitionId, 65_527);
+        vm.prank(admin);
+        manager.setCompetitionCapacity(competitionId, 65_527);
+        assertEq(manager.getCompetitionCapacity(competitionId), 65_527);
+    }
+
+    function testFuzz_capacityValidationAndRoundIsolation(uint16 capacity) public {
+        bytes32 competitionId = _createCompetition(1);
+        bytes32 other = _createCompetition(1);
+        vm.prank(pauser);
+        manager.pause();
+        if (capacity == 0 || capacity > 65_527) {
+            _expectInvalidCapacity(competitionId, capacity, 0);
+            assertEq(manager.getCompetitionCapacity(competitionId), 256);
+        } else {
+            vm.prank(admin);
+            manager.setCompetitionCapacity(competitionId, capacity);
+            assertEq(manager.getCompetitionCapacity(competitionId), capacity);
+        }
+        assertEq(manager.getCompetitionCapacity(other), 256);
+    }
+
     function test_existingTraderCanReplaceAtCompetitionCapacity() public {
         bytes32 competitionId = _createCompetition(1);
         for (uint16 i; i < 256; ++i) {
@@ -943,16 +1070,34 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         assertEq(manager.scoreRevealedThrough(secondCompetition), 1);
     }
 
-    function test_fullCompetitionRevealsEachScoreOnceIn32PacedBatches() public {
+    function test_512EntryCompetitionRevealsEachScoreOnceIn64PacedBatches() public {
         bytes32 competitionId = _createCompetition(1);
-        bytes32[] memory submissions = new bytes32[](256);
-        for (uint16 i; i < 256; ++i) {
+        vm.prank(pauser);
+        manager.pause();
+        vm.startPrank(admin);
+        manager.setCompetitionCapacity(competitionId, 512);
+        manager.unpause();
+        vm.stopPrank();
+        bytes32[] memory submissions = new bytes32[](512);
+        for (uint16 i; i < 512; ++i) {
             submissions[i] = _submit(
                 competitionId, address(uint160(0x7000 + i)), uint128(i + 1), uint128(i + 10)
             );
         }
+        externalEuint128[] memory components = new externalEuint128[](1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.MaximumActiveSubmissionsReached.selector,
+                competitionId
+            )
+        );
+        vm.prank(stranger);
+        manager.submitCompetitionStrategy(
+            competitionId, TIMEFRAME_KEY, externalEuint128.wrap(bytes32(0)), components, ""
+        );
+        assertEq(manager.getCompetition(competitionId).activeSubmissionCount, 512);
         _beginEvaluation(competitionId);
-        for (uint16 i; i < 256; ++i) {
+        for (uint16 i; i < 512; ++i) {
             _evaluate(submissions[i], i + 1, uint32(i + 100));
         }
         vm.prank(finalizer);
@@ -968,7 +1113,7 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
         );
         manager.requestCompetitionScoreReveal(competitionId, 2, 8);
         uint256 firstAt = vm.getBlockTimestamp();
-        for (uint16 start = 1; start <= 256; start += 8) {
+        for (uint16 start = 1; start <= 512; start += 8) {
             if (block.timestamp < manager.nextScoreRevealAt()) {
                 vm.warp(manager.nextScoreRevealAt());
             }
@@ -979,8 +1124,8 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
             assertEq(count, 8);
             assertEq(manager.scoreRevealedThrough(competitionId), next - 1);
         }
-        assertEq(vm.getBlockTimestamp() - firstAt, 155);
-        for (uint16 i; i < 256; ++i) {
+        assertEq(vm.getBlockTimestamp() - firstAt, 315);
+        for (uint16 i; i < 512; ++i) {
             AlphaEngineCompetitionStrategyManager.EvaluationRecord memory evaluation =
                 manager.getEvaluation(submissions[i]);
             assertEq(taskManager.publicAllowCount(uint256(evaluation.realSisterScoreHandle)), 1);
@@ -995,7 +1140,7 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
                 AlphaEngineCompetitionStrategyManager.ScoreRevealCursorMismatch.selector,
                 competitionId,
                 1,
-                257
+                513
             )
         );
         manager.requestCompetitionScoreReveal(competitionId, 1, 8);
@@ -1624,6 +1769,21 @@ contract AlphaEngineCompetitionStrategyManagerUnitTest is MockCoFheTest {
     function _createCompetition(uint16 qualificationSlots) private returns (bytes32 competitionId) {
         vm.prank(creator);
         return manager.createCompetition(_config(qualificationSlots));
+    }
+
+    function _expectInvalidCapacity(bytes32 competitionId, uint16 capacity, uint16 activeCount)
+        private
+    {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AlphaEngineCompetitionStrategyManager.InvalidCompetitionCapacity.selector,
+                competitionId,
+                capacity,
+                activeCount
+            )
+        );
+        vm.prank(admin);
+        manager.setCompetitionCapacity(competitionId, capacity);
     }
 
     function _submit(bytes32 competitionId, address account, uint128 market, uint128 component)

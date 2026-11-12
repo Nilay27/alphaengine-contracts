@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "recordType": "competition-capacity-upgrade",
+  "chainId": 421614,
+  "proxy": "0x9CBF3917Ff31E41393e5D992b3bdbf1fC9C80744",
+  "proxyAdmin": "0x4e3841A9e383850bD238377f3471205Ba21ded8c",
+  "signer": "0x0cD73A4E3d34D5488BC4E547fECeDAc86305dB9d",
+  "previousImplementation": "0xfc81Bf4d378dC526894Bc7A132064f204d922361",
+  "implementation": "0xab95cb8eea874364c8700ef1ead94e5da427d65e",
+  "implementationRuntimeHash": "0x306d5590b48b948bd57cd61e033177a45bcb6e51918b00d90866627336108762",
+  "competitionId": "0x5e361d7809649fb68530babe18e33537abf553d09b986b38889f606cea1cb317",
+  "comparisonCompetitionId": "0x7fd99c6d9518b697a201dedd3955603b72449ad3e867628cc8187f978bd9813d",
+  "cap": 512,
+  "unconfiguredRoundCap": 256,
+  "submissionLimit": 3,
+  "submissionWindowSeconds": 300,
+  "observedAtBlock": 328198411,
+  "observedBlockHash": "0x037416d1b4430102146e56cfb8a00e4460e2125a638c8ebc91580b1357c2c7cf",
+  "observedBlockTimestampUtc": "2026-11-11T13:19:10+00:00",
+  "observedActiveSubmissions": 256,
+  "paused": false,
+  "roundStatePreservedThroughUpgrade": true,
+  "totalFeeWei": "88429269163999",
+  "sourceBaselineGitSha": "22101e213f7643a2034e00d12134f51548fcb076",
+  "sourceSha256": {
+    "script/UpgradeCompetitionCapacity.s.sol": "1d323877c179f3e3fc8c6fd0978d890a4cc136bc33023605763164c60c87ca5a",
+    "src/strategy/AlphaEngineCompetitionStrategyManager.sol": "2a76189098791b0334e6506ccb3ce6a9cdc84fecdba9b67e6bf5bdc62fb66fc0",
+    "ABI/v2/AlphaEngineCompetitionStrategyManager.json": "52385185259e2c03dac480599ce44b8f5ef60557b15792b2f529f295915d13cf",
+    "storage-layouts/v2/AlphaEngineCompetitionStrategyManager.json": "0632d78ee30455570d04496d27a6afca42743aefcab4a7a21cbf5c918f1d9fbf"
+  },
+  "receipts": {
+    "deployment": {
+      "txHash": "0xad5b1f4416ffbece34876232edc9367387493f91ab0192278ab0dc5bc6e1dec9",
+      "blockNumber": 328197790,
+      "blockHash": "0x667b4c23d4022ef972760c4d4180c07bb93b659367faf696f4f546620e87737a"
+    },
+    "pause": {
+      "txHash": "0x3ffaf814c6fbf360b66d2fd952792c0269b11e28697d828b8e7bf7cac7fca0c0",
+      "blockNumber": 328197803,
+      "blockHash": "0x40c677405e471f26d3a646100bde17e479eb275321f9aa4b70feb2feb6d723fe"
+    },
+    "upgrade": {
+      "txHash": "0x3891763175ca49cbe9b2a8b01abf6d9f2d985ab85725d030d9974ff7c0994983",
+      "blockNumber": 328197812,
+      "blockHash": "0x79e3f24a75144fc8c9902629d34c2c4ed4a750964c62482a7cc8dbba3ffc1bee"
+    },
+    "setCapacity": {
+      "txHash": "0x7926c6ed1498f35ac5d92c5c587031b8406967d07dd7cde90bf061a3a0657991",
+      "blockNumber": 328197835,
+      "blockHash": "0xf98b59779091d3da5a4589555f0299b25c56a9b3067084db50bc0d46dda7ef92"
+    },
+    "unpause": {
+      "txHash": "0x85143edf87f79a64deadb2aa96e4c13faa2ea04eec2e5c3b616826f8e29652f1",
+      "blockNumber": 328197844,
+      "blockHash": "0x35c8aa1f6d831fec927dd5a47377f6562edb636c88cfcf40a6fb9668242a0fad"
+    }
+  },
+  "admissionSimulation": {
+    "sourceEncryptedTransaction": "0x6547d2104a3cf779890947d3da88fdcd479fc87856029326d4c16e50fce630e6",
+    "beforeBlock": 328197802,
+    "beforeRevert": "MaximumActiveSubmissionsReached",
+    "afterBlock": 328198411,
+    "afterReturnedSubmissionId": "0x817735109553467a9716ff4f8e14222bc7b3cadafb0e78c1a605e29dfc1317ad",
+    "stateOverrides": false
+  },
+  "explorerSourceVerification": {
+    "status": "confirmed-by-owner-foundry-output",
+    "url": "https://sepolia.arbiscan.io/address/0xab95cb8eea874364c8700ef1ead94e5da427d65e"
+  }
+}

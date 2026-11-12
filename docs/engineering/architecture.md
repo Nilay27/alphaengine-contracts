@@ -154,6 +154,10 @@ Implemented replacement contracts through Stage 8:
   Wallet admission defaults to 3 successes per rolling 5 minutes before FHE
   processing. Only the latest successful entry per trader/competition is ranked;
   the backend owns historical results, not on-chain best-score selection.
+  `getCompetitionCapacity` returns the effective active-entry cap (256 by
+  default). The paused default admin can set the cap on an open round with
+  `setCompetitionCapacity`; the legacy `MAX_ACTIVE_SUBMISSIONS()` getter still
+  returns 256 for the default, wallet ring and qualification bound.
 - `AlphaEngineCapitalStrategyManager` accepts a fresh confidential intent only
   at an active qualification version, records one independent encrypted
   evaluation, and may approve only one exact execution commitment.

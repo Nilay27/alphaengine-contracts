@@ -283,7 +283,11 @@ Unset → Submitted → Cancelled
 
 Rules:
 
-- Maximum 256 active submissions per competition.
+- Owner revision, 11 November 2026: active capacity defaults to 256 per
+  competition. A paused default admin can set an open competition's capacity
+  between `max(1, activeSubmissionCount)` and 65,527. This bound preserves the
+  existing `uint16` reveal cursor and eight-entry batch arithmetic. The wallet
+  timestamp ring and qualification-slot bound both remain 256.
 - Owner revision, 9 October 2026: latest successful entry per trader/competition
   replaces the old entry as `Superseded`; only final entries are ranked/revealed.
   Initial admission is 3 successes per wallet per rolling 5 minutes across
@@ -801,6 +805,8 @@ The same production signer must not simultaneously control admin, evaluator, roo
 - Nonce exactness and identifier uniqueness.
 - Only the latest entry per trader/competition is active; superseded attempts
   cannot be ranked. Wallet rolling allowance is checked before FHE processing.
+- The active count cannot exceed the effective capacity of its round. Capacity
+  changes cannot alter another round or the wallet allowance history.
 - Component count equals stored handle count and stays in `[1,16]`.
 - Stored handles retain manager and operator permissions.
 - Evaluation is one-shot and terminal.

@@ -20,8 +20,10 @@ contract MainnetCompetitionAdminCaller {
     }
 }
 
-/// @dev Uses pinned-address local fixtures; run with FOUNDRY_PROFILE=create2 for exact runtime hashes.
+/// @dev Uses pinned-address local fixtures. Run with FOUNDRY_PROFILE=create2.
 contract SetupMainnetCompetitionTest is Test {
+    string private constant HISTORICAL_MANAGER_RUNTIME =
+        "test/fixtures/competition-manager-mainnet-2026-10-16.runtime.hex";
     SetupMainnetCompetition private setupScript;
     CompetitionManager private manager;
     QualificationRegistry private registry;
@@ -41,12 +43,13 @@ contract SetupMainnetCompetitionTest is Test {
         admin = setupScript.ADMIN();
         bootstrap = setupScript.PREVIOUS_BOOTSTRAP();
         vm.etch(admin, type(MainnetCompetitionAdminCaller).runtimeCode);
-        CompetitionManager managerImpl = new CompetitionManager();
         QualificationRegistry registryImpl = new QualificationRegistry();
-        // This also proves the script's deployed-code pins match this source build.
-        assertEq(address(managerImpl).codehash, setupScript.MANAGER_CODE_HASH());
+        // The October setup script is pinned to the original deployed manager.
+        bytes memory managerRuntime =
+            vm.parseBytes(vm.trim(vm.readFile(HISTORICAL_MANAGER_RUNTIME)));
+        assertEq(keccak256(managerRuntime), setupScript.MANAGER_CODE_HASH());
         assertEq(address(registryImpl).codehash, setupScript.REGISTRY_CODE_HASH());
-        vm.etch(setupScript.MANAGER_IMPLEMENTATION(), address(managerImpl).code);
+        vm.etch(setupScript.MANAGER_IMPLEMENTATION(), managerRuntime);
         vm.etch(setupScript.REGISTRY_IMPLEMENTATION(), address(registryImpl).code);
         _installProxy(setupScript.MANAGER(), setupScript.MANAGER_IMPLEMENTATION());
         _installProxy(setupScript.REGISTRY(), setupScript.REGISTRY_IMPLEMENTATION());
